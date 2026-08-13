@@ -12,7 +12,7 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 | [`arcgis-js/`](arcgis-js/) | ArcGIS Maps SDK for JavaScript 4.x/5.x | `OGCFeatureLayer` (OGC API Features), `WebTileLayer` (raster tiles) | Features verified live (SDK 5.1); imagery blocked on [geolens#1464](https://github.com/geolens-io/geolens/issues/1464) |
 | [`openlayers/`](openlayers/) | OpenLayers 10 | OGC API Features, XYZ raster | Verified live (features + imagery) |
 | [`leaflet/`](leaflet/) | Leaflet 1.9 | GeoJSON features, raster tiles | Verified live (features + imagery) |
-| `python/` | Python (single-file `uv run` script) | Features API → GeoPandas analysis | Coming |
+| [`python/`](python/) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | Verified: runs green with one command |
 | [`claude-mcp/`](claude-mcp/) | Claude via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | Ready, with a live transcript |
 | `duckdb/` | DuckDB | SQL directly over the Features API | Planned |
 | `cli/` | geolens CLI | Catalog-as-code | Planned |
