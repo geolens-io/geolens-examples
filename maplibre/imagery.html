@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + MapLibre: raster tiles (imagery)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // Every raster dataset in GeoLens is served as XYZ tiles. Read the exact
+  // template from the dataset's collection metadata (the "tiles" link on
+  // /api/collections/<dataset_id>) rather than hand-building it — the link
+  // carries the .png extension and a cache-version query the server expects:
+  //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>
+  const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
+
+  const map = new maplibregl.Map({
+    container: "map",
+    center: [7.6586, 45.9763], // Matterhorn
+    zoom: 12,
+    style: {
+      version: 8,
+      sources: {
+        dem: {
+          type: "raster",
+          tiles: [`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`],
+          tileSize: 256,
+        },
+      },
+      layers: [
+        { id: "bg", type: "background", paint: { "background-color": "#101418" } },
+        { id: "dem", type: "raster", source: "dem" },
+      ],
+    },
+  });
+
+  map.addControl(new maplibregl.NavigationControl());
+</script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + MapLibre: OGC API Features (GeoJSON)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // GeoLens serves OGC API Features; the items endpoint returns GeoJSON,
+  // which MapLibre consumes directly as a geojson source. List your
+  // collections at /api/collections and substitute the IDs below.
+  const LINES = "de602fbe-8b30-4755-924f-c9e7fd9613b6";    // NYC Subway Lines
+  const STATIONS = "724bf894-dc1a-418c-abc6-555798c44d7c"; // NYC Subway Stations
+
+  const items = (id) => `${GEOLENS}/api/collections/${id}/items?limit=2000`;
+
+  const map = new maplibregl.Map({
+    container: "map",
+    center: [-73.98, 40.73], // NYC
+    zoom: 11,
+    style: {
+      version: 8,
+      sources: {
+        lines: { type: "geojson", data: items(LINES) },
+        stations: { type: "geojson", data: items(STATIONS) },
+      },
+      layers: [
+        { id: "bg", type: "background", paint: { "background-color": "#101418" } },
+        {
+          id: "subway-lines",
+          type: "line",
+          source: "lines",
+          paint: { "line-color": "#4da3ff", "line-width": 2 },
+        },
+        {
+          id: "subway-stations",
+          type: "circle",
+          source: "stations",
+          paint: {
+            "circle-radius": 3.5,
+            "circle-color": "#ffd166",
+            "circle-stroke-color": "#101418",
+            "circle-stroke-width": 1,
+          },
+        },
+      ],
+    },
+  });
+
+  // Features arrive as real GeoJSON, so identify is a client-side lookup —
+  // no server round-trip, no GetFeatureInfo.
+  map.on("click", "subway-stations", (e) => {
+    const props = e.features[0].properties;
+    new maplibregl.Popup()
+      .setLngLat(e.lngLat)
+      .setHTML(`<pre>${JSON.stringify(props, null, 2).slice(0, 500)}</pre>`)
+      .addTo(map);
+  });
+
+  map.addControl(new maplibregl.NavigationControl());
+</script>
+</body>
+</html>

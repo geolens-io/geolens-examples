@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + MapLibre: vector tiles (MVT)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // GeoLens serves every vector dataset as Mapbox Vector Tiles at
+  //   /api/tiles/data.<table_name>/{z}/{x}/{y}.pbf
+  // The layer inside each tile is named after the same qualified table.
+  const TABLE = "data.nyc_subway_lines_mta";
+
+  const map = new maplibregl.Map({
+    container: "map",
+    center: [-73.98, 40.73], // NYC
+    zoom: 11,
+    style: {
+      version: 8,
+      sources: {
+        subway: {
+          type: "vector",
+          tiles: [`${GEOLENS}/api/tiles/${TABLE}/{z}/{x}/{y}.pbf`],
+        },
+      },
+      layers: [
+        { id: "bg", type: "background", paint: { "background-color": "#101418" } },
+        {
+          id: "subway-lines",
+          type: "line",
+          source: "subway",
+          "source-layer": TABLE,
+          paint: { "line-color": "#4da3ff", "line-width": 2 },
+        },
+      ],
+    },
+  });
+
+  map.addControl(new maplibregl.NavigationControl());
+</script>
+</body>
+</html>
