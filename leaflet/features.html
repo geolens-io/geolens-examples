@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + Leaflet: OGC API Features (GeoJSON)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+    #map { background: #101418; }
+    .leaflet-popup-content pre { margin: 0; font-size: 12px; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // GeoLens serves OGC API Features; the items endpoint returns plain GeoJSON,
+  // which L.geoJSON consumes directly. List your collections at
+  // /api/collections and substitute the IDs below.
+  const LINES = "de602fbe-8b30-4755-924f-c9e7fd9613b6";    // NYC Subway Lines
+  const STATIONS = "724bf894-dc1a-418c-abc6-555798c44d7c"; // NYC Subway Stations
+
+  // For private datasets, append your API key: `...&api_key=<key>`. GeoLens
+  // accepts keys via header or query string, and the query form is what a
+  // plain fetch() can send without custom plumbing.
+  const items = (id) => `${GEOLENS}/api/collections/${id}/items?limit=2000`;
+
+  const map = L.map("map").setView([40.73, -73.98], 11); // NYC; Leaflet takes [lat, lng]
+
+  // Reading the items endpoint with fetch() is a cross-origin request, so it
+  // depends on the CORS headers GeoLens sends. The demo allows all origins;
+  // on your own instance the page's origin has to be in the CORS config.
+  const load = (id) => fetch(items(id)).then((r) => r.json());
+
+  // Features arrive as real GeoJSON, so identify is a client-side lookup —
+  // no server round-trip, no GetFeatureInfo.
+  const bindProps = (feature, layer) => {
+    const pre = document.createElement("pre");
+    pre.textContent = JSON.stringify(feature.properties, null, 2);
+    layer.bindPopup(pre);
+  };
+
+  Promise.all([load(LINES), load(STATIONS)])
+    .then(([lines, stations]) => {
+      L.geoJSON(lines, {
+        style: { color: "#4da3ff", weight: 2 },
+        onEachFeature: bindProps,
+      }).addTo(map);
+
+      // GeoJSON points have no intrinsic size, so Leaflet asks what to draw
+      // for each one. circleMarker keeps a constant pixel radius as you zoom.
+      L.geoJSON(stations, {
+        pointToLayer: (feature, latlng) =>
+          L.circleMarker(latlng, {
+            radius: 3.5,
+            fillColor: "#ffd166",
+            fillOpacity: 1,
+            color: "#101418",
+            weight: 1,
+          }),
+        onEachFeature: bindProps,
+      }).addTo(map);
+    })
+    .catch((err) => console.error("GeoLens request failed:", err));
+</script>
+</body>
+</html>

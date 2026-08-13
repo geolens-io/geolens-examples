@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + ArcGIS Maps SDK for JS: raster tiles (imagery)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <!-- One pinned module script loads the core API, every component package,
+       and the CSS. On 4.x this was a plain <script> plus a themes/*/main.css
+       <link>, and modules came from AMD require([...]) instead of $arcgis. -->
+  <script type="module" src="https://js.arcgis.com/5.1/"></script>
+  <style>
+    html, body, arcgis-map { margin: 0; height: 100%; }
+    arcgis-map { background: #101418; }
+  </style>
+</head>
+<body>
+<arcgis-map center="7.6586, 45.9763" zoom="12">
+  <arcgis-zoom slot="top-left"></arcgis-zoom>
+</arcgis-map>
+<script type="module">
+  // ===================================================================
+  // This map draws empty today, and the code below is not why.
+  // /raster-tiles/* does not yet send an Access-Control-Allow-Origin
+  // header. The SDK uploads tiles into a WebGL texture, so it has to
+  // request them as CORS-clean images, and the browser throws away the
+  // response even though the server returned a valid PNG. Tracking:
+  //   https://github.com/geolens-io/geolens/issues/1464
+  // Nothing here changes when that ships. The tiles just appear.
+  // ===================================================================
+
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
+
+  // Read the tile template from the dataset's collection metadata (the link
+  // with rel="tiles" on /api/collections/<dataset_id>) rather than building
+  // this string by hand. It carries the .png extension and a cache-version
+  // query the server expects, and both can change under you:
+  //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>
+  // That link uses the XYZ names. Esri spells the same three values
+  // {level}/{col}/{row}, so swap the placeholders and leave the rest alone.
+  // (WebTileLayer also accepts {z}/{x}/{y} if you would rather not.)
+  const TILES = `${GEOLENS}/raster-tiles/${DEM}/tiles/{level}/{col}/{row}.png?v=1`;
+
+  // The demo is anonymous. Private datasets authenticate with an api_key on
+  // the query string — the tile route is RBAC-checked server side and passes
+  // query params through, so append it to the template:
+  //   const TILES = `...{row}.png?v=1&api_key=<your-api-key>`;
+  // For the OGC API calls in features.html the same key goes on an
+  // esriConfig.request.interceptors entry instead. Embedded maps that must
+  // not carry a permanent credential should mint a scoped, expiring tile
+  // token from POST /api/tiles/tokens/ and append that.
+
+  const [Map, WebTileLayer] = await $arcgis.import([
+    "@arcgis/core/Map.js",
+    "@arcgis/core/layers/WebTileLayer.js",
+  ]);
+
+  const dem = new WebTileLayer({
+    urlTemplate: TILES,
+    title: "swissALTI3D Matterhorn DEM",
+    // GeoLens serves the standard 256px web-mercator XYZ scheme, which is
+    // WebTileLayer's default, so no tileInfo is needed. Requests outside the
+    // dataset's footprint answer with empty tiles, which is harmless. If you
+    // do bound the layer with fullExtent, express it in the tiling scheme's
+    // spatial reference (Web Mercator meters, wkid 102100) — a 4326 extent is
+    // silently read as meters and the layer never requests a single tile.
+    copyright: "swisstopo (OGD)",
+  });
+
+  // No basemap on purpose: Esri's basemaps need an ArcGIS API key and this
+  // example runs signed out. With a key set on esriConfig.apiKey you can pass
+  // `basemap: "dark-gray-vector"` here.
+  const map = new Map({ layers: [dem] });
+  document.querySelector("arcgis-map").map = map;
+</script>
+</body>
+</html>

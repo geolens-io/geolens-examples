@@ -5,8 +5,8 @@
   <title>GeoLens + MapLibre: OGC API Features (GeoJSON)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     html, body, #map { margin: 0; height: 100%; }
   </style>
@@ -14,7 +14,9 @@
 <body>
 <div id="map"></div>
 <script>
-  // Point this at your own GeoLens instance to use your data.
+  // Point this at your own GeoLens instance to use your data. Private
+  // datasets authenticate with an api_key query parameter appended to the
+  // items URLs; the demo is anonymous.
   const GEOLENS = "https://demo.getgeolens.com";
 
   // GeoLens serves OGC API Features; the items endpoint returns GeoJSON,

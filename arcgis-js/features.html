@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + ArcGIS Maps SDK for JS: OGC API Features</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <!-- One pinned module script loads the core API, every component package,
+       and the CSS. On 4.x this was a plain <script> plus a themes/*/main.css
+       <link>, and modules came from AMD require([...]) instead of $arcgis. -->
+  <script type="module" src="https://js.arcgis.com/5.1/"></script>
+  <style>
+    html, body, arcgis-map { margin: 0; height: 100%; }
+    /* Nothing is drawn under the data (see the basemap note below), so the
+       view is transparent and this shows through. */
+    arcgis-map { background: #101418; }
+  </style>
+</head>
+<body>
+<arcgis-map center="-73.98, 40.73" zoom="11">
+  <arcgis-zoom slot="top-left"></arcgis-zoom>
+</arcgis-map>
+<script type="module">
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // OGCFeatureLayer wants the OGC API Features *landing page*, not a collection
+  // URL — it discovers /collections/<id> and /items on its own. Keep the
+  // trailing slash: a bare /api answers with a redirect that carries no CORS
+  // header, so the browser drops it.
+  const OGC_API = `${GEOLENS}/api/`;
+
+  // List your collections at /api/collections and substitute the IDs below.
+  const LINES = "de602fbe-8b30-4755-924f-c9e7fd9613b6";    // NYC Subway Lines
+  const STATIONS = "724bf894-dc1a-418c-abc6-555798c44d7c"; // NYC Subway Stations
+
+  // The demo is anonymous. For private datasets, register a request
+  // interceptor once and every call the SDK makes carries your key:
+  //   const esriConfig = await $arcgis.import("@arcgis/core/config.js");
+  //   esriConfig.request.interceptors.push({
+  //     urls: OGC_API,
+  //     before: (params) => { params.requestOptions.query.api_key = "<your-api-key>"; },
+  //   });
+  // Your instance must also allow this page's origin in its CORS config.
+
+  const [Map, OGCFeatureLayer] = await $arcgis.import([
+    "@arcgis/core/Map.js",
+    "@arcgis/core/layers/OGCFeatureLayer.js",
+  ]);
+
+  const lines = new OGCFeatureLayer({
+    url: OGC_API,
+    collectionId: LINES,
+    title: "NYC Subway Lines",
+    renderer: {
+      type: "simple",
+      symbol: { type: "simple-line", color: "#4da3ff", width: 2 },
+    },
+  });
+
+  const stations = new OGCFeatureLayer({
+    url: OGC_API,
+    collectionId: STATIONS,
+    title: "NYC Subway Stations",
+    // The layer needs a unique id per feature and will refuse to load without
+    // one. GeoLens emits a numeric GeoJSON `id`, which is the default source,
+    // so nothing to configure here — if your own data lacks it, name a numeric
+    // attribute with `objectIdField`.
+    renderer: {
+      type: "simple",
+      symbol: {
+        type: "simple-marker",
+        size: 7,
+        color: "#ffd166",
+        outline: { color: "#101418", width: 1 },
+      },
+    },
+    // Features arrive as real GeoJSON and the SDK already holds the
+    // attributes, so a click is a local lookup against geometry in the
+    // browser. This is what replaces a WMS GetFeatureInfo round-trip.
+    popupTemplate: {
+      title: "{stop_name}",
+      content: [{
+        type: "fields",
+        fieldInfos: [
+          { fieldName: "daytime_routes", label: "Routes" },
+          { fieldName: "borough", label: "Borough" },
+          { fieldName: "division", label: "Division" },
+          { fieldName: "structure", label: "Structure" },
+          { fieldName: "ada", label: "ADA accessible (1 = yes)" },
+        ],
+      }],
+    },
+    copyright: "MTA via data.ny.gov",
+  });
+
+  // No basemap on purpose: Esri's basemaps need an ArcGIS API key and this
+  // example runs signed out. With a key set on esriConfig.apiKey you can pass
+  // `basemap: "dark-gray-vector"` here.
+  const map = new Map({ layers: [lines, stations] });
+  document.querySelector("arcgis-map").map = map;
+</script>
+</body>
+</html>

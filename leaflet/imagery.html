@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + Leaflet: raster tiles (imagery)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+    #map { background: #101418; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // Every raster dataset in GeoLens is served as XYZ tiles. Read the exact
+  // template from the dataset's collection metadata (the "tiles" link on
+  // /api/collections/<dataset_id>) rather than hand-building it — the link
+  // carries the .png extension and a cache-version query the server expects:
+  //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>
+  // For a private dataset, append `&api_key=<key>` to the template.
+  const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
+
+  const map = L.map("map").setView([45.9763, 7.6586], 12); // Matterhorn; [lat, lng]
+
+  // Leaflet requests each tile by assigning to an <img> element's src, and a
+  // plain <img> is not subject to CORS — the browser will display a
+  // cross-origin image whether or not the server sends
+  // Access-Control-Allow-Origin. That is why this example renders against the
+  // demo today even though the /raster-tiles route sends no CORS headers
+  // (geolens#1464). Libraries that pull tiles through fetch() or through a
+  // WebGL texture upload — MapLibre and Mapbox GL among them — do need those
+  // headers, so their raster examples stay blocked until #1464 lands.
+  //
+  // The same limit applies here the moment you read pixels back: setting
+  // `crossOrigin: true` below, or drawing these tiles into a canvas you then
+  // call getImageData() on, both require the CORS headers and will fail.
+  L.tileLayer(`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`, {
+    tileSize: 256,
+    maxZoom: 20,
+  }).addTo(map);
+</script>
+</body>
+</html>

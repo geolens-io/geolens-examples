@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + OpenLayers: OGC API Features (GeoJSON)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <link href="https://cdn.jsdelivr.net/npm/ol@10.10.0/ol.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/ol@10.10.0/dist/ol.js"></script>
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+    #map { background: #101418; }
+    .popup {
+      display: none;
+      max-width: 320px;
+      max-height: 240px;
+      overflow: auto;
+      padding: 8px 10px;
+      border: 1px solid #2b3440;
+      border-radius: 4px;
+      background: #1b2129;
+      color: #e6edf3;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: pre;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="popup" class="popup"></div>
+<script>
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // GeoLens serves OGC API Features; the items endpoint returns plain GeoJSON,
+  // so ol.source.Vector can point its `url` straight at it. List your
+  // collections at /api/collections and substitute the IDs below.
+  const LINES = "de602fbe-8b30-4755-924f-c9e7fd9613b6";    // NYC Subway Lines
+  const STATIONS = "724bf894-dc1a-418c-abc6-555798c44d7c"; // NYC Subway Stations
+
+  // For private datasets, append your API key: `...&api_key=<key>`. GeoLens
+  // accepts keys via header or query string, and the query form is the one a
+  // library will send for you without custom plumbing.
+  const items = (id) => `${GEOLENS}/api/collections/${id}/items?limit=2000`;
+
+  // A vector source with a `url` fetches it, so this path needs CORS. The
+  // demo allows all origins; on your own instance the page's origin has to be
+  // in the CORS config.
+  //
+  // GeoLens returns CRS84 (lon/lat) GeoJSON, and this map's view is Web
+  // Mercator. OpenLayers reconciles that for you: the default loader hands
+  // the view's projection to the GeoJSON format as `featureProjection`, and
+  // the format's `dataProjection` already defaults to EPSG:4326, so features
+  // are reprojected as they are read. No manual transform needed.
+  const source = (id) =>
+    new ol.source.Vector({ url: items(id), format: new ol.format.GeoJSON() });
+
+  const lines = new ol.layer.Vector({
+    source: source(LINES),
+    style: new ol.style.Style({
+      stroke: new ol.style.Stroke({ color: "#4da3ff", width: 2 }),
+    }),
+  });
+
+  // GeoJSON points have no intrinsic size, so a point style supplies the
+  // `image` to draw. A Circle keeps a constant pixel radius as you zoom.
+  const stations = new ol.layer.Vector({
+    source: source(STATIONS),
+    style: new ol.style.Style({
+      image: new ol.style.Circle({
+        radius: 3.5,
+        fill: new ol.style.Fill({ color: "#ffd166" }),
+        stroke: new ol.style.Stroke({ color: "#101418", width: 1 }),
+      }),
+    }),
+  });
+
+  const popup = document.getElementById("popup");
+  const overlay = new ol.Overlay({
+    element: popup,
+    positioning: "bottom-center",
+    offset: [0, -10],
+  });
+
+  const map = new ol.Map({
+    target: "map",
+    layers: [lines, stations],
+    overlays: [overlay],
+    view: new ol.View({
+      center: ol.proj.fromLonLat([-73.98, 40.73]), // NYC
+      zoom: 11,
+    }),
+  });
+
+  // Features arrive as real GeoJSON, so identify is a client-side lookup —
+  // no server round-trip, no GetFeatureInfo.
+  map.on("click", (e) => {
+    const feature = map.forEachFeatureAtPixel(e.pixel, (f) => f, {
+      hitTolerance: 4,
+    });
+    if (!feature) {
+      popup.style.display = "none";
+      return;
+    }
+    // getProperties() includes the geometry under the feature's geometry
+    // name; drop it so the popup shows attributes only.
+    const props = { ...feature.getProperties() };
+    delete props[feature.getGeometryName()];
+
+    popup.textContent = JSON.stringify(props, null, 2);
+    popup.style.display = "block";
+    overlay.setPosition(e.coordinate);
+  });
+
+  map.on("pointermove", (e) => {
+    const hit = map.hasFeatureAtPixel(e.pixel, { hitTolerance: 4 });
+    map.getTargetElement().style.cursor = hit ? "pointer" : "";
+  });
+</script>
+</body>
+</html>

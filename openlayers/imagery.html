@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + OpenLayers: raster tiles (imagery)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <link href="https://cdn.jsdelivr.net/npm/ol@10.10.0/ol.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/ol@10.10.0/dist/ol.js"></script>
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+    #map { background: #101418; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // Every raster dataset in GeoLens is served as XYZ tiles. Read the exact
+  // template from the dataset's collection metadata (the "tiles" link on
+  // /api/collections/<dataset_id>) rather than hand-building it — the link
+  // carries the .png extension and a cache-version query the server expects:
+  //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>
+  // For a private dataset, append `&api_key=<key>` to the template.
+  const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
+
+  const map = new ol.Map({
+    target: "map",
+    layers: [
+      new ol.layer.Tile({
+        // No `crossOrigin` here, and that is deliberate. OpenLayers loads XYZ
+        // tiles into <img> elements; without a crossOrigin value the browser
+        // treats them as ordinary cross-origin images and displays them
+        // whether or not the server sends Access-Control-Allow-Origin. The
+        // demo's /raster-tiles route currently sends none (geolens#1464), so
+        // omitting crossOrigin is what keeps this example rendering.
+        //
+        // The cost is that the tiles taint the canvas they are drawn into, so
+        // anything that reads pixels back fails: layer.getData(),
+        // map.forEachLayerAtPixel(), and exporting the map to a PNG. Setting
+        // `crossOrigin: "anonymous"` is what those need, and it will make the
+        // tiles fail to load entirely until #1464 lands. Against an instance
+        // that does send CORS headers, set it.
+        source: new ol.source.XYZ({
+          url: `${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`,
+          tileSize: 256,
+          maxZoom: 20,
+        }),
+      }),
+    ],
+    view: new ol.View({
+      center: ol.proj.fromLonLat([7.6586, 45.9763]), // Matterhorn
+      zoom: 12,
+    }),
+  });
+</script>
+</body>
+</html>
