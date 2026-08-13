@@ -14,16 +14,11 @@
 <body>
 <div id="map"></div>
 <script>
-  // ===================================================================
-  // This map draws empty today, and the code below is not why.
-  // /raster-tiles/* does not yet send an Access-Control-Allow-Origin
-  // header, and MapLibre fetches tiles CORS-mode for its WebGL textures,
-  // so the browser refuses the response. Tracking:
-  //   https://github.com/geolens-io/geolens/issues/1464
-  // Nothing here changes when that ships. The tiles just appear.
-  // (Leaflet and OpenLayers render this same layer today because they
-  // load tiles into <img> elements; see their imagery examples.)
-  // ===================================================================
+  // MapLibre fetches tiles CORS-mode for its WebGL textures, so the server
+  // must send Access-Control-Allow-Origin on every tile response. GeoLens
+  // does since v1.13.0 (https://github.com/geolens-io/geolens/issues/1464);
+  // on older instances this map draws empty while <img>-based loaders
+  // (Leaflet, OpenLayers) still render the same layer.
 
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";

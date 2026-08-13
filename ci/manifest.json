@@ -1,11 +1,47 @@
 [
-  { "path": "maplibre/vector-tiles.html", "expect": "render", "wait": 8000 },
-  { "path": "maplibre/features.html", "expect": "render", "wait": 8000 },
-  { "path": "maplibre/imagery.html", "expect": "blocked", "wait": 8000 },
-  { "path": "arcgis-js/features.html", "expect": "render", "wait": 20000 },
-  { "path": "arcgis-js/imagery.html", "expect": "blocked", "wait": 20000 },
-  { "path": "leaflet/features.html", "expect": "render", "wait": 8000 },
-  { "path": "leaflet/imagery.html", "expect": "render", "wait": 8000 },
-  { "path": "openlayers/features.html", "expect": "render", "wait": 8000 },
-  { "path": "openlayers/imagery.html", "expect": "render", "wait": 8000 }
+  {
+    "path": "maplibre/vector-tiles.html",
+    "expect": "render",
+    "wait": 8000
+  },
+  {
+    "path": "maplibre/features.html",
+    "expect": "render",
+    "wait": 8000
+  },
+  {
+    "path": "maplibre/imagery.html",
+    "expect": "render",
+    "wait": 8000
+  },
+  {
+    "path": "arcgis-js/features.html",
+    "expect": "render",
+    "wait": 20000
+  },
+  {
+    "path": "arcgis-js/imagery.html",
+    "expect": "render",
+    "wait": 20000
+  },
+  {
+    "path": "leaflet/features.html",
+    "expect": "render",
+    "wait": 8000
+  },
+  {
+    "path": "leaflet/imagery.html",
+    "expect": "render",
+    "wait": 8000
+  },
+  {
+    "path": "openlayers/features.html",
+    "expect": "render",
+    "wait": 8000
+  },
+  {
+    "path": "openlayers/imagery.html",
+    "expect": "render",
+    "wait": 8000
+  }
 ]

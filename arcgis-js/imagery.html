@@ -19,15 +19,11 @@
   <arcgis-zoom slot="top-left"></arcgis-zoom>
 </arcgis-map>
 <script type="module">
-  // ===================================================================
-  // This map draws empty today, and the code below is not why.
-  // /raster-tiles/* does not yet send an Access-Control-Allow-Origin
-  // header. The SDK uploads tiles into a WebGL texture, so it has to
-  // request them as CORS-clean images, and the browser throws away the
-  // response even though the server returned a valid PNG. Tracking:
-  //   https://github.com/geolens-io/geolens/issues/1464
-  // Nothing here changes when that ships. The tiles just appear.
-  // ===================================================================
+  // The SDK uploads tiles into a WebGL texture, so it requests them as
+  // CORS-clean images and needs Access-Control-Allow-Origin on every tile
+  // response. GeoLens sends it since v1.13.0
+  // (https://github.com/geolens-io/geolens/issues/1464); on older instances
+  // this map draws empty even though the server returns valid PNGs.
 
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";

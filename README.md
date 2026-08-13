@@ -8,8 +8,8 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 
 | Directory | Tool | Demonstrates | Status |
 |---|---|---|---|
-| [`maplibre/`](maplibre/) | MapLibre GL JS 5.x | Vector tiles (MVT), GeoJSON features, raster tiles | Vector tiles + features verified live; imagery blocked on [geolens#1464](https://github.com/geolens-io/geolens/issues/1464) |
-| [`arcgis-js/`](arcgis-js/) | ArcGIS Maps SDK for JavaScript 4.x/5.x | `OGCFeatureLayer` (OGC API Features), `WebTileLayer` (raster tiles) | Features verified live (SDK 5.1); imagery blocked on [geolens#1464](https://github.com/geolens-io/geolens/issues/1464) |
+| [`maplibre/`](maplibre/) | MapLibre GL JS 5.x | Vector tiles (MVT), GeoJSON features, raster tiles | Verified live (vector tiles, features, imagery) |
+| [`arcgis-js/`](arcgis-js/) | ArcGIS Maps SDK for JavaScript 4.x/5.x | `OGCFeatureLayer` (OGC API Features), `WebTileLayer` (raster tiles) | Verified live (SDK 5.1, features + imagery) |
 | [`openlayers/`](openlayers/) | OpenLayers 10 | OGC API Features, XYZ raster | Verified live (features + imagery) |
 | [`leaflet/`](leaflet/) | Leaflet 1.9 | GeoJSON features, raster tiles | Verified live (features + imagery) |
 | [`python/`](python/) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | Verified: runs green with one command |
