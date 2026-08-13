@@ -43,8 +43,15 @@ for (const entry of manifest) {
   const corsErrors = consoleErrors.filter((t) =>
     t.includes("Access-Control-Allow-Origin"),
   );
+  // A CORS-blocked tile produces a cascade in the console: the explicit
+  // Access-Control-Allow-Origin message, the generic ERR_FAILED resource
+  // line, and the library's own wrapper ("AJAXError: Failed to fetch" in
+  // MapLibre's case). Only errors OUTSIDE that cascade count as "other".
   const otherErrors = consoleErrors.filter(
-    (t) => !t.includes("Access-Control-Allow-Origin") && !t.includes("ERR_FAILED"),
+    (t) =>
+      !t.includes("Access-Control-Allow-Origin") &&
+      !t.includes("ERR_FAILED") &&
+      !t.includes("Failed to fetch"),
   );
 
   if (entry.expect === "render") {
