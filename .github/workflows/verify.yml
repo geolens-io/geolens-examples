@@ -1,0 +1,53 @@
+name: Verify examples
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC — examples rot silently without this
+  workflow_dispatch:
+
+jobs:
+  browser:
+    name: Browser examples vs live demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright Chromium
+        run: |
+          npm init -y >/dev/null
+          npm install playwright@1
+          npx playwright install --with-deps chromium
+      - name: Serve repo and verify every page
+        run: |
+          python3 -m http.server 8000 &
+          sleep 1
+          node ci/verify-examples.mjs
+
+  python:
+    name: Python analysis example
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Run the single-file analysis
+        working-directory: python
+        run: |
+          uv run analyze.py
+          test -s subway.png
+
+  mcp:
+    name: MCP server smoke check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Spawn geolens-mcp against the demo and search
+        run: uv run ci/check-mcp.py
