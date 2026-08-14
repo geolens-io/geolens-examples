@@ -114,7 +114,7 @@ by meaning, so a question phrased as a question rather than as keywords still la
 > column would I use to filter to Category 5 storms?
 
 `get_dataset_schema` is the tool worth prompting Claude toward before any analysis question. It
-returns the column list along with the source-trust fields: `source_origin`, `source_health`, and a
+returns the column list along with the source-trust fields: `origin`, `source_health`, and a
 `source_freshness` of fresh, due, overdue, or unknown. That lets Claude warn you the data may be
 stale instead of quietly answering from it.
 
@@ -149,9 +149,9 @@ mandatory `restrict_tables` scope, a statement timeout, and a row cap.
 
 ## How it actually behaves
 
-Captured on 2026-08-13 by driving the published `geolens-mcp` 1.12.0 wheel over stdio with a
+Captured on 2026-08-14 by driving the published `geolens-mcp` 1.13.0 wheel over stdio with a
 minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported itself
-healthy at version 1.12.0). Output is real and trimmed for width.
+healthy at version 1.13.0). Output is real and trimmed for width.
 
 Tool discovery, straight after `initialize`:
 
@@ -172,12 +172,12 @@ each feature is a dataset record. The feature `id` is the dataset id you pass to
 { "numberMatched": 5, "numberReturned": 3 }
 
 { "id": "4657a40c-8d91-4436-9b0e-9759d377fbd0", "title": "MNMAP_PLUTO",
-  "record_type": "vector_dataset", "source_origin": "upload",
-  "source_freshness": "unknown", "feature_count": 43068 }
+  "record_type": "vector_dataset", "source_freshness": "unknown",
+  "feature_count": 43068 }
 { "id": "de602fbe-8b30-4755-924f-c9e7fd9613b6", "title": "NYC Subway Lines (MTA)",
-  "record_type": "vector_dataset", "source_origin": "upload", "feature_count": 29 }
+  "record_type": "vector_dataset", "feature_count": 29 }
 { "id": "0fa6ca98-8c21-4dd0-8b1c-1241050f10fc", "title": "Manhattan Building Heights",
-  "record_type": "vector_dataset", "source_origin": "upload", "feature_count": 22324 }
+  "record_type": "vector_dataset", "feature_count": 22324 }
 ```
 
 `get_dataset_schema` on the subway dataset. Note `srid` and `table_name`, and that `column_info`
@@ -188,9 +188,13 @@ has profiled the dataset:
 { "title": "NYC Subway Lines (MTA)", "geometry_type": "MULTILINESTRING",
   "srid": 4326, "original_srid": 4326, "feature_count": 29,
   "table_name": "nyc_subway_lines_mta",
+  "summary": "New York City subway service geometries, one feature per service.
+              Source: MTA via data.ny.gov (open data, attribute MTA).",
   "extent_bbox": [-74.2527, 40.5122, -73.7545, 40.9037],
-  "source_origin": "upload", "source_format": "geojson", "visibility": "public",
-  "license": "MTA open data (data.ny.gov)" }
+  "origin": "upload", "source_format": "geojson", "visibility": "public",
+  "license": "MTA open data (data.ny.gov)",
+  "source_organization": "MTA via NY State Open Data",
+  "source_health": "unknown", "source_freshness": "unknown" }
 
 "column_info": [
   { "name": "service", "type": "character varying", "semantic_role": null,
@@ -219,15 +223,18 @@ The full chain from prompt 5, four calls end to end:
 1. list_maps(search="hurricane exposure")
    → "Hurricane Exposure - Which Coasts the Major Storms Reach"  c072d473-…
 2. get_map("c072d473-…")
-   → 2 layers → dataset ids bbb06007-…, c5fe3ee9-…
-3. get_dataset_schema("bbb06007-…")
+   → 3 layers → dataset ids caf6b9c8-…, c5fe3ee9-…, 13039dea-…
+3. get_dataset_schema("caf6b9c8-…")
    → "Hurricane Exposure by Coastal Region", MULTIPOLYGON, 289 features,
      columns: region, source_count
    get_dataset_schema("c5fe3ee9-…")
    → "Major Hurricane Tracks (Cat 3+ legs, one per storm)", MULTILINESTRING,
-     198 features, columns: name, season, peak_wind_kt, peak_category,
+     202 features, columns: name, season, peak_wind_kt, peak_category,
      major_legs, landfall
-4. get_features("bbb06007-…", limit=3)
+   get_dataset_schema("13039dea-…")
+   → "Atlantic Basin Regions (Natural Earth admin-1)", MULTIPOLYGON,
+     480 features, columns: region, country
+4. get_features("caf6b9c8-…", limit=3)
    → numberMatched: 289
      { "region": "Acklins",  "source_count": 7 }
      { "region": "Alabama",  "source_count": 8 }
@@ -261,7 +268,7 @@ above, while the other five tools keep working. A session where "search works bu
 a credential problem, not a broken install.
 
 `uvx geolens-mcp` resolves the latest published version every run. Pin it with
-`uvx geolens-mcp@1.12.0` if you want a session to stay put.
+`uvx geolens-mcp@1.13.0` if you want a session to stay put.
 
 Raster datasets have no features. `get_features` against one errors rather than returning an empty
 collection; use `get_dataset_schema` to check `record_type` first.
