@@ -64,9 +64,11 @@
   // no server round-trip, no GetFeatureInfo.
   map.on("click", "subway-stations", (e) => {
     const props = e.features[0].properties;
+    const pre = document.createElement("pre");
+    pre.textContent = JSON.stringify(props, null, 2).slice(0, 500);
     new maplibregl.Popup()
       .setLngLat(e.lngLat)
-      .setHTML(`<pre>${JSON.stringify(props, null, 2).slice(0, 500)}</pre>`)
+      .setDOMContent(pre)
       .addTo(map);
   });
 
