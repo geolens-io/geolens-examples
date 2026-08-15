@@ -1,0 +1,6 @@
+# Code owners for GeoLens Examples.
+# Each line maps a path pattern to the GitHub account(s) auto-requested for
+# review on matching changes.
+
+# Default owner for everything in the repo.
+*       @ishiland
