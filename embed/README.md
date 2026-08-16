@@ -8,11 +8,14 @@ in.
 Every other example here reads GeoLens data and re-styles it client-side. This
 one keeps the styling, legend and popups you configured.
 
-It targets one specific share link on the demo, "Restless Earth". CI loads the
-page continuously and fails when it stops rendering, which is the only guarantee
-worth making: the link is durable, not permanent, and it would stop working if
-anyone revoked it or the demo map were rebuilt from scratch. If you see
-GeoLens's "Map not found" card where the map should be, that is what happened.
+It targets one specific share link on the demo, "Restless Earth". That link is
+durable, not permanent: it would stop working if anyone revoked it or the demo
+map were rebuilt from scratch. If you see GeoLens's "Map not found" card where
+the map should be, that is what happened, and the code is fine.
+
+This page is not yet in `ci/manifest.json`, so CI does not load it on every
+push the way it loads the MapLibre, Leaflet, OpenLayers and ArcGIS examples.
+Until it is, a revoked link would go unnoticed here.
 
 ## The URL
 
