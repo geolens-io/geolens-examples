@@ -70,7 +70,18 @@
   map.addControl(new maplibregl.NavigationControl());
 
   const status = document.getElementById("status");
-  let missing = false; // set by the catalog check below; tiles cannot clear it
+
+  // Only a 404 latches this, and a tile can never clear it: a tile answering
+  // is not evidence the dataset exists. MapLibre reports the 204 you get for a
+  // dataset that was never there exactly as it reports real imagery — same
+  // `data` event, same `state: "loaded"` — so "a tile came back" and "the
+  // dataset is there" are different claims. fix(#18)
+  let missing = false;
+
+  // Whether the tiles have said anything yet. The catalog note below is the
+  // weakest signal on this page and defers to both of these. fix(#18)
+  let tileAnswered = false;
+  let tileErrored = false;
 
   const fail = (message, err) => {
     status.hidden = false;
@@ -79,30 +90,60 @@
     console.error("GeoLens request failed:", err ?? message);
   };
 
+  // The catalog answered, but not in a way that settles anything. Say so in the
+  // neutral style rather than the error one, and never over the top of what the
+  // tiles have already reported — they are the better evidence. Warn rather
+  // than error in the console for the same reason: nothing here is known to be
+  // broken. fix(#18)
+  const note = (message, err) => {
+    if (tileAnswered || tileErrored) return;
+    status.hidden = false;
+    status.className = "";
+    status.textContent = message;
+    console.warn("GeoLens catalog check was inconclusive:", err ?? message);
+  };
+
   // Clear the line when a tile arrives, rather than when the map goes idle.
   // MapLibre raises this only for a tile that came back, so it doubles as the
   // recovery signal: a transient failure cannot latch red over a map that has
   // since recovered. Tiles outside the footprint answer 204 and MapLibre treats
   // those as ordinary empty tiles, so panning off the data is not a failure.
   map.on("data", (e) => {
-    if (missing || !e.tile || e.sourceId !== "dem") return;
+    if (!e.tile || e.sourceId !== "dem") return;
+    tileAnswered = true;
+    if (missing) return;
     status.className = "";
     status.hidden = true;
   });
 
-  map.on("error", (e) =>
-    fail(`Could not load tiles from ${GEOLENS} — ${e.error?.message ?? "request failed"}. Instances older than v1.13.0 send no CORS header on raster tiles, which blocks them here.`, e.error ?? e),
-  );
+  map.on("error", (e) => {
+    tileErrored = true;
+    fail(`Could not load tiles from ${GEOLENS} — ${e.error?.message ?? "request failed"}. Instances older than v1.13.0 send no CORS header on raster tiles, which blocks them here.`, e.error ?? e);
+  });
 
   // The tile route cannot tell you the dataset is gone: it answers 204 both for
   // a tile outside the footprint and for a dataset id that does not exist, so
   // those two look identical from here. The catalog is the only place the
   // difference shows, so ask it once.
-  fetch(`${GEOLENS}/api/collections/${DEM}`).then((r) => {
-    if (r.ok) return;
-    missing = true;
-    fail(`${GEOLENS} has no dataset ${DEM} (${r.status} ${r.statusText}). List what is available at /api/collections.`);
-  });
+  //
+  // Read the status rather than just `ok`. This request is deliberately
+  // anonymous — the point of a scoped tile token is that no credential reaches
+  // the browser — so a rejected or unreachable catalog is a fact about this
+  // request, not about the dataset, and claiming otherwise puts a red line over
+  // a map that is working. Only 404 carries information about existence, and
+  // even that is not conclusive; see the message. fix(#18)
+  fetch(`${GEOLENS}/api/collections/${DEM}`).then(
+    (r) => {
+      if (r.ok) return;
+      if (r.status === 404) {
+        missing = true;
+        fail(`${GEOLENS} has no dataset ${DEM} that this page can see (404). Either it is gone, or it is private — GeoLens answers 404 for a dataset you may not read, and this request carries no credential. List what is public at /api/collections.`);
+        return;
+      }
+      note(`Could not check whether dataset ${DEM} exists (${r.status} ${r.statusText}). That says nothing either way, so trust the map rather than this line.`);
+    },
+    (err) => note(`Could not reach ${GEOLENS} to check that dataset ${DEM} exists — the request failed outright, which is also what a CORS rejection looks like. The tiles are a separate request and may be fine.`, err),
+  );
 </script>
 </body>
 </html>

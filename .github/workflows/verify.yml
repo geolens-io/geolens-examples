@@ -47,6 +47,10 @@ jobs:
         run: node ci/verify-examples.mjs
       - name: Re-check the popup XSS fix
         run: node ci/check-popup-safety.mjs
+      # The sweep above runs against the public demo, where the catalog probe
+      # answers 200, so none of the branches this covers ever execute there.
+      - name: Re-check the imagery catalog-probe states
+        run: node ci/check-imagery-status.mjs
       - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
