@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens: embed a saved map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <style>
+    body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: #101418; color: #c9d3de; }
+    main { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+    h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 16px; }
+
+    /* The whole responsive trick: give the wrapper the shape, let the iframe
+       fill it. `aspect-ratio` replaced the old padding-top hack in 2021 and
+       needs no absolute positioning. The map reflows to any container width. */
+    .embed { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #1a2029; }
+    .embed iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+    /* Loading and error both sit UNDER the iframe and are simply uncovered:
+       the iframe fades in on load, so there is no layout shift either way. */
+    .embed iframe { opacity: 0; transition: opacity .3s; }
+    .embed[data-state="ready"] iframe { opacity: 1; }
+    .state { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 24px; }
+    .embed[data-state="ready"] .state { display: none; }
+    .embed[data-state="loading"] .err, .embed[data-state="error"] .load { display: none; }
+    .err { color: #ff8f8f; }
+    .err small { display: block; margin-top: 6px; color: #8b97a5; }
+    .note { margin: 12px 0 0; font-size: 13px; color: #8b97a5; }
+    .note a { color: #4da3ff; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>A saved GeoLens map, embedded</h1>
+
+  <div class="embed" id="embed" data-state="loading">
+    <div class="state load">Loading map…</div>
+    <div class="state err">
+      Map unavailable
+      <small>The share link may have been revoked or expired.</small>
+    </div>
+    <!-- Both sandbox values matter. Dropping `allow-same-origin` gives the
+         frame an opaque origin, which turns the viewer's ES module fetches into
+         cross-origin requests that its static assets do not answer with CORS
+         headers: blank frame, and a reload loop behind it. `allow-same-origin`
+         restores the frame's OWN origin, already different from this page, so
+         it grants the map nothing of yours. Omitting `sandbox` entirely also
+         works; keeping it blocks popups, forms and top-level navigation. -->
+    <iframe id="frame" title="Restless Earth — GeoLens map"
+            sandbox="allow-scripts allow-same-origin"></iframe>
+  </div>
+
+  <!-- If the frame above shows GeoLens's "Map not found" card instead of a map,
+       the demo's share link has been rotated. The code is still correct; point
+       SHARE_TOKEN at a link of your own. Saying so here matters because a dead
+       token never trips the 15s error state: the shell returns 200. -->
+  <p class="note">
+    Embedding <a href="https://demo.getgeolens.com/m/NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU">Restless Earth</a>
+    from the public GeoLens demo. Showing "Map not found" instead? That share
+    link has been rotated, not broken code. Swap in your own token.
+  </p>
+</main>
+
+<script>
+  // Point this at your own GeoLens instance to embed your own maps.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // A share token, NOT the map's UUID. The map owner mints it from the map
+  // builder's Share dialog (POST /api/maps/{id}/share/), and the map must be
+  // public first. There is no anonymous way to create one, so you cannot embed
+  // an arbitrary public map you found in someone's catalog — you need the
+  // token its owner published.
+  //
+  // This one points at "Restless Earth" on the demo. It is committed in the
+  // clear on purpose: the map is public, so the token grants exactly what any
+  // anonymous visitor to the demo catalog already has. A token for a map with
+  // PRIVATE layers is a real credential and does not belong in a repo.
+  const SHARE_TOKEN = "NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU";
+
+  // /m/<token> is the ONLY embeddable path. The obvious-looking /maps/<mapId>
+  // viewer URL is served with X-Frame-Options: SAMEORIGIN and frame-ancestors
+  // 'self', so framing it from another origin gives you a blank rectangle and a
+  // CSP violation in the console. If you got here by guessing a URL, that is
+  // the one you probably guessed.
+  //
+  // `embed=true` strips the site banner, footer and basemap switcher, leaving
+  // the map and its legend. Other params the viewer reads: `legend` (defaults
+  // off under embed=true), `center=lng,lat`, `zoom`, and `et` for a scoped
+  // embed token over private layers. See embed/README.md.
+  //
+  // legend=true is opt-in here because this map has seven layers and is hard to
+  // read without it. Drop it for a cleaner frame; on narrow viewports the
+  // viewer collapses the legend to an icon either way.
+  const src = `${GEOLENS}/m/${SHARE_TOKEN}?embed=true&legend=true`;
+
+  const embed = document.getElementById("embed");
+  const frame = document.getElementById("frame");
+
+  // Give up after 15s. This catches a dead host or a frame the browser refused,
+  // but NOT a revoked token: the shell still returns 200 and renders GeoLens's
+  // own "Map not found" card, which fires `load` like any other page. The
+  // iframe is cross-origin, so the parent cannot read what is inside it to tell
+  // the difference, and /api/maps/shared/{token} sends no CORS headers to ask
+  // directly. Treat this as a liveness net, not link validation.
+  const timer = setTimeout(() => { embed.dataset.state = "error"; }, 15000);
+  frame.addEventListener("load", () => {
+    clearTimeout(timer);
+    embed.dataset.state = "ready";
+  });
+
+  frame.src = src;
+</script>
+</body>
+</html>
