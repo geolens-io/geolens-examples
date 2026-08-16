@@ -23,8 +23,11 @@
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";
 
-  // Private datasets authenticate with an api_key query parameter appended
-  // to the tile template; the demo is anonymous.
+  // The demo is anonymous. A tile template cannot send headers, so a private
+  // dataset wants a scoped token from GET /api/tiles/token/<dataset_id>/,
+  // which returns a ready-made tile_url with sig, exp and scope on it. Use
+  // that instead of pasting an api_key into the template; it covers one
+  // dataset and expires on the next 15-minute boundary. See the README.
 
   // Every raster dataset in GeoLens is served as XYZ tiles. Read the exact
   // template from the dataset's collection metadata (the "tiles" link on

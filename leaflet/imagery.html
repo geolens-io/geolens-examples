@@ -23,23 +23,24 @@
   // /api/collections/<dataset_id>) rather than hand-building it — the link
   // carries the .png extension and a cache-version query the server expects:
   //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>
-  // For a private dataset, append `&api_key=<key>` to the template.
+  // For a private dataset, mint a scoped token from
+  // GET /api/tiles/token/<dataset_id>/ and use the tile_url it returns. It
+  // carries sig, exp and scope, covers that one dataset, and expires on the
+  // next 15-minute boundary. A pasted api_key does none of that. See
+  // "Authenticating against your own instance" in the README.
   const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
 
   const map = L.map("map").setView([45.9763, 7.6586], 12); // Matterhorn; [lat, lng]
 
   // Leaflet requests each tile by assigning to an <img> element's src, and a
-  // plain <img> is not subject to CORS — the browser will display a
-  // cross-origin image whether or not the server sends
-  // Access-Control-Allow-Origin. That is why this example renders against the
-  // demo today even though the /raster-tiles route sends no CORS headers
-  // (geolens#1464). Libraries that pull tiles through fetch() or through a
-  // WebGL texture upload — MapLibre and Mapbox GL among them — do need those
-  // headers, so their raster examples stay blocked until #1464 lands.
+  // plain <img> is not subject to CORS, so this example rendered even on
+  // GeoLens versions whose /raster-tiles route sent no CORS header. Since
+  // v1.13.0 the route does send one (geolens#1464), which is what MapLibre
+  // and any other WebGL or fetch()-based loader needs.
   //
-  // The same limit applies here the moment you read pixels back: setting
-  // `crossOrigin: true` below, or drawing these tiles into a canvas you then
-  // call getImageData() on, both require the CORS headers and will fail.
+  // Reading pixels back is where it matters here: `crossOrigin: true` below,
+  // or getImageData() on a canvas these tiles were drawn into, both need the
+  // header and both fail against a pre-1.13.0 instance.
   L.tileLayer(`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`, {
     tileSize: 256,
     maxZoom: 20,

@@ -14,9 +14,15 @@
 <body>
 <div id="map"></div>
 <script>
-  // Point this at your own GeoLens instance to use your data. Private
-  // datasets authenticate with an api_key query parameter appended to the
-  // items URLs; the demo is anonymous.
+  // Point this at your own GeoLens instance to use your data. The demo is
+  // anonymous; a private dataset takes an X-Api-Key header, which MapLibre
+  // can attach through its transformRequest option. Keep the key out of the
+  // URL. See "Authenticating against your own instance" in the README.
+  //
+  // The items URLs below pull every feature in one request and hold it all
+  // in memory. That suits these small layers and breaks down on a large
+  // one; "OGC API Features or vector tiles" in the README says when to
+  // switch.
   const GEOLENS = "https://demo.getgeolens.com";
 
   // GeoLens serves OGC API Features; the items endpoint returns GeoJSON,

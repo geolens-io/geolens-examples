@@ -40,14 +40,14 @@
   // (WebTileLayer also accepts {z}/{x}/{y} if you would rather not.)
   const TILES = `${GEOLENS}/raster-tiles/${DEM}/tiles/{level}/{col}/{row}.png?v=1`;
 
-  // The demo is anonymous. Private datasets authenticate with an api_key on
-  // the query string — the tile route is RBAC-checked server side and passes
-  // query params through, so append it to the template:
-  //   const TILES = `...{row}.png?v=1&api_key=<your-api-key>`;
-  // For the OGC API calls in features.html the same key goes on an
-  // esriConfig.request.interceptors entry instead. Embedded maps that must
-  // not carry a permanent credential should mint a scoped, expiring tile
-  // token from POST /api/tiles/tokens/ and append that.
+  // The demo is anonymous. A tile template cannot send headers, so a private
+  // dataset wants a scoped token rather than a permanent key on the URL:
+  // GET /api/tiles/token/<dataset_id>/ returns a tile_url already carrying
+  // sig, exp and scope, good for that one dataset until the next 15-minute
+  // boundary (POST /api/tiles/tokens/ mints up to 50 at once). Minting for a
+  // private dataset is itself authenticated, so something server side holds
+  // the key and hands this page tokens. For the OGC API calls in
+  // features.html, send X-Api-Key from a request interceptor instead.
 
   const [Map, WebTileLayer] = await $arcgis.import([
     "@arcgis/core/Map.js",

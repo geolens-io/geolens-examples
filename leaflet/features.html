@@ -25,9 +25,14 @@
   const LINES = "de602fbe-8b30-4755-924f-c9e7fd9613b6";    // NYC Subway Lines
   const STATIONS = "724bf894-dc1a-418c-abc6-555798c44d7c"; // NYC Subway Stations
 
-  // For private datasets, append your API key: `...&api_key=<key>`. GeoLens
-  // accepts keys via header or query string, and the query form is what a
-  // plain fetch() can send without custom plumbing.
+  // For a private dataset, send the key as a header. fetch() takes one
+  // directly: fetch(url, { headers: { "X-Api-Key": key } }). GeoLens also
+  // reads ?api_key= off the URL, but a credential in a URL lands in logs and
+  // history. See "Authenticating against your own instance" in the README.
+  //
+  // These URLs pull every feature in one request and hold it all in memory.
+  // Fine for these small layers, wrong for a large one; "OGC API Features or
+  // vector tiles" in the README says when to switch.
   const items = (id) => `${GEOLENS}/api/collections/${id}/items?limit=2000`;
 
   const map = L.map("map").setView([40.73, -73.98], 11); // NYC; Leaflet takes [lat, lng]
