@@ -63,6 +63,20 @@ def documented_spec() -> str:
     return spec
 
 
+def _returned_count(content) -> int:
+    """How many datasets the tool actually returned.
+
+    The server answers with a GeoJSON-shaped FeatureCollection in a text block.
+    Anything unparseable counts as zero rather than passing by default.
+    """
+    text = "".join(getattr(block, "text", "") or "" for block in content)
+    try:
+        body = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return 0
+    return max(int(body.get("numberReturned") or 0), len(body.get("features") or []))
+
+
 async def check(spec: str) -> None:
     params = StdioServerParameters(
         command="uvx",
@@ -83,8 +97,20 @@ async def check(spec: str) -> None:
             assert not result.isError, f"search_datasets errored: {result.content}"
             assert result.content, "search_datasets returned no content"
 
+            # Judge the result set, not the envelope. A query matching nothing
+            # comes back isError=False with truthy content carrying
+            # numberReturned 0 and an empty features list, so asserting on
+            # content alone passes against an empty catalog, a broken search
+            # index, or the dataset having been removed. Verified against the
+            # live demo before writing this.
+            found = _returned_count(result.content)
+            assert found > 0, (
+                "search_datasets('subway') returned an empty result set. "
+                "The server answered fine; it just found nothing."
+            )
+
             print(f"  tools: {sorted(tools)}")
-            print("  search_datasets(subway) returned content")
+            print(f"  search_datasets(subway) returned {found} dataset(s)")
 
 
 async def main() -> int:

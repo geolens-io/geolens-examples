@@ -356,10 +356,11 @@ async function runOnce(page, scratch, entry) {
   const abortedRequests = [];
   const demoResponses = [];
   const bodyReads = [];
-  // Both counters move in the same async continuation, so a response that
-  // lands as the run ends can never look like "fetched but empty".
-  let itemsRead = 0;
-  let itemsWithFeatures = 0;
+  // Recorded per response and aggregated per required collection at assert
+  // time, never into one page-wide counter. Pushed from inside the body-read
+  // continuation, so a response landing as the run ends cannot look like
+  // "fetched but empty".
+  const itemsBodies = [];
 
   page.on("console", (msg) => {
     consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
@@ -389,9 +390,10 @@ async function runOnce(page, scratch, entry) {
         res
           .json()
           .then((body) => {
-            itemsRead += 1;
-            const n = Math.max(body?.numberReturned ?? 0, body?.features?.length ?? 0);
-            if (n > 0) itemsWithFeatures += 1;
+            itemsBodies.push({
+              url,
+              features: Math.max(body?.numberReturned ?? 0, body?.features?.length ?? 0),
+            });
           })
           .catch(() => {}),
       );
@@ -435,8 +437,28 @@ async function runOnce(page, scratch, entry) {
   if (dataResponses.length < entry.minDataResponses) {
     failures.push(`only ${dataResponses.length} successful data response(s), need ${entry.minDataResponses} (${emptyTiles} empty 204 tile(s) do not count)`);
   }
-  if (itemsRead > 0 && itemsWithFeatures === 0) {
-    failures.push(`${itemsRead} /items response(s), every one an empty FeatureCollection`);
+  // Per required collection, never pooled across the page. A single page-wide
+  // "at least one non-empty body" counter passes when one of two required
+  // collections vanishes: the surviving layer satisfies the counter, satisfies
+  // the render proof by painting, and both URLs still answer 2xx. The stations
+  // layer could disappear from maplibre/features.html and CI stayed green.
+  //
+  // Still "at least one non-empty per collection" rather than "every response
+  // non-empty": ArcGIS's OGCFeatureLayer fetches per viewport tile and
+  // legitimately gets empty answers for tiles the data does not reach.
+  for (const needle of entry.requireUrls.filter((n) => ITEMS_URL.test(n))) {
+    const forNeedle = itemsBodies.filter((b) => b.url.includes(needle));
+    if (forNeedle.length > 0 && !forNeedle.some((b) => b.features > 0)) {
+      failures.push(
+        `every /items response for "${needle}" came back empty (${forNeedle.length} response(s), 0 features) — ` +
+          `that layer is missing from the map even though the page still renders`,
+      );
+    }
+  }
+  // Backstop for items the manifest does not name: a page that fetched
+  // features and got nothing anywhere.
+  if (itemsBodies.length > 0 && !itemsBodies.some((b) => b.features > 0)) {
+    failures.push(`${itemsBodies.length} /items response(s), every one an empty FeatureCollection`);
   }
   if (stats.distinct < minDistinct || stats.inkFraction < minInk) {
     failures.push(`nothing painted: center of the viewport has ${stats.distinct} distinct colors (need ${minDistinct}) and ${(stats.inkFraction * 100).toFixed(2)}% non-background pixels (need ${(minInk * 100).toFixed(2)}%), modal color ${stats.modal}`);
@@ -446,7 +468,7 @@ async function runOnce(page, scratch, entry) {
     `consoleErrors=${consoleErrors.length} pageErrors=${pageErrors.length} ` +
     `failedRequests=${failedRequests.length} thirdParty=${thirdPartyIssues.length} ` +
     `aborted=${abortedRequests.length} dataResponses=${dataResponses.length} ` +
-    `emptyTiles=${emptyTiles} items=${itemsWithFeatures}/${itemsRead} ` +
+    `emptyTiles=${emptyTiles} items=${itemsBodies.filter((b) => b.features > 0).length}/${itemsBodies.length} ` +
     `distinct=${stats.distinct} ink=${(stats.inkFraction * 100).toFixed(2)}%`;
 
   // Not fatal, but a page that cannot reach its basemap renders differently
