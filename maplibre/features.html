@@ -97,7 +97,7 @@
   map.on("error", (e) => {
     status.hidden = false;
     status.className = "err";
-    status.textContent = `Could not load features from ${GEOLENS} — ${e.error?.message ?? "request failed"}. Check the console, and the instance's CORS config if this is not the demo.`;
+    status.textContent = `Could not load features from ${GEOLENS} — ${e.error?.message ?? "request failed"}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`;
     console.error("GeoLens request failed:", e.error ?? e);
   });
 </script>
