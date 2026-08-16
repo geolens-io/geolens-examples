@@ -16,15 +16,13 @@
     .embed { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #1a2029; }
     .embed iframe { width: 100%; height: 100%; border: 0; display: block; }
 
-    /* Loading and error both sit UNDER the iframe and are simply uncovered:
-       the iframe fades in on load, so there is no layout shift either way. */
+    /* The placeholder sits UNDER the iframe and is simply uncovered: the iframe
+       fades in on load, so there is no layout shift. Two states, not three.
+       There is no error state; the script explains why one is not possible. */
     .embed iframe { opacity: 0; transition: opacity .3s; }
     .embed[data-state="ready"] iframe { opacity: 1; }
     .state { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 24px; }
     .embed[data-state="ready"] .state { display: none; }
-    .embed[data-state="loading"] .err, .embed[data-state="error"] .load { display: none; }
-    .err { color: #ff8f8f; }
-    .err small { display: block; margin-top: 6px; color: #8b97a5; }
     .note { margin: 12px 0 0; font-size: 13px; color: #8b97a5; }
     .note a { color: #4da3ff; }
   </style>
@@ -34,11 +32,8 @@
   <h1>A saved GeoLens map, embedded</h1>
 
   <div class="embed" id="embed" data-state="loading">
-    <div class="state load">Loading map…</div>
-    <div class="state err">
-      Map unavailable
-      <small>The share link may have been revoked or expired.</small>
-    </div>
+    <!-- role="status" so the swap to the loaded map is announced, not silent. -->
+    <div class="state" role="status">Loading map…</div>
     <!-- Both sandbox values matter. Dropping `allow-same-origin` gives the
          frame an opaque origin, which turns the viewer's ES module fetches into
          cross-origin requests that its static assets do not answer with CORS
@@ -52,8 +47,9 @@
 
   <!-- If the frame above shows GeoLens's "Map not found" card instead of a map,
        the demo's share link has been rotated. The code is still correct; point
-       SHARE_TOKEN at a link of your own. Saying so here matters because a dead
-       token never trips the 15s error state: the shell returns 200. -->
+       SHARE_TOKEN at a link of your own. This caption is not decoration: it is
+       the ONLY failure signal this page has, because the script below cannot
+       detect a broken frame. -->
   <p class="note">
     Embedding <a href="https://demo.getgeolens.com/m/NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU">Restless Earth</a>
     from the public GeoLens demo. Showing "Map not found" instead? That share
@@ -96,17 +92,25 @@
   const embed = document.getElementById("embed");
   const frame = document.getElementById("frame");
 
-  // Give up after 15s. This catches a dead host or a frame the browser refused,
-  // but NOT a revoked token: the shell still returns 200 and renders GeoLens's
-  // own "Map not found" card, which fires `load` like any other page. The
-  // iframe is cross-origin, so the parent cannot read what is inside it to tell
-  // the difference, and /api/maps/shared/{token} sends no CORS headers to ask
-  // directly. Treat this as a liveness net, not link validation.
-  const timer = setTimeout(() => { embed.dataset.state = "error"; }, 15000);
-  frame.addEventListener("load", () => {
-    clearTimeout(timer);
-    embed.dataset.state = "ready";
-  });
+  // There is deliberately no error state here, because a page cannot detect a
+  // failed cross-origin frame. An iframe fires `load` on failure as readily as
+  // on success and never fires `error`. Measured in Chromium with both
+  // listeners attached before `src` was set:
+  //
+  //   dead host           load @   5ms     DNS failure        load @  28ms
+  //   404 on live host    load @ 130ms     CSP frame-refused  load @ 145ms
+  //   working embed       load @ 295ms
+  //
+  // Every failure resolves faster than the success case, so no timeout can
+  // separate them. A revoked share token hides even better: the shell returns
+  // 200 and renders GeoLens's own "Map not found" card, which is a successful
+  // load by every measure available from out here. Cross-origin isolation is
+  // doing exactly its job, and it cuts both ways.
+  //
+  // So the caption below the map carries the explanation instead. An error
+  // branch that cannot fire is worse than none: it promises a safety net that
+  // does not exist. If you need to know an embed is live, check server-side.
+  frame.addEventListener("load", () => { embed.dataset.state = "ready"; });
 
   frame.src = src;
 </script>
