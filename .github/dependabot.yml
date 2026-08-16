@@ -1,0 +1,34 @@
+# Dependabot watches one of this repo's four dependency surfaces. Saying so
+# here, rather than letting the file's existence imply coverage it does not
+# have, is why this comment is longer than the config.
+#
+# Watched: the SHA-pinned actions in .github/workflows/. Those are the pins
+# most likely to rot unnoticed, because a bare SHA carries no version signal.
+# Nothing about `actions/checkout@11d5960` tells a reader it is two releases
+# behind.
+#
+# Not watched, and still a manual edit:
+#   - playwright@1.62.1, installed by a shell line in verify.yml
+#   - CDN pins in the example pages: maplibre-gl, leaflet, ol, @geolens/sdk
+#   - geolens==1.13.1, a PEP 723 inline dependency in python/sdk-catalog.py
+#   - geolens-mcp@1.13.1, in claude-mcp/mcp-config.example.json and index.html
+#
+# None of those has a manifest for Dependabot to read, and that is deliberate.
+# The examples have no build step, which is most of why they are readable, so
+# adding a package.json to buy automated bumps would cost more than it returns.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    # One PR a week for all of them. Ungrouped, a quiet repo with a single
+    # workflow still opens a PR per action, which is how Dependabot gets muted
+    # and then ignored.
+    groups:
+      actions:
+        patterns: ["*"]
