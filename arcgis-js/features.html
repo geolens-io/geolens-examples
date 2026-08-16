@@ -129,19 +129,35 @@
     console.error("GeoLens request failed:", err ?? message);
   };
 
-  // viewOnReady() never settles while a layer is failing, and it resolves with
-  // nothing (the view lands on el.view), so keep it inside the success path.
-  // Awaiting it up front would swallow the load errors this exists to report.
+  // Every promise below can sit pending forever rather than reject: viewOnReady()
+  // does that while a layer is failing, whenLayerView() while the layer view
+  // cannot be created, and the updating watch while a query stalls. So they stay
+  // off the error path (awaiting them up front would swallow the load errors this
+  // exists to report), and the whole group runs under a deadline. A stalled
+  // request has to end as a reported failure, never as "Loading…" forever.
   const drawn = async (layer) => {
-    await el.viewOnReady();
+    await el.viewOnReady(); // resolves with nothing; the view lands on el.view
     const layerView = await el.view.whenLayerView(layer);
     await reactiveUtils.whenOnce(() => !layerView.updating);
     return layerView.queryFeatureCount();
   };
 
-  Promise.all([lines.load(), stations.load()])
-    .then(() => Promise.all([drawn(lines), drawn(stations)]))
+  // The deadline wraps the whole chain, not just the drawing half: load() sits
+  // pending too when the items request stalls rather than refuses. The page
+  // settles in about eight seconds against the demo, so this only fires on a
+  // genuine stall.
+  const stalled = new Promise((resolve) => setTimeout(resolve, 30000, null));
+
+  Promise.race([
+    Promise.all([lines.load(), stations.load()]).then(() =>
+      Promise.all([drawn(lines), drawn(stations)]),
+    ),
+    stalled,
+  ])
     .then((counts) => {
+      if (counts === null) {
+        return fail(`${GEOLENS} accepted the connection but never answered. It is reachable, so this is a stall rather than a refusal.`);
+      }
       if (counts.some((n) => n > 0)) return void (status.hidden = true);
       fail(`${GEOLENS} answered, but no features reached the map. The collections loaded, so check that their items queries return data for this view.`);
     })
