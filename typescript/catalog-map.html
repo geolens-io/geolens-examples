@@ -40,7 +40,8 @@
     a { color: #4da3ff; }
     .health-healthy { color: #6ee7a8; }
     .health-stale, .health-due { color: #ffd166; }
-    .health-error, .health-failing { color: #ff8b7e; }
+    .health-error, .health-failing, #tiles { color: #ff8b7e; }
+    #tiles:empty { display: none; }
   </style>
 </head>
 <body>
@@ -49,6 +50,7 @@
   <p class="lede">Everything below comes from the catalog over
     <code>@geolens/sdk</code>. Nothing about these datasets is hardcoded here.</p>
   <select id="picker" aria-label="Dataset"></select>
+  <p id="tiles" role="status"></p>
   <div id="meta"></div>
 </div>
 <div id="map"></div>
@@ -87,6 +89,9 @@
 
   // 1. Ask the catalog what exists. This is a real query, not a fixed list:
   //    the server filters and sorts, and you get OGC API Records back.
+  //    `limit` is a page size, not a total: this takes the first 100 and a
+  //    larger catalog is silently longer than the picker. A real app would
+  //    follow the rel=next link in `catalog.links` instead.
   const catalog = unwrap(
     await collectionItemsCollectionsDatasetsItemsGet({
       client,
@@ -109,6 +114,28 @@
     },
   });
   map.addControl(new maplibregl.NavigationControl());
+
+  // A filled-in panel means the catalog answered. It says nothing about
+  // whether the map drew, and a confident panel over an empty map is worse
+  // than an honest error. MapLibre reports tile failures on its own error
+  // event, and stays quiet through normal loads and dataset switches, so a
+  // message here means something really did go wrong.
+  //
+  // The `else` is not optional. Attaching any error listener replaces
+  // MapLibre's built-in console logging, so whatever this handler declines to
+  // show has to be forwarded or it disappears entirely. A tile that arrives
+  // HTTP 200 with an unreadable body is exactly that case: it never reaches
+  // the network check above, and without the forward you get a blank map and
+  // a clean console, which is quieter than doing nothing at all.
+  const tileStatus = document.getElementById("tiles");
+  map.on("error", (e) => {
+    const message = String(e?.error?.message ?? e?.error ?? "");
+    if (message.includes("AJAXError")) {
+      tileStatus.textContent = `Tiles failed: ${message}`;
+      return;
+    }
+    console.error(e?.error ?? e);
+  });
 
   // Catalog values are data, not markup. Building the panel with textContent
   // means a dataset title or publisher name containing HTML renders as
@@ -153,7 +180,12 @@
                "circle-stroke-color": "#101418", "circle-stroke-width": 1 } },
   ];
 
-  const show = async (record) => {
+  // `current()` is false once a later pick has superseded this one. Two awaits
+  // below means two chances for the user to move on, and responses come back
+  // in whatever order the network decides. Without this check the slower of
+  // two picks wins simply by landing last, and the map ends up showing a
+  // dataset the picker no longer names.
+  const show = async (record, current) => {
     const props = record.properties;
 
     // 2. The collection document is the dataset's OGC front door: it carries
@@ -164,6 +196,7 @@
         path: { dataset_id: record.id },
       }),
     );
+    if (!current()) return;
 
     // 3. Attribute names are a property of the data, so ask for one feature
     //    with the geometry left out: a few hundred bytes, not a download.
@@ -174,6 +207,7 @@
         query: { limit: 1, include_geometry: false },
       }),
     );
+    if (!current()) return;
     const fields = Object.entries(sample.features[0]?.properties ?? {});
 
     // 4. Take the tile template the record advertises. Reconstructing
@@ -189,13 +223,22 @@
       LAYERS.forEach((l) => map.removeLayer(l.id));
       map.removeSource("ds");
     }
+    tileStatus.textContent = "";
     map.addSource("ds", { type: "vector", tiles: [tiles.url] });
     LAYERS.forEach((l) => map.addLayer({ ...l, source: "ds", "source-layer": sourceLayer }));
 
-    // A 6-element bbox is 3D (minx, miny, minz, maxx, maxy, maxz).
-    const b = collection.extent.spatial.bbox[0];
-    const [minX, minY, maxX, maxY] = b.length === 6 ? [b[0], b[1], b[3], b[4]] : b;
-    map.fitBounds([[minX, minY], [maxX, maxY]], { padding: 40, duration: 0 });
+    // Extent is optional in an OGC collection document, and GeoLens omits it
+    // for a dataset with no rows to bound: create an empty dataset and you
+    // have one, still typed `vector_dataset` and still in this picker. Keep
+    // the layers on the map, leave the view where it is, and say so in the
+    // panel below rather than reading through a missing bbox.
+    const bbox = collection.extent?.spatial?.bbox?.[0];
+    if (bbox) {
+      // A 6-element bbox is 3D (minx, miny, minz, maxx, maxy, maxz).
+      const [minX, minY, maxX, maxY] =
+        bbox.length === 6 ? [bbox[0], bbox[1], bbox[3], bbox[4]] : bbox;
+      map.fitBounds([[minX, minY], [maxX, maxY]], { padding: 40, duration: 0 });
+    }
 
     const health = props.source_health ?? "unknown";
     const fieldList = el("p", fields.map(([k, v]) => `${k}: ${typeof v}`).join("\n"));
@@ -235,6 +278,7 @@
         ["Geometry", props.geometry_type],
         ["Features", props.feature_count?.toLocaleString()],
         ["CRS", props.crs],
+        ["Extent", bbox ? null : "none advertised; view unchanged"],
       ]),
       fieldList,
       el("h2", "Advertised endpoints"),
@@ -246,10 +290,14 @@
 
   // Against your own instance the first thing to go wrong is usually config,
   // not code, so put the reason on the page instead of only in the console.
+  let generation = 0;
   const showOrExplain = async (record) => {
+    const mine = ++generation;
+    const current = () => mine === generation;
     try {
-      await show(record);
+      await show(record, current);
     } catch (err) {
+      if (!current()) return;
       meta.replaceChildren(el("h2", "Failed"), el("p", err.message));
       throw err;
     }
