@@ -118,14 +118,22 @@ def get_json(client: httpx.Client, url: str) -> dict:
 def fetch_collection(client: httpx.Client, collection_id: str) -> gpd.GeoDataFrame:
     """Read every feature of a collection into a GeoDataFrame.
 
-    The items endpoint returns plain GeoJSON:
+    The items endpoint returns plain GeoJSON. At `limit=2000` both demo
+    collections fit in one page, so there is no `next` link to follow:
 
         GET /api/collections/{id}/items?limit=2000
         {"type": "FeatureCollection",
          "numberMatched": 496,     <- total matching the query
          "numberReturned": 496,    <- in THIS page
          "features": [...],
-         "links": [{"rel": "next", "href": "...&after_gid=496"}, ...]}
+         "links": [{"rel": "self", ...}, {"rel": "collection", ...}]}
+
+    Ask for `limit=400` and the first page returns 400 with a
+    `{"rel": "next", "href": "...&after_gid=400"}` link, the second returns
+    96 with no `next` at all. That last page is the one to keep in mind: 96
+    returned against 496 matched, counts differing, nothing left to fetch.
+    Differing counts mean the response is partial, not that another page is
+    waiting, which is why the loop below keys on the link and not on them.
 
     Paging is keyset-based (`after_gid`), not offset-based, so a page never
     shifts under you while you read. GeoLens omits the `next` link on the last
