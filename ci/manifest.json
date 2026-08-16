@@ -1,47 +1,94 @@
 [
   {
     "path": "maplibre/vector-tiles.html",
-    "expect": "render",
-    "wait": 8000
+    "wait": 8000,
+    "requireUrls": [
+      "/api/tiles/data.nyc_subway_lines_mta/"
+    ],
+    "minDataResponses": 3
   },
   {
     "path": "maplibre/features.html",
-    "expect": "render",
-    "wait": 8000
+    "wait": 8000,
+    "requireUrls": [
+      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
+      "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
+    ],
+    "minDataResponses": 2,
+    "requireColors": [
+      "#4da3ff",
+      "#ffd166"
+    ]
   },
   {
     "path": "maplibre/imagery.html",
-    "expect": "render",
-    "wait": 8000
+    "wait": 8000,
+    "requireUrls": [
+      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+    ],
+    "minDataResponses": 4
   },
   {
     "path": "arcgis-js/features.html",
-    "expect": "render",
-    "wait": 20000
+    "wait": 20000,
+    "requireUrls": [
+      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
+      "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
+    ],
+    "minDataResponses": 2,
+    "requireColors": [
+      "#4da3ff",
+      "#ffd166"
+    ]
   },
   {
     "path": "arcgis-js/imagery.html",
-    "expect": "render",
-    "wait": 20000
+    "wait": 20000,
+    "requireUrls": [
+      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+    ],
+    "minDataResponses": 4
   },
   {
     "path": "leaflet/features.html",
-    "expect": "render",
-    "wait": 8000
+    "wait": 8000,
+    "requireUrls": [
+      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
+      "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
+    ],
+    "minDataResponses": 2,
+    "requireColors": [
+      "#4da3ff",
+      "#ffd166"
+    ]
   },
   {
     "path": "leaflet/imagery.html",
-    "expect": "render",
-    "wait": 8000
+    "wait": 8000,
+    "requireUrls": [
+      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+    ],
+    "minDataResponses": 4
   },
   {
     "path": "openlayers/features.html",
-    "expect": "render",
-    "wait": 8000
+    "wait": 8000,
+    "requireUrls": [
+      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
+      "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
+    ],
+    "minDataResponses": 2,
+    "requireColors": [
+      "#4da3ff",
+      "#ffd166"
+    ]
   },
   {
     "path": "openlayers/imagery.html",
-    "expect": "render",
-    "wait": 8000
+    "wait": 8000,
+    "requireUrls": [
+      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+    ],
+    "minDataResponses": 4
   }
 ]
