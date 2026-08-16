@@ -23,26 +23,29 @@
   // /api/collections/<dataset_id>) rather than hand-building it — the link
   // carries the .png extension and a cache-version query the server expects:
   //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>
-  // For a private dataset, append `&api_key=<key>` to the template.
+  // For a private dataset, mint a scoped token from
+  // GET /api/tiles/token/<dataset_id>/ and use the tile_url it returns. It
+  // carries sig, exp and scope, covers that one dataset, and expires on the
+  // next 15-minute boundary. A pasted api_key does none of that. See
+  // "Authenticating against your own instance" in the README.
   const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
 
   const map = new ol.Map({
     target: "map",
     layers: [
       new ol.layer.Tile({
-        // No `crossOrigin` here, and that is deliberate. OpenLayers loads XYZ
-        // tiles into <img> elements; without a crossOrigin value the browser
-        // treats them as ordinary cross-origin images and displays them
-        // whether or not the server sends Access-Control-Allow-Origin. The
-        // demo's /raster-tiles route currently sends none (geolens#1464), so
-        // omitting crossOrigin is what keeps this example rendering.
+        // No `crossOrigin` here, which keeps this example working against any
+        // instance. OpenLayers loads XYZ tiles into <img> elements, and
+        // without a crossOrigin value the browser displays them whether or
+        // not the server sends Access-Control-Allow-Origin.
         //
         // The cost is that the tiles taint the canvas they are drawn into, so
-        // anything that reads pixels back fails: layer.getData(),
-        // map.forEachLayerAtPixel(), and exporting the map to a PNG. Setting
-        // `crossOrigin: "anonymous"` is what those need, and it will make the
-        // tiles fail to load entirely until #1464 lands. Against an instance
-        // that does send CORS headers, set it.
+        // anything reading pixels back fails: layer.getData(),
+        // map.forEachLayerAtPixel(), exporting the map to a PNG. Those need
+        // `crossOrigin: "anonymous"`, which in turn needs the CORS header.
+        // GeoLens has sent it on raster tiles since v1.13.0 (geolens#1464),
+        // so set it against a current instance and leave it off against an
+        // older one.
         source: new ol.source.XYZ({
           url: `${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`,
           tileSize: 256,
