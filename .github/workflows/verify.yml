@@ -8,34 +8,51 @@ on:
     - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC — examples rot silently without this
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# A superseded run tells you nothing about the head of the branch, so stop it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   browser:
     name: Browser examples vs live demo
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null
-          npm install playwright@1
+          # Exact version: the render assertions in ci/verify-examples.mjs are
+          # calibrated against this browser build, and playwright@1 floats.
+          npm install playwright@1.62.1
           npx playwright install --with-deps chromium
       - name: Serve repo and verify every page
         run: |
           python3 -m http.server 8000 &
           sleep 1
           node ci/verify-examples.mjs
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verify-diagnostics
+          path: ci/diagnostics/
+          if-no-files-found: ignore
 
   python:
     name: Python analysis example
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
       - name: Run the single-file analysis
         working-directory: python
         run: |
@@ -47,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
       - name: Spawn geolens-mcp against the demo and search
         run: uv run ci/check-mcp.py
