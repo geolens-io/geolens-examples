@@ -71,7 +71,7 @@ curl https://demo.getgeolens.com/api/tiles/token/6f03bafa-34b3-4902-9351-40ce09a
 #  "expires_in":530, ...}
 ```
 
-The signature is bound to that one dataset, and `exp` lands on the next 15-minute boundary. A leaked template is therefore worth minutes of read access to one layer, where a leaked API key is worth everything you can reach. `POST /api/tiles/tokens/` mints up to 50 in one call for a multi-layer map.
+The signature is bound to that one dataset, and `exp` is always a 15-minute boundary, usually the next one. When that boundary is under a minute away the mint skips to the following one instead, so a fresh token carries anywhere from 60 seconds to just under 16 minutes. Read `expires_in` off the response rather than assuming a fixed TTL. Either way a leaked template is worth minutes of read access to one layer, where a leaked API key is worth everything you can reach. `POST /api/tiles/tokens/` mints up to 50 in one call for a multi-layer map.
 
 Two properties decide whether this fits your page.
 
@@ -97,7 +97,9 @@ curl "https://demo.getgeolens.com/api/collections/724bf894-dc1a-418c-abc6-555798
 # { "numberMatched": 496, "numberReturned": 2 }
 ```
 
-`numberMatched` is what the query found; `numberReturned` is what this page contains. When they differ, you are holding one page of a longer result and the response carries a `rel="next"` link. Paging is keyset-based (`after_gid=`), so rows do not shift under a reader mid-scan, and the last page drops the `next` link. `python/analyze.py` follows it in a few lines.
+`numberMatched` is what the query found; `numberReturned` is what this page contains. When they differ you are holding a partial result, which is the signal that a one-shot fetch has truncated your data.
+
+It is not the signal that another page exists. Walk the stations collection at `limit=400` and the last page returns 96 of 496 matched, counts differing, with no `next` link on it. The `rel="next"` link is the authority: follow it until it stops appearing, and read the counts as a diagnostic rather than a loop condition. Paging is keyset-based (`after_gid=`), so rows do not shift under a reader mid-scan. `python/analyze.py` does exactly that in a few lines.
 
 ## License
 
