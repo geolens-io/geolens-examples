@@ -534,6 +534,14 @@ async function runOnce(page, scratch, entry) {
     if (!url.includes(DEMO_HOST)) return;
     demoResponses.push({ status: res.status(), url });
     if (res.status() === 200 && ITEMS_URL.test(url)) {
+      // Recorded synchronously, in the response handler, before any await can
+      // intervene. The read that fills it in is asynchronous, so if the
+      // assertions ever run before it resolves the entry is still `pending`
+      // and fails on that. Evidence that exists but was not waited for is
+      // evidence not checked, and this makes that state visible instead of
+      // absent.
+      const record = { url, features: 0, unreadable: null, mismatch: null, pending: true };
+      itemsBodies.push(record);
       bodyReads.push(
         res.json().then(
           (body) => {
@@ -543,27 +551,19 @@ async function runOnce(page, scratch, entry) {
             // client never received and could not draw — this file exists
             // because a 200 is a claim rather than evidence, so it must not
             // trust a count over the artifact.
+            record.pending = false;
             const features = Array.isArray(body?.features) ? body.features : null;
             if (features === null) {
-              itemsBodies.push({
-                url,
-                features: 0,
-                unreadable: "parsed as JSON but carries no features array, so it is not a FeatureCollection",
-              });
+              record.unreadable = "parsed as JSON but carries no features array, so it is not a FeatureCollection";
               return;
             }
+            record.features = features.length;
             const claimed = body?.numberReturned;
-            itemsBodies.push({
-              url,
-              features: features.length,
-              unreadable: null,
-              // Worth its own failure rather than silently preferring one:
-              // if these ever disagree it is a server bug, not a test nuance.
-              mismatch:
-                typeof claimed === "number" && claimed !== features.length
-                  ? `claims numberReturned=${claimed} but carries ${features.length} feature(s)`
-                  : null,
-            });
+            // Worth its own failure rather than silently preferring one: if
+            // these ever disagree it is a server bug, not a test nuance.
+            if (typeof claimed === "number" && claimed !== features.length) {
+              record.mismatch = `claims numberReturned=${claimed} but carries ${features.length} feature(s)`;
+            }
           },
           // Recorded against the collection, never swallowed. A discarded
           // parse failure removes that collection from byCollection entirely,
@@ -573,7 +573,8 @@ async function runOnce(page, scratch, entry) {
           // proof. Required data that arrived and cannot be understood is a
           // failure, not an absence.
           (err) => {
-            itemsBodies.push({ url, features: 0, unreadable: String(err).split("\n")[0] });
+            record.pending = false;
+            record.unreadable = String(err).split("\n")[0];
           },
         ),
       );
@@ -584,7 +585,15 @@ async function runOnce(page, scratch, entry) {
   await page.waitForTimeout(entry.wait);
 
   const { crop, stats } = await renderProof(page, scratch, entry);
-  await Promise.allSettled(bodyReads);
+  // Promise.allSettled snapshots its iterable, so a body read appended while
+  // it is awaiting would never be waited on: with several ArcGIS /items
+  // requests in flight, one can land after the snapshot, and its body would
+  // then miss the assertions entirely. Drain until the list stops growing.
+  for (let drained = 0; drained < bodyReads.length; ) {
+    const batch = bodyReads.slice(drained);
+    drained = bodyReads.length;
+    await Promise.allSettled(batch);
+  }
 
   const ok2xx = demoResponses.filter((r) => r.status >= 200 && r.status < 300);
   const dataResponses = demoResponses.filter((r) => r.status === 200 && DATA_URL.test(r.url));
@@ -646,8 +655,14 @@ async function runOnce(page, scratch, entry) {
     if (mismatched.length > 0) {
       failures.push(`${collection} ${mismatched[0].mismatch} — the response contradicts itself`);
     }
+    const pending = bodies.filter((b) => b.pending);
     const unreadable = bodies.filter((b) => b.unreadable);
-    if (unreadable.length > 0) {
+    if (pending.length > 0) {
+      failures.push(
+        `${pending.length} of ${bodies.length} /items response(s) for ${collection} arrived but were never ` +
+          `finished being read, so this run cannot say what that layer received`,
+      );
+    } else if (unreadable.length > 0) {
       failures.push(
         `${unreadable.length} of ${bodies.length} /items response(s) for ${collection} answered 200 with a body ` +
           `that could not be parsed (${unreadable[0].unreadable}) — required data arrived and cannot be understood`,
