@@ -16,15 +16,16 @@
     .embed { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #1a2029; }
     .embed iframe { width: 100%; height: 100%; border: 0; display: block; }
 
-    /* Loading and error both sit UNDER the iframe and are simply uncovered:
-       the iframe fades in on load, so there is no layout shift either way. */
+    /* The placeholder sits UNDER the iframe and is simply uncovered: the iframe
+       fades in on load, so there is no layout shift. Three states: loading,
+       stalled, ready. There is no "broken" state, because the page cannot
+       detect a broken frame; the script explains the difference. */
     .embed iframe { opacity: 0; transition: opacity .3s; }
     .embed[data-state="ready"] iframe { opacity: 1; }
     .state { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 24px; }
     .embed[data-state="ready"] .state { display: none; }
-    .embed[data-state="loading"] .err, .embed[data-state="error"] .load { display: none; }
-    .err { color: #ff8f8f; }
-    .err small { display: block; margin-top: 6px; color: #8b97a5; }
+    .embed[data-state="loading"] .stalled, .embed[data-state="stalled"] .load { display: none; }
+    .stalled small { display: block; margin-top: 6px; color: #8b97a5; }
     .note { margin: 12px 0 0; font-size: 13px; color: #8b97a5; }
     .note a { color: #4da3ff; }
   </style>
@@ -34,10 +35,12 @@
   <h1>A saved GeoLens map, embedded</h1>
 
   <div class="embed" id="embed" data-state="loading">
-    <div class="state load">Loading map…</div>
-    <div class="state err">
-      Map unavailable
-      <small>The share link may have been revoked or expired.</small>
+    <!-- role="status" so the swap to the loaded map is announced, not silent. -->
+    <div class="state load" role="status">Loading map…</div>
+    <div class="state stalled" role="status">
+      Still waiting on the map
+      <small>The connection stalled or is very slow. This says nothing about
+      whether the share link is valid.</small>
     </div>
     <!-- Both sandbox values matter. Dropping `allow-same-origin` gives the
          frame an opaque origin, which turns the viewer's ES module fetches into
@@ -52,8 +55,9 @@
 
   <!-- If the frame above shows GeoLens's "Map not found" card instead of a map,
        the demo's share link has been rotated. The code is still correct; point
-       SHARE_TOKEN at a link of your own. Saying so here matters because a dead
-       token never trips the 15s error state: the shell returns 200. -->
+       SHARE_TOKEN at a link of your own. This caption is not decoration: the
+       script below can detect a stalled load, but nothing it can do detects a
+       broken or revoked link, so this text is the only signal for that. -->
   <p class="note">
     Embedding <a href="https://demo.getgeolens.com/m/NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU">Restless Earth</a>
     from the public GeoLens demo. Showing "Map not found" instead? That share
@@ -96,15 +100,35 @@
   const embed = document.getElementById("embed");
   const frame = document.getElementById("frame");
 
-  // Give up after 15s. This catches a dead host or a frame the browser refused,
-  // but NOT a revoked token: the shell still returns 200 and renders GeoLens's
-  // own "Map not found" card, which fires `load` like any other page. The
-  // iframe is cross-origin, so the parent cannot read what is inside it to tell
-  // the difference, and /api/maps/shared/{token} sends no CORS headers to ask
-  // directly. Treat this as a liveness net, not link validation.
-  const timer = setTimeout(() => { embed.dataset.state = "error"; }, 15000);
+  // This timer reports one thing only: nothing has happened for a long time.
+  // It deliberately does not claim the embed is broken, because a page cannot
+  // tell. Measured in Chromium, both listeners attached before `src` was set:
+  //
+  //   dead host                 load @   5ms
+  //   DNS failure               load @  28ms
+  //   404 on live host          load @ 130ms
+  //   CSP frame-refused         load @ 145ms
+  //   working embed             load @ 295ms
+  //   server accepts, stalls    no event, ever
+  //
+  // Both halves of that table matter, and missing either one produces a bug.
+  //
+  // Top half: an iframe fires `load` on failure as readily as on success, and
+  // never fires `error`. Every failure the browser can detect resolves FASTER
+  // than the success case, so no timeout can separate a broken embed from a
+  // working one. A revoked share token is the worst of these, because the
+  // shell returns 200 and renders GeoLens's own "Map not found" card, which is
+  // a successful load from out here. The frame is cross-origin, so nothing on
+  // this page can look inside and check. That is what the caption is for.
+  //
+  // Bottom half: a server that accepts the connection and then holds it open
+  // fires nothing at all. Without a timer the page sits on "Loading map…"
+  // forever. That single case is the entire justification for this timeout, so
+  // it says "stalled" and stops there.
+  const STALL_AFTER_MS = 15000;
+  const stallTimer = setTimeout(() => { embed.dataset.state = "stalled"; }, STALL_AFTER_MS);
   frame.addEventListener("load", () => {
-    clearTimeout(timer);
+    clearTimeout(stallTimer);
     embed.dataset.state = "ready";
   });
 

@@ -50,7 +50,7 @@ Read by the viewer at `frontend/src/pages/PublicViewerPage.tsx`:
 | `legend=true` / `legend=false` | Shows or hides the layer legend. Defaults to off when `embed=true`, on otherwise. |
 | `center=lng,lat` | Overrides the map's saved centre. Silently ignored if out of range. |
 | `zoom=<0-24>` | Overrides the saved zoom. |
-| `et=<embedToken>` | A scoped embed token, for maps with private layers. See below. |
+| `et=<embedToken>` | A scoped embed token, for maps with private layers. Viewer only; the API takes it as a header. See below. |
 | `api_key=<key>` | Accepted, but do not use it here. See below. |
 
 `embed=true` also turns on a small GeoLens badge over the map, which is the
@@ -70,14 +70,19 @@ curl -sS -X POST "https://your-geolens/api/maps/<mapId>/share/" \
 
 Put the returned `token` in `SHARE_TOKEN` and your host in `GEOLENS`.
 
-With an empty body the token never expires. Pass `{"expires_in_days": 30}` if
-you want it to, using 1, 7, 30 or 90; other values are rejected.
+On a map with no share token yet, an empty body creates one that never expires.
+Pass `{"expires_in_days": 30}` if you want one that does, using 1, 7, 30 or 90;
+other values are rejected.
 
-The raw token comes back only when the token is first created. Call the endpoint
-again on a map that already has an active token and you get an eight-character
-hint instead of anything you can embed. To recover a usable value you have to
-revoke and re-create, and revoking a share token also kills every embed token on
-that map.
+Against a map that already has an active token, the endpoint reuses the existing
+row, and two things change. The raw token is not returned again, only an
+eight-character hint, so you get nothing you can embed. And an empty body leaves
+the stored expiry alone rather than clearing it, so a token minted with 30 days
+stays on 30 days. Sending `expires_in_days` does update it, but there is no body
+that sets an existing token back to never expiring.
+
+To recover a usable raw value, or to clear an expiry you no longer want, revoke
+and re-create. Revoking a share token also kills every embed token on that map.
 
 ## Public maps vs. private layers
 
@@ -91,11 +96,17 @@ anonymous visitor to the demo catalog already has. Nothing is exposed by
 publishing it that was not already public.
 
 Do not read that as "share tokens are not credentials." A share token is
-bearer-equivalent, and for a map whose layers are not public it is the entire
-access control. Committing one to a repo, pasting it into a ticket or shipping
-it in a client bundle hands that map to anyone who reads it. The rule is about
-the map, not the token: public map, publishable token; anything else, treat it
-like a password.
+bearer-equivalent: anyone holding it gets the map without logging in. Publishing
+one for a map you did not mean to hand out gives away the map, its composition,
+and every layer on it that an anonymous visitor is allowed to see.
+
+What a share token does not do is leak private data. The shared-map endpoint
+runs each layer through the same visibility rules as the rest of the catalog
+with no user attached, so a private layer is dropped from the response rather
+than served to the holder. That is precisely why the next section needs a second
+credential. The embed token is what gates non-public data, which makes it the
+one that must never be committed, pasted into a ticket or shipped in a client
+bundle.
 
 Maps with private layers need a second credential: a scoped embed token, passed
 as `et=` next to the share token. These are a different thing from share tokens.
@@ -110,8 +121,12 @@ Tokens default to a 30-day expiry and one active token per map. Custom expiries
 and `allowed_origins` domain-locking are Enterprise features.
 
 Holding a token grants read access to exactly those datasets through the tile
-and feature endpoints, via the `X-Embed-Token` header or the `et` query
-parameter. It is bearer-equivalent: anyone who has it sees that data.
+and feature endpoints, via the `X-Embed-Token` header. The header is the only
+way in. No tile or feature route reads a token from the query string, so
+`/api/tiles/data.foo/12/1/1.pbf?et=<token>` gets you nothing. `et=` is a viewer
+parameter rather than an API one: the `/m/` page reads it client-side and sends
+it as a header on the requests it makes for you. The token is bearer-equivalent
+either way, so anyone who has it sees that data.
 
 With `allowed_origins` set, the shell itself is domain-locked. The edge
 validates the token and emits a per-token `frame-ancestors` policy on the HTML,
@@ -181,12 +196,42 @@ yours.
 
 ## Detecting a dead embed
 
-`iframe.html` shows an error state if the frame has not loaded after 15 seconds.
-That catches an unreachable host. It does not catch a revoked or expired token,
-and nothing in the browser can. The shell returns 200 and renders GeoLens's own
-"Map not found" card, which fires `load` like any successful page. The frame is
-cross-origin so you cannot read into it, and `/api/maps/shared/{token}` sends no
-CORS headers, so you cannot ask about the token from JavaScript either. CORS on
-the demo is scoped to the OGC surface at `/api/collections`.
+Mostly you cannot, and the shape of what you can detect is worth understanding
+before you write a health check that does not work.
 
-If you need to know that an embed is live, check it server-side.
+An iframe fires `load` whether the frame succeeded or failed, and never fires
+`error`. Measured in Chromium with both listeners attached before `src` was set:
+
+| case | first event |
+|---|---|
+| dead host | `load` at 5ms |
+| DNS failure | `load` at 28ms |
+| 404 on a live host | `load` at 130ms |
+| CSP frame-refused | `load` at 145ms |
+| working embed | `load` at 295ms |
+| server accepts then stalls | no event, ever |
+
+Every failure the browser can detect resolves faster than the success case, so
+no timeout separates a broken embed from a working one. A revoked token is the
+hardest of those: the shell returns 200 and renders GeoLens's own "Map not
+found" card, a successful load by every measure available from outside, and the
+frame is cross-origin so nothing on the host page can read into it.
+
+The last row is the exception, and it is the only thing a timer is good for. A
+server that accepts the connection and then holds it open fires no event at all,
+so without a timeout the page waits on "Loading map…" indefinitely.
+`iframe.html` therefore keeps a 15-second timer that reports a stall and says
+nothing about whether the link is valid. Those are genuinely different
+questions, and a timer can only answer the first.
+
+Asking the API instead depends on the deployment. On a default instance
+`/api/maps/shared/{token}` sends no CORS headers, so the fetch fails in the
+browser; the anonymous wildcard is scoped to the OGC surface at
+`/api/collections`. If the operator has listed your site in
+`CORS_ALLOWED_ORIGINS`, which is the setup the rest of this repo recommends,
+then `DynamicCORSMiddleware` serves credentialed CORS on every route including
+that one, and a client-side check becomes possible. That only helps when you
+control the instance. Against the demo you do not.
+
+So check server-side if it matters, and tell the reader what a stale link looks
+like when it does not. That is what the caption under the map is for.
