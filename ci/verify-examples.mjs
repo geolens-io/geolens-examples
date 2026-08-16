@@ -23,6 +23,11 @@
 //   5. Something actually painted: in the middle of the viewport the pixels
 //      are not a flat fill. See renderProof() for why that check is shaped the
 //      way it is.
+//   6. Each documented layer painted, for entries that list `requireColors`.
+//      Check 5 only proves the page is not blank, which one surviving layer
+//      satisfies on its own. Every entry drawing more than one layer carries
+//      requireColors; a single-layer page does not need it, because there
+//      "something painted" and "that layer painted" are the same statement.
 //
 // Checks 2-5 are what separate this from a smoke test. HTTP 200 on a vector
 // tile proves nothing about the map: name the source-layer wrong and every
@@ -35,6 +40,10 @@
 //   requireUrls       string[]  required  substrings, each of which must appear
 //                                         in a successful demo response URL
 //   minDataResponses  number    required  see 3 above
+//   requireColors     string[]  optional  "#rrggbb" of each layer the example
+//                                         documents drawing; each must cover
+//                                         minColorPixels pixels of the crop
+//   minColorPixels    number    optional  overrides DEFAULTS
 //   minDistinctColors number    optional  overrides DEFAULTS
 //   minInkFraction    number    optional  overrides DEFAULTS
 //   cropFraction      number    optional  overrides DEFAULTS
@@ -84,6 +93,12 @@ const DEFAULTS = {
   cropFraction: 0.6,
   minDistinctColors: 32,
   minInkFraction: 0.01,
+  // Pixels of an exact requireColors match needed to call that layer drawn.
+  // Measured across all four libraries, the documented colors survive to the
+  // screenshot unconverted and land between 1264 and 12034 pixels, while the
+  // largest antialiased blend around them is about 120. 200 sits an order of
+  // magnitude below the tightest real layer and well above the blends.
+  minColorPixels: 200,
 };
 
 const DATA_URL = /\/items(\?|$)|\.pbf|\.png/;
@@ -119,7 +134,8 @@ function hostOf(url) {
 const IGNORED_REQUEST_FAILURE = /net::ERR_ABORTED/;
 
 const REQUIRED_KEYS = ["path", "wait", "requireUrls", "minDataResponses"];
-const OPTIONAL_KEYS = ["minDistinctColors", "minInkFraction", "cropFraction"];
+const OPTIONAL_KEYS = ["minDistinctColors", "minInkFraction", "cropFraction", "requireColors", "minColorPixels"];
+const HEX_COLOR = /^#[0-9a-f]{6}$/;
 
 // Floors that cannot be configured away. Checking that a key exists is not the
 // same as checking that its value means anything, and every bound below exists
@@ -164,7 +180,26 @@ function validateEntry(entry, where, problems) {
   }
 
   const { path, wait, requireUrls, minDistinctColors, minInkFraction, cropFraction } = entry ?? {};
+  const { requireColors, minColorPixels } = entry ?? {};
   const minDataResponses = entry?.minDataResponses;
+
+  if (requireColors !== undefined) {
+    if (!Array.isArray(requireColors) || requireColors.length === 0) {
+      problems.push(`${where}: requireColors must be a non-empty array of "#rrggbb" strings`);
+    } else {
+      for (const color of requireColors) {
+        if (typeof color !== "string" || !HEX_COLOR.test(color)) {
+          problems.push(`${where}: requireColors entry ${JSON.stringify(color)} must be lowercase "#rrggbb"`);
+        }
+      }
+    }
+  }
+  if (minColorPixels !== undefined && !isPositiveInt(minColorPixels)) {
+    problems.push(
+      `${where}: minColorPixels must be a positive integer, got ${JSON.stringify(minColorPixels)}. ` +
+        `Zero would be satisfied by a layer that painted nothing.`,
+    );
+  }
 
   if (path !== undefined && (typeof path !== "string" || path.trim() === "")) {
     problems.push(`${where}: path must be a non-empty string`);
@@ -379,8 +414,8 @@ async function assertServerServesThisCheckout(manifest) {
 
 // Decode the screenshot in the browser we already have rather than pulling in
 // a PNG library: a data: URL is CORS-clean, so getImageData() works on it.
-async function pixelStats(scratch, png) {
-  return scratch.evaluate(async (src) => {
+async function pixelStats(scratch, png, requireColors = []) {
+  return scratch.evaluate(async ([src, wanted]) => {
     const img = new Image();
     img.src = src;
     await img.decode();
@@ -405,12 +440,15 @@ async function pixelStats(scratch, png) {
       }
     }
     const total = data.length / 4;
+    const colorCounts = {};
+    for (const hex of wanted) colorCounts[hex] = counts.get(parseInt(hex.slice(1), 16)) ?? 0;
     return {
       distinct: counts.size,
       modal: `#${modal.toString(16).padStart(6, "0")}`,
       inkFraction: 1 - modalCount / total,
+      colorCounts,
     };
-  }, `data:image/png;base64,${png.toString("base64")}`);
+  }, [`data:image/png;base64,${png.toString("base64")}`, requireColors]);
 }
 
 // One check for all nine pages, because the thing they have in common is the
@@ -436,7 +474,7 @@ async function renderProof(page, scratch, entry) {
       height,
     },
   });
-  return { crop, stats: await pixelStats(scratch, crop) };
+  return { crop, stats: await pixelStats(scratch, crop, entry.requireColors ?? []) };
 }
 
 async function runOnce(page, scratch, entry) {
@@ -481,10 +519,32 @@ async function runOnce(page, scratch, entry) {
       bodyReads.push(
         res.json().then(
           (body) => {
+            // The features array is the evidence; numberReturned is the
+            // server's claim about itself. Taking the larger of the two let
+            // {"numberReturned": 496, "features": []} record 496 features the
+            // client never received and could not draw — this file exists
+            // because a 200 is a claim rather than evidence, so it must not
+            // trust a count over the artifact.
+            const features = Array.isArray(body?.features) ? body.features : null;
+            if (features === null) {
+              itemsBodies.push({
+                url,
+                features: 0,
+                unreadable: "parsed as JSON but carries no features array, so it is not a FeatureCollection",
+              });
+              return;
+            }
+            const claimed = body?.numberReturned;
             itemsBodies.push({
               url,
-              features: Math.max(body?.numberReturned ?? 0, body?.features?.length ?? 0),
+              features: features.length,
               unreadable: null,
+              // Worth its own failure rather than silently preferring one:
+              // if these ever disagree it is a server bug, not a test nuance.
+              mismatch:
+                typeof claimed === "number" && claimed !== features.length
+                  ? `claims numberReturned=${claimed} but carries ${features.length} feature(s)`
+                  : null,
             });
           },
           // Recorded against the collection, never swallowed. A discarded
@@ -564,6 +624,10 @@ async function runOnce(page, scratch, entry) {
     byCollection.get(collection).push(body);
   }
   for (const [collection, bodies] of byCollection) {
+    const mismatched = bodies.filter((b) => b.mismatch);
+    if (mismatched.length > 0) {
+      failures.push(`${collection} ${mismatched[0].mismatch} — the response contradicts itself`);
+    }
     const unreadable = bodies.filter((b) => b.unreadable);
     if (unreadable.length > 0) {
       failures.push(
@@ -579,6 +643,20 @@ async function runOnce(page, scratch, entry) {
   }
   if (stats.distinct < minDistinct || stats.inkFraction < minInk) {
     failures.push(`nothing painted: center of the viewport has ${stats.distinct} distinct colors (need ${minDistinct}) and ${(stats.inkFraction * 100).toFixed(2)}% non-background pixels (need ${(minInk * 100).toFixed(2)}%), modal color ${stats.modal}`);
+  }
+  // Per documented layer, where the checks above only prove that something
+  // painted. Delete the stations layer from a features page and both /items
+  // responses stay populated, both collections pass, and the surviving lines
+  // clear the ink and distinct-color floors on their own.
+  const minColorPixels = entry.minColorPixels ?? DEFAULTS.minColorPixels;
+  for (const color of entry.requireColors ?? []) {
+    const painted = stats.colorCounts?.[color] ?? 0;
+    if (painted < minColorPixels) {
+      failures.push(
+        `the layer painted ${color} covers ${painted} pixel(s), need ${minColorPixels} — ` +
+          `a documented layer is not drawing even though the page renders`,
+      );
+    }
   }
 
   const summary =

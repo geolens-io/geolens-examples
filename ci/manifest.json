@@ -2,7 +2,9 @@
   {
     "path": "maplibre/vector-tiles.html",
     "wait": 8000,
-    "requireUrls": ["/api/tiles/data.nyc_subway_lines_mta/"],
+    "requireUrls": [
+      "/api/tiles/data.nyc_subway_lines_mta/"
+    ],
     "minDataResponses": 3
   },
   {
@@ -12,12 +14,18 @@
       "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
       "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
     ],
-    "minDataResponses": 2
+    "minDataResponses": 2,
+    "requireColors": [
+      "#4da3ff",
+      "#ffd166"
+    ]
   },
   {
     "path": "maplibre/imagery.html",
     "wait": 8000,
-    "requireUrls": ["/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"],
+    "requireUrls": [
+      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+    ],
     "minDataResponses": 4
   },
   {
@@ -27,12 +35,18 @@
       "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
       "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
     ],
-    "minDataResponses": 2
+    "minDataResponses": 2,
+    "requireColors": [
+      "#4da3ff",
+      "#ffd166"
+    ]
   },
   {
     "path": "arcgis-js/imagery.html",
     "wait": 20000,
-    "requireUrls": ["/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"],
+    "requireUrls": [
+      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+    ],
     "minDataResponses": 4
   },
   {
@@ -42,12 +56,18 @@
       "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
       "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
     ],
-    "minDataResponses": 2
+    "minDataResponses": 2,
+    "requireColors": [
+      "#4da3ff",
+      "#ffd166"
+    ]
   },
   {
     "path": "leaflet/imagery.html",
     "wait": 8000,
-    "requireUrls": ["/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"],
+    "requireUrls": [
+      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+    ],
     "minDataResponses": 4
   },
   {
@@ -57,12 +77,18 @@
       "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
       "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
     ],
-    "minDataResponses": 2
+    "minDataResponses": 2,
+    "requireColors": [
+      "#4da3ff",
+      "#ffd166"
+    ]
   },
   {
     "path": "openlayers/imagery.html",
     "wait": 8000,
-    "requireUrls": ["/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"],
+    "requireUrls": [
+      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+    ],
     "minDataResponses": 4
   }
 ]
