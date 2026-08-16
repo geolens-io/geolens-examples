@@ -35,8 +35,9 @@
   //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>
   // For a private dataset, mint a scoped token from
   // GET /api/tiles/token/<dataset_id>/ and use the tile_url it returns. It
-  // carries sig, exp and scope, covers that one dataset, and expires on the
-  // next 15-minute boundary. A pasted api_key does none of that. See
+  // carries sig, exp and scope, covers that one dataset, and expires on a
+  // 15-minute boundary, so between 1 and 16 minutes from now; read expires_in
+  // rather than assuming a TTL. A pasted api_key does none of that. See
   // "Authenticating against your own instance" in the README.
   const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
 

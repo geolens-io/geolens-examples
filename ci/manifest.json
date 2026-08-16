@@ -90,5 +90,22 @@
       "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
     ],
     "minDataResponses": 4
+  },
+  {
+    "path": "typescript/catalog-map.html",
+    "wait": 18000,
+    "requireUrls": [
+      "/api/collections/datasets/items",
+      "/api/tiles/data."
+    ],
+    "minDataResponses": 3
+  },
+  {
+    "path": "embed/iframe.html",
+    "wait": 24000,
+    "requireUrls": [
+      "/m/NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU"
+    ],
+    "minDataResponses": 10
   }
 ]

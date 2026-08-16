@@ -294,8 +294,10 @@ function loadManifest() {
 //                                         the table asserting that every
 //                                         browser row is checked)
 //
-// Rows offering a command instead (`uv run analyze.py`, `uvx geolens-mcp`) are
-// verified by other jobs, and rows saying Planned assert nothing. Both are
+// Rows offering a command instead (`uv run python/analyze.py`, the `claude mcp
+// add` line) are verified by other jobs, and rows saying Planned assert
+// nothing. Those two rows are the only ones nothing reads, which is why they
+// drifted from index.html for a full review round — see issue #16. Both are
 // recognised by what the row offers rather than by directory name, so new
 // planned rows and new tools keep working without editing this file.
 //
