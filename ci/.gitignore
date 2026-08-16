@@ -1,2 +1,5 @@
 # Failure evidence written by verify-examples.mjs; CI uploads it as an artifact.
 diagnostics/
+
+# Left behind if anyone imports check-mcp.py rather than running it.
+__pycache__/

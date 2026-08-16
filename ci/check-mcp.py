@@ -66,15 +66,33 @@ def documented_spec() -> str:
 def _returned_count(content) -> int:
     """How many datasets the tool actually returned.
 
-    The server answers with a GeoJSON-shaped FeatureCollection in a text block.
-    Anything unparseable counts as zero rather than passing by default.
+    The features array is the evidence; numberReturned is the server's claim
+    about itself. Taking the larger of the two let a response of
+    {"numberReturned": 1, "features": []} report one dataset the client never
+    received, which is the same metadata-over-artifact hole the browser
+    verifier had. Every way of being unreadable raises rather than returning a
+    number, so a body this cannot understand fails instead of counting as zero
+    and hiding behind some other assertion.
     """
     text = "".join(getattr(block, "text", "") or "" for block in content)
     try:
         body = json.loads(text)
-    except (json.JSONDecodeError, TypeError):
-        return 0
-    return max(int(body.get("numberReturned") or 0), len(body.get("features") or []))
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise AssertionError(f"search_datasets returned a body that is not JSON: {exc}") from exc
+
+    features = body.get("features") if isinstance(body, dict) else None
+    if not isinstance(features, list):
+        raise AssertionError(
+            "search_datasets returned JSON with no features array, so it is not a FeatureCollection"
+        )
+
+    claimed = body.get("numberReturned")
+    if isinstance(claimed, int) and claimed != len(features):
+        raise AssertionError(
+            f"search_datasets claims numberReturned={claimed} but carries {len(features)} "
+            "feature(s) — the response contradicts itself"
+        )
+    return len(features)
 
 
 async def check(spec: str) -> None:

@@ -58,7 +58,7 @@
 //   PAGE_GAP_MS=1500                      idle between page loads, to spare the demo
 //   DIAGNOSTICS_DIR=ci/diagnostics        where failure evidence is written
 import { chromium } from "playwright";
-import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -324,9 +324,27 @@ function checkReadmeAgainstCi(manifest) {
   const problems = [];
 
   const manifestPaths = new Set(manifest.map((e) => e.path));
-  const manifestDirs = new Set(manifest.map((e) => e.path.split("/")[0]));
-  const isBacked = (path) =>
-    path.endsWith("/") ? manifestDirs.has(path.slice(0, -1)) : manifestPaths.has(path);
+
+  // A directory claim covers every browser example the directory holds, not
+  // whichever one happens to have an entry. Backing it by "any entry under
+  // this directory" let a tenth maplibre example land unverified while the
+  // other three kept the row green, and let an entry be deleted while the row
+  // still claimed it — the drift this check exists to catch, surviving inside
+  // the check.
+  const unbacked = (path) => {
+    if (!path.endsWith("/")) return manifestPaths.has(path) ? [] : [path];
+    const dir = path.slice(0, -1);
+    let examples;
+    try {
+      examples = readdirSync(join(REPO, dir), { withFileTypes: true })
+        .filter((d) => d.isFile() && d.name.endsWith(".html"))
+        .map((d) => `${dir}/${d.name}`);
+    } catch {
+      return [`${path} (no such directory in this checkout)`];
+    }
+    if (examples.length === 0) return [`${path} (contains no browser examples)`];
+    return examples.filter((e) => !manifestPaths.has(e));
+  };
 
   const rows = readme.split("\n").filter((l) => l.trimStart().startsWith("|"));
   const claiming = rows.filter(claimsVerification);
@@ -349,10 +367,10 @@ function checkReadmeAgainstCi(manifest) {
       continue;
     }
     for (const path of paths) {
-      if (!isBacked(path)) {
+      for (const missing of unbacked(path)) {
         problems.push(
-          `README.md offers ${path} as checked against the live demo, but ci/manifest.json has no entry for it, ` +
-            `so nothing checks it. Add a manifest entry, or stop claiming the row is verified.`,
+          `README.md offers ${path} as checked against the live demo, but ci/manifest.json has no entry for ` +
+            `${missing}, so nothing checks it. Add a manifest entry, or stop claiming the row is verified.`,
         );
       }
     }
