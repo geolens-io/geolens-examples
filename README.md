@@ -27,7 +27,7 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 | `duckdb/` | DuckDB | SQL directly over the Features API | Planned |
 | `cli/` | geolens CLI | Catalog-as-code | Planned |
 
-Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and each documented layer painted, not just that the requests returned 200. Both Python examples run green with one command.
+Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted, not just that the requests returned 200. Where an example draws two layers of its own, it also asserts each one painted, by colour. The embedded map is the exception: it renders seven layers GeoLens styles server-side, so CI proves the frame loaded and its tiles flowed, not that every layer is present. Both Python examples run green with one command.
 
 MapLibre examples also work with Mapbox GL JS with minimal changes (both consume the same MVT and raster sources).
 

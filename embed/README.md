@@ -18,6 +18,12 @@ and on a weekly schedule, and fails if the frame stops rendering the map. So a
 revoked link surfaces as a red build rather than as a blank box someone
 eventually notices.
 
+What that check does not cover: "Restless Earth" draws seven layers, and GeoLens
+styles them server-side. CI asserts the frame loaded and its tiles flowed, not
+that all seven are present, because pinning their colours here would turn a
+restyle of the demo map into a failing build in this repo. One layer could
+disappear without CI noticing.
+
 ## The URL
 
 ```
