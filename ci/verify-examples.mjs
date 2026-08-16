@@ -155,46 +155,77 @@ function loadManifest() {
 // check in either direction would have passed that, because every path was
 // present and correctly documented. The lie was in the claim.
 //
-// A row claims verification if it says "verified". "Planned" and "Ready" rows
-// assert nothing and need no backing, which is why the exemption is written as
-// what the row claims rather than a list of directory names: new planned rows
-// will appear and must not need an entry here.
+// A row claims verification in one of two forms, because the table has already
+// changed shape once mid-flight:
 //
-// Rows are read whole, never by column position. ws4-gallery is reshaping this
-// table and more rows are coming; a check that breaks when someone adds a
-// column gets deleted the first time it is inconvenient.
-const CLAIMS_VERIFICATION = /\bverified\b/i;
-const DIR_IN_BACKTICKS = /`([A-Za-z0-9][\w.-]*)\//g;
-const DIR_IN_LINK_TARGET = /\]\(([A-Za-z0-9][\w.-]*)\//g;
+//   "Verified live" in a Status column   (the older shape; note the Python row
+//                                         said "Verified: runs green with one
+//                                         command", which is a different claim
+//                                         and correctly does not match)
+//   a [Live](...) link in a Run it cell  (the current shape, where the claim
+//                                         itself moved into one sentence under
+//                                         the table asserting that every
+//                                         browser row is checked)
+//
+// Rows offering a command instead (`uv run analyze.py`, `uvx geolens-mcp`) are
+// verified by other jobs, and rows saying Planned assert nothing. Both are
+// recognised by what the row offers rather than by directory name, so new
+// planned rows and new tools keep working without editing this file.
+//
+// Rows are read whole, never by column position: this table gained a column
+// change and a semantic relocation in a single commit, and a check that breaks
+// on that gets deleted the first time it is inconvenient.
+const CLAIM_MARKERS = [/verified live/i, /\[Live\]\(/i];
+const claimsVerification = (row) => CLAIM_MARKERS.some((re) => re.test(row));
 
-function directoriesIn(row) {
-  const dirs = new Set();
-  for (const re of [DIR_IN_BACKTICKS, DIR_IN_LINK_TARGET]) {
-    for (const m of row.matchAll(re)) dirs.add(m[1]);
+// Paths, not directories: rows now name the exact file, so `maplibre/x.html`
+// has to match a manifest entry rather than merely landing in a directory that
+// has some other entry in it. A trailing slash means the row names a directory.
+const PATH_IN_BACKTICKS = /`([A-Za-z0-9][\w.-]*\/[\w./-]*)`/g;
+const PATH_IN_LINK_TARGET = /\]\(([A-Za-z0-9][\w.-]*\/[\w./-]*)\)/g;
+
+function pathsIn(row) {
+  const paths = new Set();
+  for (const re of [PATH_IN_BACKTICKS, PATH_IN_LINK_TARGET]) {
+    for (const m of row.matchAll(re)) paths.add(m[1]);
   }
-  return dirs;
+  return paths;
 }
 
 function checkReadmeAgainstCi(manifest) {
   const readme = readFileSync(join(REPO, "README.md"), "utf8");
-  const workflow = readFileSync(join(REPO, ".github/workflows/verify.yml"), "utf8");
   const problems = [];
 
-  // A directory is backed if the manifest verifies a page inside it, or if the
-  // workflow names it (python/ is verified by its own job, not by the
-  // browser manifest).
+  const manifestPaths = new Set(manifest.map((e) => e.path));
   const manifestDirs = new Set(manifest.map((e) => e.path.split("/")[0]));
-  const isBacked = (dir) =>
-    manifestDirs.has(dir) || new RegExp(`\\b${dir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(workflow);
+  const isBacked = (path) =>
+    path.endsWith("/") ? manifestDirs.has(path.slice(0, -1)) : manifestPaths.has(path);
 
-  for (const row of readme.split("\n").filter((l) => l.trimStart().startsWith("|"))) {
-    if (!CLAIMS_VERIFICATION.test(row)) continue;
-    for (const dir of directoriesIn(row)) {
-      if (!isBacked(dir)) {
+  const rows = readme.split("\n").filter((l) => l.trimStart().startsWith("|"));
+  const claiming = rows.filter(claimsVerification);
+
+  // If the table gets reshaped again into something neither marker matches,
+  // this check would go on passing while asserting nothing at all, which is the
+  // failure it exists to prevent. So say so instead.
+  if (rows.length > 0 && claiming.length === 0) {
+    problems.push(
+      "no row in README.md claims verification in a form this check recognises, " +
+        "so it is asserting nothing. The table shape has probably changed again: " +
+        "update CLAIM_MARKERS in ci/verify-examples.mjs to match how a row now says it is checked.",
+    );
+  }
+
+  for (const row of claiming) {
+    const paths = pathsIn(row);
+    if (paths.size === 0) {
+      problems.push(`README.md row claims verification but names no example path: ${row.trim().slice(0, 90)}`);
+      continue;
+    }
+    for (const path of paths) {
+      if (!isBacked(path)) {
         problems.push(
-          `README.md claims \`${dir}/\` is verified, but nothing verifies it: ` +
-            `no ci/manifest.json entry under ${dir}/ and no mention in the workflow. ` +
-            `Add a manifest entry, or change the row's status to what is actually true.`,
+          `README.md offers ${path} as checked against the live demo, but ci/manifest.json has no entry for it, ` +
+            `so nothing checks it. Add a manifest entry, or stop claiming the row is verified.`,
         );
       }
     }
