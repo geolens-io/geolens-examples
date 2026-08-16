@@ -46,15 +46,24 @@ from matplotlib.lines import Line2D  # noqa: E402
 
 # Arguments beat environment, environment beats the demo:
 #     analyze.py [instance-url [lines-id stations-id]]
-# The two collection ids move together, since a run needs both.
+# The two collection ids move together, since a run needs both. Any other
+# count is a typo, and saying so is the whole point: a script that ignored
+# the extra argument would print your instance URL at the top and then
+# report the demo's subway, which is the kind of wrong you do not catch by
+# reading the output.
 ARGS = sys.argv[1:]
+if len(ARGS) == 2 or len(ARGS) > 3:
+    sys.exit(
+        "usage: analyze.py [instance-url [lines-id stations-id]]\n"
+        f"  got {len(ARGS)} arguments; pass both collection ids or neither"
+    )
 
 BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_URL", "https://demo.getgeolens.com")
 
 # Collection ids are dataset UUIDs. Find them at GET /api/collections, or in
 # the web UI under a dataset's "Share / API" panel.
-LINES_ID = ARGS[1] if len(ARGS) > 2 else "de602fbe-8b30-4755-924f-c9e7fd9613b6"
-STATIONS_ID = ARGS[2] if len(ARGS) > 2 else "724bf894-dc1a-418c-abc6-555798c44d7c"
+LINES_ID = ARGS[1] if len(ARGS) == 3 else "de602fbe-8b30-4755-924f-c9e7fd9613b6"
+STATIONS_ID = ARGS[2] if len(ARGS) == 3 else "724bf894-dc1a-418c-abc6-555798c44d7c"
 
 # Public datasets need no credentials. For a private dataset, send an API key
 # in the X-Api-Key header. GeoLens also accepts ?api_key= in the query string,
