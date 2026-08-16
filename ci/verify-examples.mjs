@@ -14,10 +14,12 @@
 //      with status 200 for a data URL (items / .pbf / .png). A 204 is the
 //      server saying "no tile here", so 204s are counted and reported but do
 //      not satisfy the minimum.
-//   4. The data was not empty: if the page fetched /items at all, at least one
-//      of those responses carried features. (At least one, not all — ArcGIS's
-//      OGCFeatureLayer fetches per-viewport-tile and legitimately gets empty
-//      answers for the tiles the data does not reach.)
+//   4. The data was not empty, per collection: every collection the page
+//      fetched items from produced at least one non-empty body of its own, and
+//      none of them answered 200 with a body that could not be parsed. (At
+//      least one non-empty rather than all, because ArcGIS's OGCFeatureLayer
+//      fetches the same collection once per viewport tile and legitimately
+//      gets empty answers for tiles the data does not reach.)
 //   5. Something actually painted: in the middle of the viewport the pixels
 //      are not a flat fill. See renderProof() for why that check is shaped the
 //      way it is.
@@ -477,15 +479,25 @@ async function runOnce(page, scratch, entry) {
     demoResponses.push({ status: res.status(), url });
     if (res.status() === 200 && ITEMS_URL.test(url)) {
       bodyReads.push(
-        res
-          .json()
-          .then((body) => {
+        res.json().then(
+          (body) => {
             itemsBodies.push({
               url,
               features: Math.max(body?.numberReturned ?? 0, body?.features?.length ?? 0),
+              unreadable: null,
             });
-          })
-          .catch(() => {}),
+          },
+          // Recorded against the collection, never swallowed. A discarded
+          // parse failure removes that collection from byCollection entirely,
+          // so a required layer serving garbage behind a 200 was skipped by
+          // the features check while the URL and response-count assertions
+          // both accepted the 200 and the surviving layer carried the paint
+          // proof. Required data that arrived and cannot be understood is a
+          // failure, not an absence.
+          (err) => {
+            itemsBodies.push({ url, features: 0, unreadable: String(err).split("\n")[0] });
+          },
+        ),
       );
     }
   });
@@ -552,7 +564,13 @@ async function runOnce(page, scratch, entry) {
     byCollection.get(collection).push(body);
   }
   for (const [collection, bodies] of byCollection) {
-    if (!bodies.some((b) => b.features > 0)) {
+    const unreadable = bodies.filter((b) => b.unreadable);
+    if (unreadable.length > 0) {
+      failures.push(
+        `${unreadable.length} of ${bodies.length} /items response(s) for ${collection} answered 200 with a body ` +
+          `that could not be parsed (${unreadable[0].unreadable}) — required data arrived and cannot be understood`,
+      );
+    } else if (!bodies.some((b) => b.features > 0)) {
       failures.push(
         `every /items response for ${collection} came back empty (${bodies.length} response(s), 0 features) — ` +
           `that layer is missing from the map even though the page still renders`,
@@ -654,8 +672,16 @@ for (const entry of entries) {
     }
 
     if (!passed && attempt === ATTEMPTS) {
-      const dir = writeDiagnostics(entry, last.failures, await last.collect());
-      console.log(`    diagnostics written to ${dir}`);
+      // Losing the evidence must not also lose the verdict: the failure is
+      // already recorded and printed, so a broken screenshot or an unreadable
+      // page here degrades to a note rather than crashing the run and
+      // truncating the summary of everything else.
+      try {
+        const dir = writeDiagnostics(entry, last.failures, await last.collect());
+        console.log(`    diagnostics written to ${dir}`);
+      } catch (err) {
+        console.log(`    could not write diagnostics: ${String(err).split("\n")[0]}`);
+      }
     }
     await page.close();
 
