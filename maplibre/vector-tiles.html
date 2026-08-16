@@ -27,9 +27,10 @@
   // Point this at your own GeoLens instance to use your data. The demo is
   // anonymous. A tile template cannot send headers, so a private dataset
   // wants a scoped token from GET /api/tiles/token/<dataset_id>/. Append
-  // its sig, exp and scope here rather than an api_key. The token covers
-  // one dataset and expires on the next 15-minute boundary, so a page left
-  // open has to re-mint. See the README.
+  // its sig, exp and scope here rather than an api_key. The token covers one
+  // dataset and expires on a 15-minute boundary, so it can arrive with as
+  // little as 60 seconds left: read expires_in and re-mint against that, not
+  // against a fixed quarter hour. See the README.
   const GEOLENS = "https://demo.getgeolens.com";
 
   // GeoLens serves every vector dataset as Mapbox Vector Tiles at

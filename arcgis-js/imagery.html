@@ -53,8 +53,11 @@
   // The demo is anonymous. A tile template cannot send headers, so a private
   // dataset wants a scoped token rather than a permanent key on the URL:
   // GET /api/tiles/token/<dataset_id>/ returns a tile_url already carrying
-  // sig, exp and scope, good for that one dataset until the next 15-minute
-  // boundary (POST /api/tiles/tokens/ mints up to 50 at once). Minting for a
+  // sig, exp and scope, good for that one dataset until a 15-minute boundary
+  // (POST /api/tiles/tokens/ mints up to 50 at once). That is between 1 and
+  // 16 minutes, not a flat quarter hour: a token minted just before a
+  // boundary carries 60 seconds. A long-lived embed has to read expires_in
+  // and re-mint against it, or it will serve dead tiles a minute in. Minting for a
   // private dataset is itself authenticated, so something server side holds
   // the key and hands this page tokens. For the OGC API calls in
   // features.html, send X-Api-Key from a request interceptor instead.

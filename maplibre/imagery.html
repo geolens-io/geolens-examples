@@ -37,7 +37,8 @@
   // dataset wants a scoped token from GET /api/tiles/token/<dataset_id>/,
   // which returns a ready-made tile_url with sig, exp and scope on it. Use
   // that instead of pasting an api_key into the template; it covers one
-  // dataset and expires on the next 15-minute boundary. See the README.
+  // dataset and expires on a 15-minute boundary, so between 1 and 16 minutes
+  // from now. Read expires_in rather than assuming a TTL. See the README.
 
   // Every raster dataset in GeoLens is served as XYZ tiles. Read the exact
   // template from the dataset's collection metadata (the "tiles" link on

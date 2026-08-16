@@ -214,7 +214,9 @@
     <p class="lede">
       GeoLens publishes OGC API Features and Records, STAC, vector tiles and raster tiles, so
       the client library never has to know what GeoLens is. Every example here is
-      <strong>one file</strong> that reads the public demo anonymously — no key, no SDK, no build step.
+      <strong>one file</strong> that reads the public demo anonymously, with no key and no build step.
+      Most need no GeoLens library at all; the two marked <em>SDK</em> use one to show what the
+      catalog knows that a URL cannot.
     </p>
     <div class="surfaces">
       <div>
@@ -397,6 +399,37 @@
       source: "python/analyze.py",
       docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/python"],
       datasets: [LINES, STATIONS],
+    },
+    {
+      audience: "web-developer", tool: "@geolens/sdk 1.13.1 · MapLibre",
+      title: "Catalog to map with the SDK",
+      blurb: "Searches the catalog, shows what it knows that a tile URL cannot — origin, freshness, schema — then adds the layer using the tile template the collection advertises. No dataset id or table name is written into this page.",
+      tag: "TypeScript SDK", kind: "vector",
+      address: "/api/collections/{id} → the tiles link it advertises",
+      thumb: "assets/typescript-catalog-map.jpg",
+      live: "typescript/catalog-map.html", source: "typescript/catalog-map.html",
+      datasets: [],
+    },
+    {
+      audience: "web-developer", tool: "No library",
+      title: "A saved map, embedded",
+      blurb: "The map you styled in the builder, in an iframe on a page that is not GeoLens. It renders itself, so the styling, legend and popups survive. A share token makes a public map reachable without a login.",
+      tag: "Embed", kind: "tooling",
+      address: "/m/{shareToken}?embed=true",
+      thumb: "assets/embed-iframe.jpg",
+      live: "embed/iframe.html", source: "embed/iframe.html",
+      datasets: [],
+    },
+    {
+      audience: "data-scientist", tool: "geolens 1.13.1 · single-file uv script",
+      title: "Catalog to GeoPandas with the SDK",
+      blurb: "Searches the catalog, reads a dataset's schema as GeoLens understands it — label, categorical, measure, temporal — filters server-side in SQL, and exports the matching rows straight into a GeoDataFrame.",
+      tag: "Python SDK", kind: "vector",
+      address: "uv run python/sdk-catalog.py",
+      snippet: "  filter              mass_kg > 1000   (server-side, in SQL)\n  downloaded                  51   of 32,186 features, 11.1 KB\n\n      tonnes  year  name                      class\n        60.0  1920  Hoba                      Iron, IVB\n        58.2  1818  Cape York                 Iron, IIIAB",
+      source: "python/sdk-catalog.py",
+      docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/python"],
+      datasets: [],
     },
   ];
 

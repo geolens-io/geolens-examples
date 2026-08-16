@@ -1,5 +1,8 @@
 subway.png
 .DS_Store
-node_modules/
+# No trailing slash: with one, this does not match a `node_modules`
+# symlink, which is how anyone borrowing a sibling checkout's playwright
+# install ends up committing it.
+node_modules
 package.json
 package-lock.json
