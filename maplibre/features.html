@@ -9,10 +9,20 @@
   <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     html, body, #map { margin: 0; height: 100%; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 10px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="hud">
+  <strong>MapLibre GL JS — OGC API Features</strong>
+  <p id="status" role="status">Loading NYC subway lines and stations from the GeoLens demo…</p>
+  <p>MTA via data.ny.gov · datasets <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">lines</a>, <a href="https://demo.getgeolens.com/datasets/724bf894-dc1a-418c-abc6-555798c44d7c">stations</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/features.html">source</a></p>
+</div>
 <script>
   // Point this at your own GeoLens instance to use your data. The demo is
   // anonymous; a private dataset takes an X-Api-Key header, which MapLibre
@@ -79,6 +89,17 @@
   });
 
   map.addControl(new maplibregl.NavigationControl());
+
+  // Drop the "loading" line once the map settles; on failure say so in the
+  // page rather than only in the console.
+  const status = document.getElementById("status");
+  map.on("idle", () => { if (!status.className) status.hidden = true; });
+  map.on("error", (e) => {
+    status.hidden = false;
+    status.className = "err";
+    status.textContent = `Could not load features from ${GEOLENS} — ${e.error?.message ?? "request failed"}. Check the console, and the instance's CORS config if this is not the demo.`;
+    console.error("GeoLens request failed:", e.error ?? e);
+  });
 </script>
 </body>
 </html>

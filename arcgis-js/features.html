@@ -14,12 +14,22 @@
     /* Nothing is drawn under the data (see the basemap note below), so the
        view is transparent and this shows through. */
     arcgis-map { background: #101418; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 32px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <arcgis-map center="-73.98, 40.73" zoom="11">
   <arcgis-zoom slot="top-left"></arcgis-zoom>
 </arcgis-map>
+<div id="hud">
+  <strong>ArcGIS Maps SDK for JavaScript — OGC API Features</strong>
+  <p id="status" role="status">Loading NYC subway lines and stations from the GeoLens demo…</p>
+  <p>MTA via data.ny.gov · datasets <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">lines</a>, <a href="https://demo.getgeolens.com/datasets/724bf894-dc1a-418c-abc6-555798c44d7c">stations</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/arcgis-js/features.html">source</a></p>
+</div>
 <script type="module">
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";
@@ -103,7 +113,20 @@
   // example runs signed out. With a key set on esriConfig.apiKey you can pass
   // `basemap: "dark-gray-vector"` here.
   const map = new Map({ layers: [lines, stations] });
-  document.querySelector("arcgis-map").map = map;
+  const el = document.querySelector("arcgis-map");
+  el.map = map;
+
+  // Drop the "loading" line once the view is up and both layers have read
+  // their OGC metadata; on failure say so in the page, not only in the console.
+  const status = document.getElementById("status");
+  Promise.all([el.viewOnReady(), lines.load(), stations.load()]).then(
+    () => { status.hidden = true; },
+    (err) => {
+      status.className = "err";
+      status.textContent = `Could not read the OGC API at ${GEOLENS} — ${err.message}. Check the console, and the instance's CORS config if this is not the demo.`;
+      console.error("GeoLens request failed:", err);
+    },
+  );
 </script>
 </body>
 </html>

@@ -10,10 +10,20 @@
   <style>
     html, body, #map { margin: 0; height: 100%; }
     #map { background: #101418; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 1000; left: 10px; bottom: 10px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="hud">
+  <strong>Leaflet — raster tiles</strong>
+  <p id="status" role="status">Loading the swissALTI3D Matterhorn DEM from the GeoLens demo…</p>
+  <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/6f03bafa-34b3-4902-9351-40ce09a8181f">dataset</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/leaflet/imagery.html">source</a></p>
+</div>
 <script>
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";
@@ -41,10 +51,23 @@
   // Reading pixels back is where it matters here: `crossOrigin: true` below,
   // or getImageData() on a canvas these tiles were drawn into, both need the
   // header and both fail against a pre-1.13.0 instance.
-  L.tileLayer(`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`, {
+  const tiles = L.tileLayer(`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`, {
     tileSize: 256,
     maxZoom: 20,
   }).addTo(map);
+
+  // Drop the "loading" line once the visible tiles are in. Tiles outside the
+  // dataset footprint answer 204 and count as errors here, so the failure test
+  // is "nothing arrived at all", not "something errored".
+  const status = document.getElementById("status");
+  let loaded = 0;
+  tiles.on("tileload", () => { loaded += 1; });
+  tiles.on("load", () => {
+    if (loaded) return void (status.hidden = true);
+    status.className = "err";
+    status.textContent = `No tiles came back from ${GEOLENS}. The dataset may not exist on this instance, or it may be private — a private dataset needs a scoped tile token on the template.`;
+    console.error("GeoLens returned no tiles for", DEM);
+  });
 </script>
 </body>
 </html>

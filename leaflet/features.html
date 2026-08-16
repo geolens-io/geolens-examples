@@ -11,10 +11,20 @@
     html, body, #map { margin: 0; height: 100%; }
     #map { background: #101418; }
     .leaflet-popup-content pre { margin: 0; font-size: 12px; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 1000; left: 10px; bottom: 10px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="hud">
+  <strong>Leaflet — OGC API Features</strong>
+  <p id="status" role="status">Loading NYC subway lines and stations from the GeoLens demo…</p>
+  <p>MTA via data.ny.gov · datasets <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">lines</a>, <a href="https://demo.getgeolens.com/datasets/724bf894-dc1a-418c-abc6-555798c44d7c">stations</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/leaflet/features.html">source</a></p>
+</div>
 <script>
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";
@@ -50,6 +60,10 @@
     layer.bindPopup(pre);
   };
 
+  // Drop the "loading" line once both collections are in; on failure say so in
+  // the page rather than only in the console.
+  const status = document.getElementById("status");
+
   Promise.all([load(LINES), load(STATIONS)])
     .then(([lines, stations]) => {
       L.geoJSON(lines, {
@@ -70,8 +84,13 @@
           }),
         onEachFeature: bindProps,
       }).addTo(map);
+      status.hidden = true;
     })
-    .catch((err) => console.error("GeoLens request failed:", err));
+    .catch((err) => {
+      status.className = "err";
+      status.textContent = `Could not read features from ${GEOLENS} — ${err.message}. Check the console, and the instance's CORS config if this is not the demo.`;
+      console.error("GeoLens request failed:", err);
+    });
 </script>
 </body>
 </html>

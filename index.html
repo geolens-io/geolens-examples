@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>GeoLens Examples</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="Runnable examples for consuming a GeoLens catalog from MapLibre, Leaflet, OpenLayers, the ArcGIS SDK, Python and MCP. Every one runs against the public demo." />
+<link rel="icon" href="data:," />
+<style>
+  /* ---- tokens ------------------------------------------------------------
+     The palette is the examples' own data styling: #4da3ff is the colour every
+     example draws lines in, #ffd166 the colour it draws points in. --frame is
+     fixed in both themes because every screenshot is a dark map. */
+  :root {
+    --bg: #f4f6f9;
+    --panel: #ffffff;
+    --rule: #dce2ea;
+    --ink: #10161d;
+    --muted: #596875;
+    --vector: #1a66c9;
+    --raster: #9a6300;
+    --frame: #0d1117;
+    --shadow: 0 1px 2px rgba(16, 22, 29, .05), 0 8px 24px -16px rgba(16, 22, 29, .3);
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #090c11;
+      --panel: #111721;
+      --rule: #212b37;
+      --ink: #e6edf3;
+      --muted: #93a1b0;
+      --vector: #4da3ff;
+      --raster: #ffd166;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px -20px rgba(0, 0, 0, .9);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.6 var(--sans);
+  }
+  a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--vector); outline-offset: 3px; border-radius: 2px; }
+
+  .wrap { width: min(100% - 2.5rem, 1180px); margin-inline: auto; }
+
+  /* ---- masthead --------------------------------------------------------- */
+  .masthead {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.25rem;
+    align-items: baseline; justify-content: space-between;
+    padding: 1.1rem 0; border-bottom: 1px solid var(--rule);
+    font-family: var(--mono); font-size: .78rem; letter-spacing: .02em;
+  }
+  .masthead nav { display: flex; gap: 1.25rem; }
+  .masthead a { color: var(--muted); text-decoration: none; }
+  .masthead a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+  .repo { color: var(--muted); }
+  .repo b { color: var(--ink); font-weight: 600; }
+
+  /* ---- hero ------------------------------------------------------------- */
+  .hero { padding: clamp(3rem, 9vw, 6rem) 0 clamp(2.5rem, 6vw, 4rem); }
+  .eyebrow {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .17em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 1.4rem;
+  }
+  .hero h1 {
+    margin: 0;
+    font-size: clamp(2.7rem, 8.2vw, 5.4rem);
+    font-weight: 700; letter-spacing: -.04em; line-height: .95;
+    max-width: 15ch;
+  }
+  .hero .lede {
+    margin: 1.6rem 0 0; max-width: 58ch;
+    font-size: clamp(1rem, 1.6vw, 1.12rem); color: var(--muted);
+  }
+  .hero .lede strong { color: var(--ink); font-weight: 600; }
+
+  /* The signature: GeoLens's three read surfaces as the URLs they actually are.
+     Every card below carries the same kind of line for the call it makes. */
+  .surfaces {
+    margin: 2.6rem 0 0; border: 1px solid var(--rule); border-radius: 10px;
+    background: var(--panel); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .surfaces div {
+    display: flex; flex-wrap: wrap; gap: .35rem 1rem; align-items: baseline;
+    padding: .8rem 1.1rem; border-top: 1px solid var(--rule);
+    font-family: var(--mono); font-size: .82rem;
+  }
+  .surfaces div:first-child { border-top: 0; }
+  .surfaces .verb { color: var(--muted); font-size: .7rem; letter-spacing: .12em; }
+  .surfaces .path { flex: 1 1 22ch; overflow-wrap: anywhere; }
+  .surfaces .path em { font-style: normal; color: var(--muted); }
+
+  .tag {
+    font-family: var(--mono); font-size: .63rem; letter-spacing: .13em;
+    text-transform: uppercase; white-space: nowrap;
+    padding: .22rem .5rem; border-radius: 3px;
+    border: 1px solid currentColor; color: var(--muted);
+  }
+  .tag.vector { color: var(--vector); }
+  .tag.raster { color: var(--raster); }
+
+  /* ---- intent nav ------------------------------------------------------- */
+  .intent { padding: 0 0 1rem; }
+  .intent h2 {
+    font-family: var(--mono); font-size: .74rem; letter-spacing: .17em;
+    text-transform: uppercase; color: var(--muted); font-weight: 400; margin: 0 0 .9rem;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: .55rem; padding: 0; margin: 0; list-style: none; }
+  .chips a {
+    display: inline-flex; align-items: baseline; gap: .5rem;
+    padding: .5rem .85rem; border: 1px solid var(--rule); border-radius: 999px;
+    background: var(--panel); text-decoration: none; font-size: .9rem;
+  }
+  .chips a:hover { border-color: var(--vector); }
+  .chips .n { font-family: var(--mono); font-size: .72rem; color: var(--muted); }
+
+  /* ---- sections --------------------------------------------------------- */
+  .band { padding: clamp(2.5rem, 6vw, 4rem) 0 0; }
+  .band > header { border-top: 1px solid var(--rule); padding-top: 1.6rem; }
+  .band h2 {
+    margin: 0; font-size: clamp(1.45rem, 3.2vw, 2rem);
+    font-weight: 700; letter-spacing: -.025em;
+  }
+  .band header p { margin: .6rem 0 0; max-width: 62ch; color: var(--muted); }
+
+  .grid {
+    display: grid; gap: 1.4rem; margin: 1.9rem 0 0;
+    grid-template-columns: repeat(auto-fill, minmax(min(310px, 100%), 1fr));
+  }
+
+  /* ---- cards ------------------------------------------------------------ */
+  .card {
+    display: flex; flex-direction: column;
+    border: 1px solid var(--rule); border-radius: 12px; overflow: hidden;
+    background: var(--panel); box-shadow: var(--shadow);
+    transition: border-color .18s ease, transform .18s ease;
+  }
+  .card:hover, .card:focus-within { border-color: var(--vector); transform: translateY(-2px); }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover, .card:focus-within { transform: none; } }
+
+  .shot { display: block; background: var(--frame); border-bottom: 1px solid var(--rule); }
+  .shot img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; }
+  .shot pre {
+    margin: 0; padding: 1rem 1.1rem; aspect-ratio: 16 / 9; overflow: hidden;
+    color: #c9d4e0; font-family: var(--mono); font-size: .7rem; line-height: 1.65;
+    white-space: pre-wrap;
+  }
+  .shot pre b { color: var(--vector); font-weight: 400; }
+
+  .card .body { display: flex; flex-direction: column; gap: .55rem; padding: 1.1rem 1.15rem 0; }
+  .card .head { display: flex; gap: .75rem; align-items: baseline; justify-content: space-between; }
+  .card h3 { margin: 0; font-size: 1.04rem; font-weight: 650; letter-spacing: -.012em; }
+  .card .meta {
+    margin: 0; font-family: var(--mono); font-size: .69rem; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .card p.blurb { margin: 0; font-size: .9rem; color: var(--muted); }
+  .card .addr {
+    margin: .15rem 0 0; padding: .5rem .6rem; border-radius: 6px;
+    background: color-mix(in oklab, var(--ink) 5%, transparent);
+    font-family: var(--mono); font-size: .715rem; color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .card .addr em { font-style: normal; color: var(--muted); }
+
+  .actions {
+    display: flex; flex-wrap: wrap; gap: .45rem; align-items: center;
+    margin-top: auto; padding: 1.05rem 1.15rem 1.15rem;
+  }
+  .actions a {
+    font-size: .82rem; text-decoration: none;
+    padding: .38rem .7rem; border-radius: 6px; border: 1px solid var(--rule);
+  }
+  .actions a:hover { border-color: var(--vector); color: var(--vector); }
+  .actions a.primary {
+    border-color: var(--vector); color: var(--vector); font-weight: 600;
+  }
+  .actions a.primary:hover { background: color-mix(in oklab, var(--vector) 12%, transparent); }
+  .actions a.data { font-family: var(--mono); font-size: .69rem; letter-spacing: .03em; color: var(--muted); }
+  .actions a.data:hover { color: var(--vector); }
+
+  /* ---- footer ----------------------------------------------------------- */
+  footer.page {
+    margin-top: clamp(3.5rem, 8vw, 5.5rem); padding: 2rem 0 3.5rem;
+    border-top: 1px solid var(--rule); color: var(--muted); font-size: .88rem;
+  }
+  footer.page p { margin: 0 0 .7rem; max-width: 70ch; }
+  footer.page a { color: var(--vector); }
+  footer.page .fine { font-family: var(--mono); font-size: .72rem; letter-spacing: .04em; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="masthead">
+    <span class="repo">geolens-io / <b>geolens-examples</b></span>
+    <nav>
+      <a href="https://github.com/geolens-io/geolens-examples">Repository</a>
+      <a href="https://demo.getgeolens.com/collections">Demo catalog</a>
+      <a href="https://github.com/geolens-io/geolens">GeoLens</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <p class="eyebrow">Runnable examples</p>
+    <h1>The integration is a URL.</h1>
+    <p class="lede">
+      GeoLens publishes OGC API Features and Records, STAC, vector tiles and raster tiles, so
+      the client library never has to know what GeoLens is. Every example here is
+      <strong>one file</strong> that reads the public demo anonymously — no key, no SDK, no build step.
+    </p>
+    <div class="surfaces">
+      <div>
+        <span class="verb">GET</span>
+        <span class="path">/api/collections/<em>{id}</em>/items</span>
+        <span class="tag vector">GeoJSON features</span>
+      </div>
+      <div>
+        <span class="verb">GET</span>
+        <span class="path">/api/tiles/<em>{table}</em>/{z}/{x}/{y}.pbf</span>
+        <span class="tag vector">Vector tiles</span>
+      </div>
+      <div>
+        <span class="verb">GET</span>
+        <span class="path">/raster-tiles/<em>{id}</em>/tiles/{z}/{x}/{y}.png</span>
+        <span class="tag raster">Raster tiles</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="intent">
+    <h2>Start where you work</h2>
+    <ul class="chips" id="chips"></ul>
+  </section>
+
+  <main id="bands"></main>
+
+  <footer class="page">
+    <p>
+      Two audiences have no example yet: <strong>GIS analysts</strong> connecting QGIS or ArcGIS Pro,
+      and <strong>data engineers</strong> managing a catalog as code with the CLI. Both are planned —
+      <a href="https://github.com/geolens-io/geolens-examples/issues">open an issue</a> if you want one sooner.
+    </p>
+    <p class="fine">
+      MIT licensed · data from the public demo, which resets from time to time ·
+      <a href="https://github.com/geolens-io/geolens-examples">source on GitHub</a>
+    </p>
+  </footer>
+</div>
+
+<script>
+  // ---------------------------------------------------------------------------
+  // Adding an example is one object in EXAMPLES below. `audience` picks the
+  // section; naming an audience that has no cards yet creates its section.
+  //   live      relative path in this repo, omit for anything that is not a page
+  //   address   the call the example makes — the line every card carries
+  //   thumb     screenshot in .github/assets, or use `snippet` for a text panel
+  //   datasets  demo catalog deep links, https://demo.getgeolens.com/datasets/<id>
+  // ---------------------------------------------------------------------------
+  const AUDIENCES = [
+    ["web-developer", "Web developer",
+     "Render GeoLens data in a browser map. The endpoints are the standard ones, so the map library needs no adapter and no plugin."],
+    ["gis-analyst", "GIS analyst",
+     "Connect a desktop GIS, analyze, export."],
+    ["data-engineer", "Data engineer",
+     "Publish and manage a catalog as code."],
+    ["ai-developer", "AI developer",
+     "Put catalog context inside an assistant session: what data exists, what shape it is in, and what it says."],
+    ["data-scientist", "Data scientist",
+     "Pull features into Python and analyze them next to everything else you work with."],
+  ];
+
+  const REPO = "https://github.com/geolens-io/geolens-examples/blob/main/";
+  const LINES = ["Subway lines", "de602fbe-8b30-4755-924f-c9e7fd9613b6"];
+  const STATIONS = ["Subway stations", "724bf894-dc1a-418c-abc6-555798c44d7c"];
+  const DEM = ["Matterhorn DEM", "6f03bafa-34b3-4902-9351-40ce09a8181f"];
+
+  const EXAMPLES = [
+    {
+      audience: "web-developer", tool: "MapLibre GL JS 5",
+      title: "Vector tiles in MapLibre",
+      blurb: "Point a vector source at the tile template. GeoLens cuts MVT from PostGIS per request, so the browser pulls geometry for the current view instead of the whole layer.",
+      tag: "MVT", kind: "vector",
+      address: "/api/tiles/data.nyc_subway_lines_mta/{z}/{x}/{y}.pbf",
+      thumb: "assets/maplibre-vector-tiles.jpg",
+      live: "maplibre/vector-tiles.html", source: "maplibre/vector-tiles.html",
+      datasets: [LINES],
+    },
+    {
+      audience: "web-developer", tool: "MapLibre GL JS 5",
+      title: "GeoJSON features in MapLibre",
+      blurb: "Two collections read straight into geojson sources. Clicking a station reads attributes the browser already holds, so identify costs no round-trip.",
+      tag: "OGC Features", kind: "vector",
+      address: "/api/collections/{id}/items?limit=2000",
+      thumb: "assets/maplibre-features.jpg",
+      live: "maplibre/features.html", source: "maplibre/features.html",
+      datasets: [LINES, STATIONS],
+    },
+    {
+      audience: "web-developer", tool: "MapLibre GL JS 5",
+      title: "Raster tiles in MapLibre",
+      blurb: "A DEM served as XYZ tiles. MapLibre uploads tiles into a WebGL texture, so it needs the instance to send CORS headers — GeoLens does from v1.13.0.",
+      tag: "XYZ raster", kind: "raster",
+      address: "/raster-tiles/{id}/tiles/{z}/{x}/{y}.png",
+      thumb: "assets/maplibre-imagery.jpg",
+      live: "maplibre/imagery.html", source: "maplibre/imagery.html",
+      datasets: [DEM],
+    },
+    {
+      audience: "web-developer", tool: "Leaflet 1.9",
+      title: "GeoJSON features in Leaflet",
+      blurb: "L.geoJSON consumes the items response unchanged. Popups bind per feature, and circleMarker keeps stations a constant size through every zoom.",
+      tag: "OGC Features", kind: "vector",
+      address: "/api/collections/{id}/items?limit=2000",
+      thumb: "assets/leaflet-features.jpg",
+      live: "leaflet/features.html", source: "leaflet/features.html",
+      datasets: [LINES, STATIONS],
+    },
+    {
+      audience: "web-developer", tool: "Leaflet 1.9",
+      title: "Raster tiles in Leaflet",
+      blurb: "L.tileLayer against the XYZ template. Leaflet loads tiles as plain images, which is why it draws raster even from instances that send no CORS header.",
+      tag: "XYZ raster", kind: "raster",
+      address: "/raster-tiles/{id}/tiles/{z}/{x}/{y}.png",
+      thumb: "assets/leaflet-imagery.jpg",
+      live: "leaflet/imagery.html", source: "leaflet/imagery.html",
+      datasets: [DEM],
+    },
+    {
+      audience: "web-developer", tool: "OpenLayers 10",
+      title: "OGC API Features in OpenLayers",
+      blurb: "A vector source with its url on the items endpoint. GeoLens answers in CRS84 and OpenLayers reprojects into the view's Web Mercator as it reads.",
+      tag: "OGC Features", kind: "vector",
+      address: "/api/collections/{id}/items?limit=2000",
+      thumb: "assets/openlayers-features.jpg",
+      live: "openlayers/features.html", source: "openlayers/features.html",
+      datasets: [LINES, STATIONS],
+    },
+    {
+      audience: "web-developer", tool: "OpenLayers 10",
+      title: "Raster tiles in OpenLayers",
+      blurb: "ol.source.XYZ against the tile template, with the crossOrigin trade-off spelled out: set it and you can read pixels back, leave it and the tiles just draw.",
+      tag: "XYZ raster", kind: "raster",
+      address: "/raster-tiles/{id}/tiles/{z}/{x}/{y}.png",
+      thumb: "assets/openlayers-imagery.jpg",
+      live: "openlayers/imagery.html", source: "openlayers/imagery.html",
+      datasets: [DEM],
+    },
+    {
+      audience: "web-developer", tool: "ArcGIS Maps SDK for JS 5.1",
+      title: "OGCFeatureLayer against GeoLens",
+      blurb: "Hand OGCFeatureLayer the API landing page and a collection id and it discovers the rest. Esri renderers and popups work over GeoLens data unchanged.",
+      tag: "OGC Features", kind: "vector",
+      address: "/api/ → collectionId",
+      thumb: "assets/arcgis-js-features.jpg",
+      live: "arcgis-js/features.html", source: "arcgis-js/features.html",
+      datasets: [LINES, STATIONS],
+    },
+    {
+      audience: "web-developer", tool: "ArcGIS Maps SDK for JS 5.1",
+      title: "WebTileLayer against GeoLens",
+      blurb: "Esri spells tile coordinates {level}/{col}/{row}. Swap those three placeholders into the standard template and the raster layer loads with no other change.",
+      tag: "XYZ raster", kind: "raster",
+      address: "/raster-tiles/{id}/tiles/{level}/{col}/{row}.png",
+      thumb: "assets/arcgis-js-imagery.jpg",
+      live: "arcgis-js/imagery.html", source: "arcgis-js/imagery.html",
+      datasets: [DEM],
+    },
+    {
+      audience: "ai-developer", tool: "geolens-mcp",
+      title: "Catalog tools in a Claude session",
+      blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. The discovery tools need no credential.",
+      tag: "MCP", kind: "tooling",
+      address: "uvx geolens-mcp",
+      snippet: "<b>$</b> uvx geolens-mcp\n\n<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 5 matched, 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
+      source: "claude-mcp/README.md",
+      docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/claude-mcp"],
+      datasets: [], catalog: true,
+    },
+    {
+      audience: "data-scientist", tool: "Python · single-file uv script",
+      title: "Subway analysis with GeoPandas",
+      blurb: "Reads both collections over OGC API Features, measures the network in a metric CRS, joins stations to services, and plots the result. Dependencies live in a PEP 723 header, so there is no virtualenv.",
+      tag: "Python", kind: "vector",
+      address: "uv run analyze.py",
+      thumb: "assets/python-geopandas.jpg",
+      source: "python/analyze.py",
+      docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/python"],
+      datasets: [LINES, STATIONS],
+    },
+  ];
+
+  // ---------------------------------------------------------------------------
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === "class") n.className = v;
+      else if (k === "html") n.innerHTML = v;
+      else n.setAttribute(k, v);
+    }
+    for (const kid of kids) if (kid) n.append(kid);
+    return n;
+  };
+
+  // Split the address so the placeholder segments read as placeholders.
+  const address = (text) => {
+    const node = el("p", { class: "addr" });
+    for (const part of text.split(/(\{[^}]+\})/g)) {
+      if (!part) continue;
+      node.append(part.startsWith("{") ? el("em", {}, part) : part);
+    }
+    return node;
+  };
+
+  const card = (ex) => {
+    const shot = ex.live ? el("a", { class: "shot", href: ex.live }) : el("div", { class: "shot" });
+    if (ex.thumb) {
+      shot.append(el("img", {
+        src: ex.thumb, alt: `Screenshot of ${ex.title}`, loading: "lazy", decoding: "async",
+      }));
+    } else {
+      shot.append(el("pre", { html: ex.snippet, "aria-hidden": "true" }));
+    }
+
+    const actions = el("div", { class: "actions" });
+    if (ex.live) actions.append(el("a", { class: "primary", href: ex.live }, "Try live"));
+    if (ex.docs) actions.append(el("a", { href: ex.docs[1] }, ex.docs[0]));
+    if (ex.source) actions.append(el("a", { href: REPO + ex.source }, "View source"));
+    for (const [label, id] of ex.datasets) {
+      actions.append(el("a", {
+        class: "data", href: `https://demo.getgeolens.com/datasets/${id}`,
+        title: `Open ${label} in the GeoLens demo catalog`,
+      }, `${label} ↗`));
+    }
+    if (ex.catalog) {
+      actions.append(el("a", { class: "data", href: "https://demo.getgeolens.com/collections" }, "Demo catalog ↗"));
+    }
+
+    return el("article", { class: "card" },
+      shot,
+      el("div", { class: "body" },
+        el("div", { class: "head" },
+          el("h3", {}, ex.title),
+          el("span", { class: `tag ${ex.kind}` }, ex.tag)),
+        el("p", { class: "meta" }, `${ex.audienceName} · ${ex.tool}`),
+        el("p", { class: "blurb" }, ex.blurb),
+        address(ex.address),
+      ),
+      actions,
+    );
+  };
+
+  const chips = document.getElementById("chips");
+  const bands = document.getElementById("bands");
+
+  for (const [id, name, lede] of AUDIENCES) {
+    const mine = EXAMPLES.filter((e) => e.audience === id);
+    if (mine.length === 0) continue;
+    mine.forEach((e) => { e.audienceName = name; });
+
+    chips.append(el("li", {}, el("a", { href: `#${id}` },
+      el("span", {}, name), el("span", { class: "n" }, String(mine.length)))));
+
+    const grid = el("div", { class: "grid" });
+    mine.forEach((e) => grid.append(card(e)));
+    bands.append(el("section", { class: "band", id },
+      el("header", {}, el("h2", {}, name), el("p", {}, lede)),
+      grid));
+  }
+</script>
+</body>
+</html>
