@@ -196,8 +196,8 @@ yours.
 
 ## Detecting a dead embed
 
-You cannot, from the embedding page. `iframe.html` has no error state because
-there is nothing reliable to trigger one.
+Mostly you cannot, and the shape of what you can detect is worth understanding
+before you write a health check that does not work.
 
 An iframe fires `load` whether the frame succeeded or failed, and never fires
 `error`. Measured in Chromium with both listeners attached before `src` was set:
@@ -209,14 +209,20 @@ An iframe fires `load` whether the frame succeeded or failed, and never fires
 | 404 on a live host | `load` at 130ms |
 | CSP frame-refused | `load` at 145ms |
 | working embed | `load` at 295ms |
+| server accepts then stalls | no event, ever |
 
-Every failure resolved faster than the success, so no timeout separates them. An
-earlier version of this example had a 15-second timer, and it was dead code.
+Every failure the browser can detect resolves faster than the success case, so
+no timeout separates a broken embed from a working one. A revoked token is the
+hardest of those: the shell returns 200 and renders GeoLens's own "Map not
+found" card, a successful load by every measure available from outside, and the
+frame is cross-origin so nothing on the host page can read into it.
 
-A revoked token hides even better. The shell returns 200 and renders GeoLens's
-own "Map not found" card, which is a successful load by every measure available
-from outside, and the frame is cross-origin so nothing on the host page can read
-into it.
+The last row is the exception, and it is the only thing a timer is good for. A
+server that accepts the connection and then holds it open fires no event at all,
+so without a timeout the page waits on "Loading map…" indefinitely.
+`iframe.html` therefore keeps a 15-second timer that reports a stall and says
+nothing about whether the link is valid. Those are genuinely different
+questions, and a timer can only answer the first.
 
 Asking the API instead depends on the deployment. On a default instance
 `/api/maps/shared/{token}` sends no CORS headers, so the fetch fails in the
