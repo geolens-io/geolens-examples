@@ -13,9 +13,10 @@ durable, not permanent: it would stop working if anyone revoked it or the demo
 map were rebuilt from scratch. If you see GeoLens's "Map not found" card where
 the map should be, that is what happened, and the code is fine.
 
-This page is not yet in `ci/manifest.json`, so CI does not load it on every
-push the way it loads the MapLibre, Leaflet, OpenLayers and ArcGIS examples.
-Until it is, a revoked link would go unnoticed here.
+This page is not yet in `ci/manifest.json`, so CI never loads it. The MapLibre,
+Leaflet, OpenLayers and ArcGIS examples are loaded against the live demo on
+pull requests, on pushes to `main`, and on a weekly schedule. Until this page
+joins them, a revoked link would go unnoticed here.
 
 ## The URL
 
