@@ -8,11 +8,15 @@ in.
 Every other example here reads GeoLens data and re-styles it client-side. This
 one keeps the styling, legend and popups you configured.
 
-It targets one specific share link on the demo, "Restless Earth". CI loads the
-page continuously and fails when it stops rendering, which is the only guarantee
-worth making: the link is durable, not permanent, and it would stop working if
-anyone revoked it or the demo map were rebuilt from scratch. If you see
-GeoLens's "Map not found" card where the map should be, that is what happened.
+It targets one specific share link on the demo, "Restless Earth". That link is
+durable, not permanent: it would stop working if anyone revoked it or the demo
+map were rebuilt from scratch. If you see GeoLens's "Map not found" card where
+the map should be, that is what happened, and the code is fine.
+
+This page is not yet in `ci/manifest.json`, so CI never loads it. The MapLibre,
+Leaflet, OpenLayers and ArcGIS examples are loaded against the live demo on
+pull requests, on pushes to `main`, and on a weekly schedule. Until this page
+joins them, a revoked link would go unnoticed here.
 
 ## The URL
 
@@ -47,7 +51,7 @@ Read by the viewer at `frontend/src/pages/PublicViewerPage.tsx`:
 | `center=lng,lat` | Overrides the map's saved centre. Silently ignored if out of range. |
 | `zoom=<0-24>` | Overrides the saved zoom. |
 | `et=<embedToken>` | A scoped embed token, for maps with private layers. See below. |
-| `api_key=<key>` | An API key, as an alternative to `et`. |
+| `api_key=<key>` | Accepted, but do not use it here. See below. |
 
 `embed=true` also turns on a small GeoLens badge over the map, which is the
 trade for a free embed. Enterprise instances can switch it off through the
@@ -113,6 +117,20 @@ With `allowed_origins` set, the shell itself is domain-locked. The edge
 validates the token and emits a per-token `frame-ancestors` policy on the HTML,
 so a site that is not on the list gets blocked by the browser before the app
 boots. An invalid or revoked token fails closed to `frame-ancestors 'none'`.
+
+### Why not `api_key=`
+
+The viewer also accepts a plain `api_key=` query parameter, so it will appear to
+work where `et=` does. Do not use it for an embed. An iframe `src` is visible in
+the page source of every site the embed appears on, and it travels into browser
+history, referrer headers, proxy logs and analytics. An API key is scoped to a
+user across the whole catalog, not to one map, and revoking it breaks everything
+else that user's key is doing.
+
+An embed token is the narrower instrument, and the difference is the point: it
+covers a frozen snapshot of one map's datasets, it expires, and revoking it
+affects nothing but that embed. The parameter is documented above because it
+exists and you will find it; it is not an alternative worth reaching for.
 
 ## React and Next.js
 
