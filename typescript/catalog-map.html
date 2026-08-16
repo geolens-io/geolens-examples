@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + @geolens/sdk: catalog-driven map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: flex;
+      background: #101418;
+      color: #e6edf3;
+      font: 13px/1.5 ui-sans-serif, system-ui, sans-serif;
+    }
+    #panel {
+      width: 340px;
+      flex: none;
+      overflow-y: auto;
+      padding: 16px;
+      border-right: 1px solid #2b3440;
+      background: #1b2129;
+    }
+    #map { flex: 1; }
+    h1 { margin: 0 0 4px; font-size: 15px; }
+    p.lede { margin: 0 0 14px; color: #93a1b0; }
+    select { width: 100%; padding: 6px; margin-bottom: 14px;
+             border: 1px solid #2b3440; border-radius: 4px;
+             background: #101418; color: #e6edf3; font: inherit; }
+    h2 { margin: 16px 0 6px; font-size: 11px; letter-spacing: .08em;
+         text-transform: uppercase; color: #93a1b0; }
+    dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; }
+    dt { color: #93a1b0; }
+    dd { margin: 0; word-break: break-word; }
+    code, #fields { font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    #fields { margin: 6px 0 0; color: #ffd166; white-space: pre-wrap; }
+    ul { margin: 0; padding-left: 16px; }
+    a { color: #4da3ff; }
+    .health-healthy { color: #6ee7a8; }
+    .health-stale, .health-due { color: #ffd166; }
+    .health-error, .health-failing { color: #ff8b7e; }
+  </style>
+</head>
+<body>
+<div id="panel">
+  <h1>GeoLens catalog &rarr; map</h1>
+  <p class="lede">Everything below comes from the catalog over
+    <code>@geolens/sdk</code>. Nothing about these datasets is hardcoded here.</p>
+  <select id="picker" aria-label="Dataset"></select>
+  <div id="meta"></div>
+</div>
+<div id="map"></div>
+
+<script type="module">
+  // The SDK ships as ESM, so a pinned esm.sh URL loads it straight into the
+  // browser. No bundler, no build step, same as every other example here.
+  import {
+    createGeolensClient,
+    collectionItemsCollectionsDatasetsItemsGet,
+    getDatasetCollectionCollectionsDatasetIdGet,
+    getCollectionItemsCollectionsDatasetIdItemsGet,
+  } from "https://esm.sh/@geolens/sdk@1.13.1";
+
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // baseUrl must include the /api prefix the deployed API is served under.
+  // For a private instance, pass `apiKey: "<key>"` (sent as an X-API-Key
+  // header) or `bearerToken: "<jwt>"`, never a key in the URL, where it
+  // would leak into logs, history and Referer. Note that MapLibre fetches
+  // tiles itself, outside the SDK, so a private instance also needs a
+  // `transformRequest` on the map to attach the same header.
+  const geolens = createGeolensClient({ baseUrl: `${GEOLENS}/api` });
+  const client = geolens.client;
+
+  // Generated calls resolve to { data, error, response } instead of throwing,
+  // so an HTTP error is a value you handle rather than an exception you catch.
+  // That contract starts once bytes come back: a request the browser refuses
+  // to make at all (CORS, DNS, offline) resolves with `response` unset.
+  const unwrap = ({ data, error, response }) => {
+    if (!response) throw new Error("request never completed; check GEOLENS and its CORS config");
+    if (error || !response.ok) throw new Error(`${response.status} ${JSON.stringify(error)}`);
+    return data;
+  };
+
+  // 1. Ask the catalog what exists. This is a real query, not a fixed list:
+  //    the server filters and sorts, and you get OGC API Records back.
+  const catalog = unwrap(
+    await collectionItemsCollectionsDatasetsItemsGet({
+      client,
+      query: { record_type: "vector_dataset", sortby: "+title", limit: 100 },
+    }),
+  );
+
+  const picker = document.getElementById("picker");
+  const meta = document.getElementById("meta");
+  picker.append(...catalog.features.map((r) => new Option(r.properties.title, r.id)));
+
+  const map = new maplibregl.Map({
+    container: "map",
+    center: [0, 20],
+    zoom: 1.5,
+    style: {
+      version: 8,
+      sources: {},
+      layers: [{ id: "bg", type: "background", paint: { "background-color": "#101418" } }],
+    },
+  });
+  map.addControl(new maplibregl.NavigationControl());
+
+  // Catalog values are data, not markup. Building the panel with textContent
+  // means a dataset title or publisher name containing HTML renders as
+  // characters instead of executing. The demo catalog is curated; your own
+  // instance's is written by whoever can create a dataset.
+  const el = (tag, text) => {
+    const node = document.createElement(tag);
+    if (text != null) node.textContent = String(text);
+    return node;
+  };
+
+  const section = (heading, rows) => {
+    const dl = el("dl");
+    for (const [key, value, cls] of rows) {
+      if (value == null || value === "") continue;
+      const dd = el("dd", value);
+      if (cls) dd.className = cls;
+      dl.append(el("dt", key), dd);
+    }
+    return [el("h2", heading), dl];
+  };
+
+  // Advertised hrefs are catalog values too, so only http(s) becomes clickable.
+  const httpUrl = (href) => {
+    try {
+      const url = new URL(href, location.href);
+      return /^https?:$/.test(url.protocol) ? url.href : null;
+    } catch {
+      return null;
+    }
+  };
+
+  // One source, three layers filtered by geometry type, so the same code
+  // draws points, lines and polygons as the user switches datasets.
+  const LAYERS = [
+    { id: "ds-fill", type: "fill", filter: ["==", "$type", "Polygon"],
+      paint: { "fill-color": "#4da3ff", "fill-opacity": 0.35 } },
+    { id: "ds-line", type: "line", filter: ["!=", "$type", "Point"],
+      paint: { "line-color": "#4da3ff", "line-width": 1.5 } },
+    { id: "ds-point", type: "circle", filter: ["==", "$type", "Point"],
+      paint: { "circle-radius": 3.5, "circle-color": "#ffd166",
+               "circle-stroke-color": "#101418", "circle-stroke-width": 1 } },
+  ];
+
+  const show = async (record) => {
+    const props = record.properties;
+
+    // 2. The collection document is the dataset's OGC front door: it carries
+    //    the authoritative extent and advertises where its items live.
+    const collection = unwrap(
+      await getDatasetCollectionCollectionsDatasetIdGet({
+        client,
+        path: { dataset_id: record.id },
+      }),
+    );
+
+    // 3. Attribute names are a property of the data, so ask for one feature
+    //    with the geometry left out: a few hundred bytes, not a download.
+    const sample = unwrap(
+      await getCollectionItemsCollectionsDatasetIdItemsGet({
+        client,
+        path: { dataset_id: record.id },
+        query: { limit: 1, include_geometry: false },
+      }),
+    );
+    const fields = Object.entries(sample.features[0]?.properties ?? {});
+
+    // 4. Take the tile template the record advertises. Reconstructing
+    //    `${GEOLENS}/api/tiles/data.<table>/{z}/{x}/{y}.pbf` by hand means
+    //    hardcoding an internal table name and a URL shape the server owns;
+    //    both can change without notice, and neither is yours to guess.
+    const tiles = props.distributions.find((d) => d.type === "vector_tiles");
+    // An MVT source-layer is named after the tile path segment it comes from,
+    // so the advertised URL already tells you what to put in `source-layer`.
+    const sourceLayer = tiles.url.split("/tiles/")[1].split("/")[0];
+
+    if (map.getSource("ds")) {
+      LAYERS.forEach((l) => map.removeLayer(l.id));
+      map.removeSource("ds");
+    }
+    map.addSource("ds", { type: "vector", tiles: [tiles.url] });
+    LAYERS.forEach((l) => map.addLayer({ ...l, source: "ds", "source-layer": sourceLayer }));
+
+    // A 6-element bbox is 3D (minx, miny, minz, maxx, maxy, maxz).
+    const b = collection.extent.spatial.bbox[0];
+    const [minX, minY, maxX, maxY] = b.length === 6 ? [b[0], b[1], b[3], b[4]] : b;
+    map.fitBounds([[minX, minY], [maxX, maxY]], { padding: 40, duration: 0 });
+
+    const health = props.source_health ?? "unknown";
+    const fieldList = el("p", fields.map(([k, v]) => `${k}: ${typeof v}`).join("\n"));
+    fieldList.id = "fields";
+
+    const endpoints = el("ul");
+    for (const { label, href } of collection.links
+      .map((l) => ({ label: l.title ?? l.rel, href: l.href }))
+      .concat(props.distributions.map((d) => ({ label: d.title, href: d.url })))) {
+      const safe = httpUrl(href);
+      const item = el("li");
+      if (safe) {
+        const anchor = el("a", label);
+        anchor.href = safe;
+        item.append(anchor);
+      } else {
+        item.append(el("span", label));
+      }
+      endpoints.append(item);
+    }
+
+    meta.replaceChildren(
+      ...section("Origin", [
+        ["Publisher", props.source_organization],
+        ["Ingested as", props.source_format],
+        ["License", props.license ?? props.rights],
+      ]),
+      ...section("Freshness", [
+        ["Source health", health, `health-${health}`],
+        ["Freshness", props.source_freshness],
+        ["Updates", props.update_frequency],
+        ["Last checked", props.last_checked_at?.slice(0, 10) ?? "never"],
+        ["Last refreshed", props.last_refreshed_at?.slice(0, 10)],
+        ["Quality score", props.quality_detail?.overall],
+      ]),
+      ...section("Schema", [
+        ["Geometry", props.geometry_type],
+        ["Features", props.feature_count?.toLocaleString()],
+        ["CRS", props.crs],
+      ]),
+      fieldList,
+      el("h2", "Advertised endpoints"),
+      endpoints,
+    );
+
+    document.body.dataset.dataset = record.id;
+  };
+
+  // Against your own instance the first thing to go wrong is usually config,
+  // not code, so put the reason on the page instead of only in the console.
+  const showOrExplain = async (record) => {
+    try {
+      await show(record);
+    } catch (err) {
+      meta.replaceChildren(el("h2", "Failed"), el("p", err.message));
+      throw err;
+    }
+  };
+
+  picker.addEventListener("change", () =>
+    showOrExplain(catalog.features.find((r) => r.id === picker.value)));
+  await showOrExplain(catalog.features[0]);
+</script>
+</body>
+</html>
