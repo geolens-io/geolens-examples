@@ -118,12 +118,23 @@
   // A filled-in panel means the catalog answered. It says nothing about
   // whether the map drew, and a confident panel over an empty map is worse
   // than an honest error. MapLibre reports tile failures on its own error
-  // event and stays quiet through normal loads and dataset switches, so this
-  // speaks up only when tiles really did not arrive.
+  // event, and stays quiet through normal loads and dataset switches, so a
+  // message here means something really did go wrong.
+  //
+  // The `else` is not optional. Attaching any error listener replaces
+  // MapLibre's built-in console logging, so whatever this handler declines to
+  // show has to be forwarded or it disappears entirely. A tile that arrives
+  // HTTP 200 with an unreadable body is exactly that case: it never reaches
+  // the network check above, and without the forward you get a blank map and
+  // a clean console, which is quieter than doing nothing at all.
   const tileStatus = document.getElementById("tiles");
   map.on("error", (e) => {
     const message = String(e?.error?.message ?? e?.error ?? "");
-    if (message.includes("AJAXError")) tileStatus.textContent = `Tiles failed: ${message}`;
+    if (message.includes("AJAXError")) {
+      tileStatus.textContent = `Tiles failed: ${message}`;
+      return;
+    }
+    console.error(e?.error ?? e);
   });
 
   // Catalog values are data, not markup. Building the panel with textContent
