@@ -2,20 +2,29 @@
 
 Runnable examples for consuming [GeoLens](https://github.com/geolens-io/geolens) services from the tools your stack already uses. Every example runs against the public [GeoLens demo](https://demo.getgeolens.com) anonymously — clone, open, see it render. Point any of them at your own instance by changing one constant.
 
+**Every browser example is live at [geolens-io.github.io/geolens-examples](https://geolens-io.github.io/geolens-examples/)**, arranged by what you are trying to do. Open one before you clone anything.
+
 GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), and raster tiles. These examples show those surfaces from the consumer's side.
 
 ## Examples
 
-| Directory | Tool | Demonstrates | Status |
+| Example | Tool | Demonstrates | Run it |
 |---|---|---|---|
-| [`maplibre/`](maplibre/) | MapLibre GL JS 5.x | Vector tiles (MVT), GeoJSON features, raster tiles | Verified live (vector tiles, features, imagery) |
-| [`arcgis-js/`](arcgis-js/) | ArcGIS Maps SDK for JavaScript 4.x/5.x | `OGCFeatureLayer` (OGC API Features), `WebTileLayer` (raster tiles) | Verified live (SDK 5.1, features + imagery) |
-| [`openlayers/`](openlayers/) | OpenLayers 10 | OGC API Features, XYZ raster | Verified live (features + imagery) |
-| [`leaflet/`](leaflet/) | Leaflet 1.9 | GeoJSON features, raster tiles | Verified live (features + imagery) |
-| [`python/`](python/) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | Verified: runs green with one command |
-| [`claude-mcp/`](claude-mcp/) | Claude via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | Ready, with a live transcript |
+| [`maplibre/vector-tiles.html`](maplibre/vector-tiles.html) | MapLibre GL JS 5.x | Vector tiles (MVT) cut per request from PostGIS | [Live](https://geolens-io.github.io/geolens-examples/maplibre/vector-tiles.html) |
+| [`maplibre/features.html`](maplibre/features.html) | MapLibre GL JS 5.x | GeoJSON features, click identify with no round-trip | [Live](https://geolens-io.github.io/geolens-examples/maplibre/features.html) |
+| [`maplibre/imagery.html`](maplibre/imagery.html) | MapLibre GL JS 5.x | Raster tiles through a WebGL texture (needs CORS) | [Live](https://geolens-io.github.io/geolens-examples/maplibre/imagery.html) |
+| [`arcgis-js/features.html`](arcgis-js/features.html) | ArcGIS Maps SDK for JavaScript 4.x/5.x | `OGCFeatureLayer` against the OGC API landing page | [Live](https://geolens-io.github.io/geolens-examples/arcgis-js/features.html) |
+| [`arcgis-js/imagery.html`](arcgis-js/imagery.html) | ArcGIS Maps SDK for JavaScript 4.x/5.x | `WebTileLayer` with Esri's `{level}/{col}/{row}` names | [Live](https://geolens-io.github.io/geolens-examples/arcgis-js/imagery.html) |
+| [`openlayers/features.html`](openlayers/features.html) | OpenLayers 10 | OGC API Features, CRS84 reprojected on read | [Live](https://geolens-io.github.io/geolens-examples/openlayers/features.html) |
+| [`openlayers/imagery.html`](openlayers/imagery.html) | OpenLayers 10 | XYZ raster, and what `crossOrigin` costs you | [Live](https://geolens-io.github.io/geolens-examples/openlayers/imagery.html) |
+| [`leaflet/features.html`](leaflet/features.html) | Leaflet 1.9 | GeoJSON features straight into `L.geoJSON` | [Live](https://geolens-io.github.io/geolens-examples/leaflet/features.html) |
+| [`leaflet/imagery.html`](leaflet/imagery.html) | Leaflet 1.9 | Raster tiles as plain `<img>`, so no CORS needed | [Live](https://geolens-io.github.io/geolens-examples/leaflet/imagery.html) |
+| [`python/`](python/) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | `uv run python/analyze.py` |
+| [`claude-mcp/`](claude-mcp/) | Claude via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.13.1` |
 | `duckdb/` | DuckDB | SQL directly over the Features API | Planned |
 | `cli/` | geolens CLI | Catalog-as-code | Planned |
+
+Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs); the Python example runs green with one command.
 
 MapLibre examples also work with Mapbox GL JS with minimal changes (both consume the same MVT and raster sources).
 

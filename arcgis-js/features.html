@@ -14,12 +14,22 @@
     /* Nothing is drawn under the data (see the basemap note below), so the
        view is transparent and this shows through. */
     arcgis-map { background: #101418; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 32px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <arcgis-map center="-73.98, 40.73" zoom="11">
   <arcgis-zoom slot="top-left"></arcgis-zoom>
 </arcgis-map>
+<div id="hud">
+  <strong>ArcGIS Maps SDK for JavaScript — OGC API Features</strong>
+  <p id="status" role="status">Loading NYC subway lines and stations from the GeoLens demo…</p>
+  <p>MTA via data.ny.gov · datasets <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">lines</a>, <a href="https://demo.getgeolens.com/datasets/724bf894-dc1a-418c-abc6-555798c44d7c">stations</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/arcgis-js/features.html">source</a></p>
+</div>
 <script type="module">
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";
@@ -48,9 +58,10 @@
   // this page's origin has to be in the instance's CORS_ALLOWED_ORIGINS.
   // Keep the key itself out of the page. See the README.
 
-  const [Map, OGCFeatureLayer] = await $arcgis.import([
+  const [Map, OGCFeatureLayer, reactiveUtils] = await $arcgis.import([
     "@arcgis/core/Map.js",
     "@arcgis/core/layers/OGCFeatureLayer.js",
+    "@arcgis/core/core/reactiveUtils.js",
   ]);
 
   const lines = new OGCFeatureLayer({
@@ -103,7 +114,56 @@
   // example runs signed out. With a key set on esriConfig.apiKey you can pass
   // `basemap: "dark-gray-vector"` here.
   const map = new Map({ layers: [lines, stations] });
-  document.querySelector("arcgis-map").map = map;
+  const el = document.querySelector("arcgis-map");
+  el.map = map;
+
+  // Report on what reached the map, not on what loaded. layer.load() only reads
+  // the collection and samples /items to infer fields, so it resolves even when
+  // the bbox queries that actually draw features fail. Ask the layer view how
+  // many features it ended up with instead.
+  const status = document.getElementById("status");
+  const fail = (message, err) => {
+    status.hidden = false;
+    status.className = "err";
+    status.textContent = message;
+    console.error("GeoLens request failed:", err ?? message);
+  };
+
+  // Every promise below can sit pending forever rather than reject: viewOnReady()
+  // does that while a layer is failing, whenLayerView() while the layer view
+  // cannot be created, and the updating watch while a query stalls. So they stay
+  // off the error path (awaiting them up front would swallow the load errors this
+  // exists to report), and the whole group runs under a deadline. A stalled
+  // request has to end as a reported failure, never as "Loading…" forever.
+  const drawn = async (layer) => {
+    await el.viewOnReady(); // resolves with nothing; the view lands on el.view
+    const layerView = await el.view.whenLayerView(layer);
+    await reactiveUtils.whenOnce(() => !layerView.updating);
+    return layerView.queryFeatureCount();
+  };
+
+  // The deadline wraps the whole chain, not just the drawing half: load() sits
+  // pending too when the items request stalls rather than refuses. The page
+  // settles in about eight seconds against the demo, so this only fires on a
+  // genuine stall.
+  const stalled = new Promise((resolve) => setTimeout(resolve, 30000, null));
+
+  Promise.race([
+    Promise.all([lines.load(), stations.load()]).then(() =>
+      Promise.all([drawn(lines), drawn(stations)]),
+    ),
+    stalled,
+  ])
+    .then((counts) => {
+      if (counts === null) {
+        return fail(`${GEOLENS} accepted the connection but never answered. It is reachable, so this is a stall rather than a refusal.`);
+      }
+      if (counts.some((n) => n > 0)) return void (status.hidden = true);
+      fail(`${GEOLENS} answered, but no features reached the map. The collections loaded, so check that their items queries return data for this view.`);
+    })
+    .catch((err) =>
+      fail(`Could not read the OGC API at ${GEOLENS} — ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`, err),
+    );
 </script>
 </body>
 </html>

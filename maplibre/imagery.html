@@ -9,10 +9,20 @@
   <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     html, body, #map { margin: 0; height: 100%; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 10px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="hud">
+  <strong>MapLibre GL JS — raster tiles</strong>
+  <p id="status" role="status">Loading the swissALTI3D Matterhorn DEM from the GeoLens demo…</p>
+  <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/6f03bafa-34b3-4902-9351-40ce09a8181f">dataset</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/imagery.html">source</a></p>
+</div>
 <script>
   // MapLibre fetches tiles CORS-mode for its WebGL textures, so the server
   // must send Access-Control-Allow-Origin on every tile response. GeoLens
@@ -57,6 +67,41 @@
   });
 
   map.addControl(new maplibregl.NavigationControl());
+
+  const status = document.getElementById("status");
+  let missing = false; // set by the catalog check below; tiles cannot clear it
+
+  const fail = (message, err) => {
+    status.hidden = false;
+    status.className = "err";
+    status.textContent = message;
+    console.error("GeoLens request failed:", err ?? message);
+  };
+
+  // Clear the line when a tile arrives, rather than when the map goes idle.
+  // MapLibre raises this only for a tile that came back, so it doubles as the
+  // recovery signal: a transient failure cannot latch red over a map that has
+  // since recovered. Tiles outside the footprint answer 204 and MapLibre treats
+  // those as ordinary empty tiles, so panning off the data is not a failure.
+  map.on("data", (e) => {
+    if (missing || !e.tile || e.sourceId !== "dem") return;
+    status.className = "";
+    status.hidden = true;
+  });
+
+  map.on("error", (e) =>
+    fail(`Could not load tiles from ${GEOLENS} — ${e.error?.message ?? "request failed"}. Instances older than v1.13.0 send no CORS header on raster tiles, which blocks them here.`, e.error ?? e),
+  );
+
+  // The tile route cannot tell you the dataset is gone: it answers 204 both for
+  // a tile outside the footprint and for a dataset id that does not exist, so
+  // those two look identical from here. The catalog is the only place the
+  // difference shows, so ask it once.
+  fetch(`${GEOLENS}/api/collections/${DEM}`).then((r) => {
+    if (r.ok) return;
+    missing = true;
+    fail(`${GEOLENS} has no dataset ${DEM} (${r.status} ${r.statusText}). List what is available at /api/collections.`);
+  });
 </script>
 </body>
 </html>

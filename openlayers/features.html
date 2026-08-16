@@ -23,11 +23,21 @@
       font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
       white-space: pre;
     }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 10px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <div id="map"></div>
 <div id="popup" class="popup"></div>
+<div id="hud">
+  <strong>OpenLayers — OGC API Features</strong>
+  <p id="status" role="status">Loading NYC subway lines and stations from the GeoLens demo…</p>
+  <p>MTA via data.ny.gov · datasets <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">lines</a>, <a href="https://demo.getgeolens.com/datasets/724bf894-dc1a-418c-abc6-555798c44d7c">stations</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/openlayers/features.html">source</a></p>
+</div>
 <script>
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";
@@ -58,8 +68,21 @@
   // the view's projection to the GeoJSON format as `featureProjection`, and
   // the format's `dataProjection` already defaults to EPSG:4326, so features
   // are reprojected as they are read. No manual transform needed.
-  const source = (id) =>
-    new ol.source.Vector({ url: items(id), format: new ol.format.GeoJSON() });
+  // Drop the "loading" line once both collections are in; on failure say so in
+  // the page rather than only in the console.
+  const status = document.getElementById("status");
+  let pending = 2;
+
+  const source = (id) => {
+    const s = new ol.source.Vector({ url: items(id), format: new ol.format.GeoJSON() });
+    s.on("featuresloadend", () => { if (--pending === 0 && !status.className) status.hidden = true; });
+    s.on("featuresloaderror", () => {
+      status.className = "err";
+      status.textContent = `Could not read features from ${GEOLENS}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`;
+      console.error("GeoLens request failed:", items(id));
+    });
+    return s;
+  };
 
   const lines = new ol.layer.Vector({
     source: source(LINES),

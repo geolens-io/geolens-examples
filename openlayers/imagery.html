@@ -10,10 +10,20 @@
   <style>
     html, body, #map { margin: 0; height: 100%; }
     #map { background: #101418; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 10px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="hud">
+  <strong>OpenLayers — raster tiles</strong>
+  <p id="status" role="status">Loading the swissALTI3D Matterhorn DEM from the GeoLens demo…</p>
+  <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/6f03bafa-34b3-4902-9351-40ce09a8181f">dataset</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/openlayers/imagery.html">source</a></p>
+</div>
 <script>
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";
@@ -30,33 +40,46 @@
   // "Authenticating against your own instance" in the README.
   const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
 
+  const dem = new ol.layer.Tile({
+    // No `crossOrigin` here, which keeps this example working against any
+    // instance. OpenLayers loads XYZ tiles into <img> elements, and
+    // without a crossOrigin value the browser displays them whether or
+    // not the server sends Access-Control-Allow-Origin.
+    //
+    // The cost is that the tiles taint the canvas they are drawn into, so
+    // anything reading pixels back fails: layer.getData(),
+    // map.forEachLayerAtPixel(), exporting the map to a PNG. Those need
+    // `crossOrigin: "anonymous"`, which in turn needs the CORS header.
+    // GeoLens has sent it on raster tiles since v1.13.0 (geolens#1464),
+    // so set it against a current instance and leave it off against an
+    // older one.
+    source: new ol.source.XYZ({
+      url: `${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`,
+      tileSize: 256,
+      maxZoom: 20,
+    }),
+  });
+
   const map = new ol.Map({
     target: "map",
-    layers: [
-      new ol.layer.Tile({
-        // No `crossOrigin` here, which keeps this example working against any
-        // instance. OpenLayers loads XYZ tiles into <img> elements, and
-        // without a crossOrigin value the browser displays them whether or
-        // not the server sends Access-Control-Allow-Origin.
-        //
-        // The cost is that the tiles taint the canvas they are drawn into, so
-        // anything reading pixels back fails: layer.getData(),
-        // map.forEachLayerAtPixel(), exporting the map to a PNG. Those need
-        // `crossOrigin: "anonymous"`, which in turn needs the CORS header.
-        // GeoLens has sent it on raster tiles since v1.13.0 (geolens#1464),
-        // so set it against a current instance and leave it off against an
-        // older one.
-        source: new ol.source.XYZ({
-          url: `${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`,
-          tileSize: 256,
-          maxZoom: 20,
-        }),
-      }),
-    ],
+    layers: [dem],
     view: new ol.View({
       center: ol.proj.fromLonLat([7.6586, 45.9763]), // Matterhorn
       zoom: 12,
     }),
+  });
+
+  // Drop the "loading" line once the visible tiles are in. Tiles outside the
+  // dataset footprint answer 204 and count as errors here, so the failure test
+  // is "nothing arrived at all", not "something errored".
+  const status = document.getElementById("status");
+  let loaded = 0;
+  dem.getSource().on("tileloadend", () => { loaded += 1; });
+  map.once("rendercomplete", () => {
+    if (loaded) return void (status.hidden = true);
+    status.className = "err";
+    status.textContent = `No tiles came back from ${GEOLENS}. The dataset may not exist on this instance, or it may be private — a private dataset needs a scoped tile token on the template.`;
+    console.error("GeoLens returned no tiles for", DEM);
   });
 </script>
 </body>

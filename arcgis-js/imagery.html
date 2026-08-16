@@ -12,12 +12,22 @@
   <style>
     html, body, arcgis-map { margin: 0; height: 100%; }
     arcgis-map { background: #101418; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 32px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <arcgis-map center="7.6586, 45.9763" zoom="12">
   <arcgis-zoom slot="top-left"></arcgis-zoom>
 </arcgis-map>
+<div id="hud">
+  <strong>ArcGIS Maps SDK for JavaScript — raster tiles</strong>
+  <p id="status" role="status">Loading the swissALTI3D Matterhorn DEM from the GeoLens demo…</p>
+  <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/6f03bafa-34b3-4902-9351-40ce09a8181f">dataset</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/arcgis-js/imagery.html">source</a></p>
+</div>
 <script type="module">
   // The SDK uploads tiles into a WebGL texture, so it requests them as
   // CORS-clean images and needs Access-Control-Allow-Origin on every tile
@@ -70,7 +80,21 @@
   // example runs signed out. With a key set on esriConfig.apiKey you can pass
   // `basemap: "dark-gray-vector"` here.
   const map = new Map({ layers: [dem] });
-  document.querySelector("arcgis-map").map = map;
+  const el = document.querySelector("arcgis-map");
+  el.map = map;
+
+  // Report on the tiles, not on the layer: WebTileLayer.load() resolves without
+  // touching the network, so it would call a dead endpoint a success. The first
+  // tile that actually arrives clears the line; if none does, say so.
+  const status = document.getElementById("status");
+  const fetchTile = dem.fetchTile.bind(dem);
+  dem.fetchTile = (...args) => fetchTile(...args).then((tile) => ((status.hidden = true), tile));
+  setTimeout(() => {
+    if (status.hidden) return;
+    status.className = "err";
+    status.textContent = `No tiles came back from ${GEOLENS}. Instances older than v1.13.0 send no CORS header on raster tiles, which blocks them here.`;
+    console.error("GeoLens returned no tiles for", DEM);
+  }, 12000);
 </script>
 </body>
 </html>

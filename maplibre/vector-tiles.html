@@ -9,10 +9,20 @@
   <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     html, body, #map { margin: 0; height: 100%; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 10px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="hud">
+  <strong>MapLibre GL JS — vector tiles (MVT)</strong>
+  <p id="status" role="status">Loading NYC subway lines from the GeoLens demo…</p>
+  <p>MTA via data.ny.gov · <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">dataset</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/vector-tiles.html">source</a></p>
+</div>
 <script>
   // Point this at your own GeoLens instance to use your data. The demo is
   // anonymous. A tile template cannot send headers, so a private dataset
@@ -53,6 +63,26 @@
   });
 
   map.addControl(new maplibregl.NavigationControl());
+
+  // Clear the line when data actually arrives, rather than when the map goes
+  // idle. MapLibre raises this event only for a tile that came back, so it also
+  // works as the recovery signal: a transient failure cannot latch red over a
+  // map that has since recovered.
+  // Name the source rather than accepting any tile: on a page with more than
+  // one source, a tile from the healthy one would otherwise clear an error
+  // raised by the source that is actually broken.
+  const status = document.getElementById("status");
+  map.on("data", (e) => {
+    if (!e.tile || e.sourceId !== "subway") return;
+    status.className = "";
+    status.hidden = true;
+  });
+  map.on("error", (e) => {
+    status.hidden = false;
+    status.className = "err";
+    status.textContent = `Could not load tiles from ${GEOLENS} — ${e.error?.message ?? "request failed"}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`;
+    console.error("GeoLens request failed:", e.error ?? e);
+  });
 </script>
 </body>
 </html>

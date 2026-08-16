@@ -11,10 +11,20 @@
     html, body, #map { margin: 0; height: 100%; }
     #map { background: #101418; }
     .leaflet-popup-content pre { margin: 0; font-size: 12px; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 1000; left: 10px; bottom: 10px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="hud">
+  <strong>Leaflet — OGC API Features</strong>
+  <p id="status" role="status">Loading NYC subway lines and stations from the GeoLens demo…</p>
+  <p>MTA via data.ny.gov · datasets <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">lines</a>, <a href="https://demo.getgeolens.com/datasets/724bf894-dc1a-418c-abc6-555798c44d7c">stations</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/leaflet/features.html">source</a></p>
+</div>
 <script>
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";
@@ -40,7 +50,15 @@
   // Reading the items endpoint with fetch() is a cross-origin request, so it
   // depends on the CORS headers GeoLens sends. The demo allows all origins;
   // on your own instance the page's origin has to be in the CORS config.
-  const load = (id) => fetch(items(id)).then((r) => r.json());
+  // fetch() fulfils on 404 and 401 as happily as on 200, and the body is then a
+  // problem document rather than GeoJSON. L.geoJSON accepts an object with no
+  // features without complaining, so skipping this check draws a blank map and
+  // reports success.
+  const load = (id) =>
+    fetch(items(id)).then((r) => {
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText} from ${items(id)}`);
+      return r.json();
+    });
 
   // Features arrive as real GeoJSON, so identify is a client-side lookup —
   // no server round-trip, no GetFeatureInfo.
@@ -49,6 +67,10 @@
     pre.textContent = JSON.stringify(feature.properties, null, 2);
     layer.bindPopup(pre);
   };
+
+  // Drop the "loading" line once both collections are in; on failure say so in
+  // the page rather than only in the console.
+  const status = document.getElementById("status");
 
   Promise.all([load(LINES), load(STATIONS)])
     .then(([lines, stations]) => {
@@ -70,8 +92,13 @@
           }),
         onEachFeature: bindProps,
       }).addTo(map);
+      status.hidden = true;
     })
-    .catch((err) => console.error("GeoLens request failed:", err));
+    .catch((err) => {
+      status.className = "err";
+      status.textContent = `Could not read features from ${GEOLENS} — ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`;
+      console.error("GeoLens request failed:", err);
+    });
 </script>
 </body>
 </html>
