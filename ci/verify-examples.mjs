@@ -119,25 +119,98 @@ const IGNORED_REQUEST_FAILURE = /net::ERR_ABORTED/;
 const REQUIRED_KEYS = ["path", "wait", "requireUrls", "minDataResponses"];
 const OPTIONAL_KEYS = ["minDistinctColors", "minInkFraction", "cropFraction"];
 
+// Floors that cannot be configured away. Checking that a key exists is not the
+// same as checking that its value means anything, and every bound below exists
+// because the value past it turns an assertion into a no-op that still reports
+// green:
+//
+//   requireUrls: [""]       an empty needle is a substring of every URL
+//   minDataResponses: 0     satisfied by no data at all
+//   minDistinctColors: 1    a flat fill measures exactly 1, so 1 passes it
+//   minInkFraction: 0       satisfied by a blank canvas
+//   cropFraction: 1         samples the corners, where the zoom control and
+//                           attribution paint pixels a dead map hides behind
+//
+// A placeholder or a typo must not quietly revert this to the smoke test it
+// replaced.
+const MAX_CROP_FRACTION = 0.8;
+const MIN_DISTINCT_FLOOR = 2;
+const MIN_NEEDLE_LENGTH = 3;
+
+const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
+const isFiniteNumber = (v) => typeof v === "number" && Number.isFinite(v);
+
+function validateEntry(entry, where, problems) {
+  for (const key of REQUIRED_KEYS) {
+    if (entry?.[key] === undefined) problems.push(`${where}: missing required key "${key}"`);
+  }
+  for (const key of Object.keys(entry ?? {})) {
+    if (!REQUIRED_KEYS.includes(key) && !OPTIONAL_KEYS.includes(key)) {
+      problems.push(`${where}: unknown key "${key}"`);
+    }
+  }
+
+  const { path, wait, requireUrls, minDistinctColors, minInkFraction, cropFraction } = entry ?? {};
+  const minDataResponses = entry?.minDataResponses;
+
+  if (path !== undefined && (typeof path !== "string" || path.trim() === "")) {
+    problems.push(`${where}: path must be a non-empty string`);
+  }
+  if (wait !== undefined && !(isFiniteNumber(wait) && wait > 0)) {
+    problems.push(`${where}: wait must be a positive number of milliseconds, got ${JSON.stringify(wait)}`);
+  }
+
+  if (requireUrls !== undefined) {
+    if (!Array.isArray(requireUrls) || requireUrls.length === 0) {
+      problems.push(`${where}: requireUrls must be a non-empty array of URL substrings`);
+    } else {
+      for (const needle of requireUrls) {
+        if (typeof needle !== "string" || needle.trim().length < MIN_NEEDLE_LENGTH || !/[a-z0-9]/i.test(needle)) {
+          problems.push(
+            `${where}: requireUrls entry ${JSON.stringify(needle)} is not specific enough to assert anything. ` +
+              `Name the dataset id, qualified table name or tile path the example loads.`,
+          );
+        }
+      }
+    }
+  }
+
+  if (minDataResponses !== undefined && !isPositiveInt(minDataResponses)) {
+    problems.push(
+      `${where}: minDataResponses must be a positive integer, got ${JSON.stringify(minDataResponses)}. ` +
+        `Zero would be satisfied by an example that loaded nothing.`,
+    );
+  }
+  if (minDistinctColors !== undefined && !(Number.isInteger(minDistinctColors) && minDistinctColors >= MIN_DISTINCT_FLOOR)) {
+    problems.push(
+      `${where}: minDistinctColors must be an integer of at least ${MIN_DISTINCT_FLOOR}, got ${JSON.stringify(minDistinctColors)}. ` +
+        `A map that failed to draw measures exactly 1 distinct color.`,
+    );
+  }
+  if (minInkFraction !== undefined && !(isFiniteNumber(minInkFraction) && minInkFraction > 0 && minInkFraction <= 1)) {
+    problems.push(
+      `${where}: minInkFraction must be greater than 0 and at most 1, got ${JSON.stringify(minInkFraction)}. ` +
+        `Zero would be satisfied by a blank canvas.`,
+    );
+  }
+  if (cropFraction !== undefined && !(isFiniteNumber(cropFraction) && cropFraction > 0 && cropFraction <= MAX_CROP_FRACTION)) {
+    problems.push(
+      `${where}: cropFraction must be greater than 0 and at most ${MAX_CROP_FRACTION}, got ${JSON.stringify(cropFraction)}. ` +
+        `Sampling more than that reaches the corners, where the zoom control and attribution paint ` +
+        `pixels a dead map can hide behind.`,
+    );
+  }
+}
+
 function loadManifest() {
   const manifest = JSON.parse(readFileSync(join(HERE, "manifest.json"), "utf8"));
   const problems = [];
   if (!Array.isArray(manifest)) problems.push("manifest.json must be an array");
-
-  manifest.forEach((entry, i) => {
-    const where = `manifest[${i}]${entry?.path ? ` (${entry.path})` : ""}`;
-    for (const key of REQUIRED_KEYS) {
-      if (entry?.[key] === undefined) problems.push(`${where}: missing required key "${key}"`);
-    }
-    for (const key of Object.keys(entry ?? {})) {
-      if (!REQUIRED_KEYS.includes(key) && !OPTIONAL_KEYS.includes(key)) {
-        problems.push(`${where}: unknown key "${key}"`);
-      }
-    }
-    if (entry?.requireUrls !== undefined && (!Array.isArray(entry.requireUrls) || entry.requireUrls.length === 0)) {
-      problems.push(`${where}: requireUrls must be a non-empty array of URL substrings`);
-    }
-  });
+  else {
+    manifest.forEach((entry, i) => {
+      validateEntry(entry, `manifest[${i}]${entry?.path ? ` (${entry.path})` : ""}`, problems);
+    });
+  }
 
   if (problems.length > 0) {
     console.error("Invalid ci/manifest.json:\n" + problems.map((p) => `  - ${p}`).join("\n"));
