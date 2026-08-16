@@ -137,6 +137,17 @@ const MAX_CROP_FRACTION = 0.8;
 const MIN_DISTINCT_FLOOR = 2;
 const MIN_NEEDLE_LENGTH = 3;
 
+// A needle naming /items has to name the collection, not the endpoint.
+// "/items" clears every bound above while matching every items response on the
+// page, so it proves only that the example fetched something, not that it
+// fetched the dataset it documents. The features assertion no longer depends on
+// needles at all (see byCollection below), but requireUrls still carries the
+// "it loaded what it claims to" job, and that job needs a specific needle.
+//
+// Structural rather than another length guess: there must be a path segment
+// immediately before /items.
+const ITEMS_NEEDLE_NAMES_COLLECTION = /[^/]\/items(\?|$)/;
+
 const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
 const isFiniteNumber = (v) => typeof v === "number" && Number.isFinite(v);
 
@@ -169,6 +180,12 @@ function validateEntry(entry, where, problems) {
           problems.push(
             `${where}: requireUrls entry ${JSON.stringify(needle)} is not specific enough to assert anything. ` +
               `Name the dataset id, qualified table name or tile path the example loads.`,
+          );
+        } else if (ITEMS_URL.test(needle) && !ITEMS_NEEDLE_NAMES_COLLECTION.test(needle)) {
+          problems.push(
+            `${where}: requireUrls entry ${JSON.stringify(needle)} names the items endpoint rather than a collection, ` +
+              `so it matches every items response on the page and the per-collection features check stops ` +
+              `distinguishing them. Use the full path, e.g. "/collections/<dataset-id>/items".`,
           );
         }
       }
@@ -510,28 +527,37 @@ async function runOnce(page, scratch, entry) {
   if (dataResponses.length < entry.minDataResponses) {
     failures.push(`only ${dataResponses.length} successful data response(s), need ${entry.minDataResponses} (${emptyTiles} empty 204 tile(s) do not count)`);
   }
-  // Per required collection, never pooled across the page. A single page-wide
-  // "at least one non-empty body" counter passes when one of two required
-  // collections vanishes: the surviving layer satisfies the counter, satisfies
-  // the render proof by painting, and both URLs still answer 2xx. The stations
-  // layer could disappear from maplibre/features.html and CI stayed green.
+  // Per collection, never pooled across the page. A single page-wide "at least
+  // one non-empty body" counter passes when one of two collections vanishes:
+  // the surviving layer satisfies the counter, satisfies the render proof by
+  // painting, and both URLs still answer 2xx. The stations layer could
+  // disappear from maplibre/features.html and CI stayed green.
+  //
+  // Collections are grouped by the items URL minus its query string, derived
+  // from what the page actually fetched rather than from what the manifest
+  // declares. Grouping by requireUrls needle had the same hole one level down:
+  // a needle broad enough to match every items response ("/items", or "items",
+  // both of which pass validation) pooled the collections straight back
+  // together. There is no configuration in this grouping, so there is nothing
+  // to configure away.
   //
   // Still "at least one non-empty per collection" rather than "every response
-  // non-empty": ArcGIS's OGCFeatureLayer fetches per viewport tile and
-  // legitimately gets empty answers for tiles the data does not reach.
-  for (const needle of entry.requireUrls.filter((n) => ITEMS_URL.test(n))) {
-    const forNeedle = itemsBodies.filter((b) => b.url.includes(needle));
-    if (forNeedle.length > 0 && !forNeedle.some((b) => b.features > 0)) {
+  // non-empty": ArcGIS's OGCFeatureLayer fetches the same collection once per
+  // viewport tile and legitimately gets empty answers for tiles the data does
+  // not reach.
+  const byCollection = new Map();
+  for (const body of itemsBodies) {
+    const collection = body.url.split("?")[0];
+    if (!byCollection.has(collection)) byCollection.set(collection, []);
+    byCollection.get(collection).push(body);
+  }
+  for (const [collection, bodies] of byCollection) {
+    if (!bodies.some((b) => b.features > 0)) {
       failures.push(
-        `every /items response for "${needle}" came back empty (${forNeedle.length} response(s), 0 features) — ` +
+        `every /items response for ${collection} came back empty (${bodies.length} response(s), 0 features) — ` +
           `that layer is missing from the map even though the page still renders`,
       );
     }
-  }
-  // Backstop for items the manifest does not name: a page that fetched
-  // features and got nothing anywhere.
-  if (itemsBodies.length > 0 && !itemsBodies.some((b) => b.features > 0)) {
-    failures.push(`${itemsBodies.length} /items response(s), every one an empty FeatureCollection`);
   }
   if (stats.distinct < minDistinct || stats.inkFraction < minInk) {
     failures.push(`nothing painted: center of the viewport has ${stats.distinct} distinct colors (need ${minDistinct}) and ${(stats.inkFraction * 100).toFixed(2)}% non-background pixels (need ${(minInk * 100).toFixed(2)}%), modal color ${stats.modal}`);
