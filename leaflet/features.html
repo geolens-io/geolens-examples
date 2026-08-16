@@ -50,7 +50,15 @@
   // Reading the items endpoint with fetch() is a cross-origin request, so it
   // depends on the CORS headers GeoLens sends. The demo allows all origins;
   // on your own instance the page's origin has to be in the CORS config.
-  const load = (id) => fetch(items(id)).then((r) => r.json());
+  // fetch() fulfils on 404 and 401 as happily as on 200, and the body is then a
+  // problem document rather than GeoJSON. L.geoJSON accepts an object with no
+  // features without complaining, so skipping this check draws a blank map and
+  // reports success.
+  const load = (id) =>
+    fetch(items(id)).then((r) => {
+      if (!r.ok) throw new Error(`${r.status} ${r.statusText} from ${items(id)}`);
+      return r.json();
+    });
 
   // Features arrive as real GeoJSON, so identify is a client-side lookup —
   // no server round-trip, no GetFeatureInfo.

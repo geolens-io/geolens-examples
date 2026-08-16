@@ -58,9 +58,10 @@
   // this page's origin has to be in the instance's CORS_ALLOWED_ORIGINS.
   // Keep the key itself out of the page. See the README.
 
-  const [Map, OGCFeatureLayer] = await $arcgis.import([
+  const [Map, OGCFeatureLayer, reactiveUtils] = await $arcgis.import([
     "@arcgis/core/Map.js",
     "@arcgis/core/layers/OGCFeatureLayer.js",
+    "@arcgis/core/core/reactiveUtils.js",
   ]);
 
   const lines = new OGCFeatureLayer({
@@ -116,17 +117,37 @@
   const el = document.querySelector("arcgis-map");
   el.map = map;
 
-  // Drop the "loading" line once the view is up and both layers have read
-  // their OGC metadata; on failure say so in the page, not only in the console.
+  // Report on what reached the map, not on what loaded. layer.load() only reads
+  // the collection and samples /items to infer fields, so it resolves even when
+  // the bbox queries that actually draw features fail. Ask the layer view how
+  // many features it ended up with instead.
   const status = document.getElementById("status");
-  Promise.all([el.viewOnReady(), lines.load(), stations.load()]).then(
-    () => { status.hidden = true; },
-    (err) => {
-      status.className = "err";
-      status.textContent = `Could not read the OGC API at ${GEOLENS} — ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`;
-      console.error("GeoLens request failed:", err);
-    },
-  );
+  const fail = (message, err) => {
+    status.hidden = false;
+    status.className = "err";
+    status.textContent = message;
+    console.error("GeoLens request failed:", err ?? message);
+  };
+
+  // viewOnReady() never settles while a layer is failing, and it resolves with
+  // nothing (the view lands on el.view), so keep it inside the success path.
+  // Awaiting it up front would swallow the load errors this exists to report.
+  const drawn = async (layer) => {
+    await el.viewOnReady();
+    const layerView = await el.view.whenLayerView(layer);
+    await reactiveUtils.whenOnce(() => !layerView.updating);
+    return layerView.queryFeatureCount();
+  };
+
+  Promise.all([lines.load(), stations.load()])
+    .then(() => Promise.all([drawn(lines), drawn(stations)]))
+    .then((counts) => {
+      if (counts.some((n) => n > 0)) return void (status.hidden = true);
+      fail(`${GEOLENS} answered, but no features reached the map. The collections loaded, so check that their items queries return data for this view.`);
+    })
+    .catch((err) =>
+      fail(`Could not read the OGC API at ${GEOLENS} — ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`, err),
+    );
 </script>
 </body>
 </html>
