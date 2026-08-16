@@ -37,6 +37,10 @@ jobs:
         run: |
           python3 -m http.server 8000 &
           sleep 1
+          # Cheap and specific first, so a popup regression does not wait out
+          # the full render sweep. Both need the server this step started, so
+          # they share a step rather than relying on it outliving one.
+          node ci/check-popup-safety.mjs
           node ci/verify-examples.mjs
       - name: Upload failure diagnostics
         if: failure()
