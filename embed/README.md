@@ -50,7 +50,7 @@ Read by the viewer at `frontend/src/pages/PublicViewerPage.tsx`:
 | `center=lng,lat` | Overrides the map's saved centre. Silently ignored if out of range. |
 | `zoom=<0-24>` | Overrides the saved zoom. |
 | `et=<embedToken>` | A scoped embed token, for maps with private layers. See below. |
-| `api_key=<key>` | An API key, as an alternative to `et`. |
+| `api_key=<key>` | Accepted, but do not use it here. See below. |
 
 `embed=true` also turns on a small GeoLens badge over the map, which is the
 trade for a free embed. Enterprise instances can switch it off through the
@@ -116,6 +116,20 @@ With `allowed_origins` set, the shell itself is domain-locked. The edge
 validates the token and emits a per-token `frame-ancestors` policy on the HTML,
 so a site that is not on the list gets blocked by the browser before the app
 boots. An invalid or revoked token fails closed to `frame-ancestors 'none'`.
+
+### Why not `api_key=`
+
+The viewer also accepts a plain `api_key=` query parameter, so it will appear to
+work where `et=` does. Do not use it for an embed. An iframe `src` is visible in
+the page source of every site the embed appears on, and it travels into browser
+history, referrer headers, proxy logs and analytics. An API key is scoped to a
+user across the whole catalog, not to one map, and revoking it breaks everything
+else that user's key is doing.
+
+An embed token is the narrower instrument, and the difference is the point: it
+covers a frozen snapshot of one map's datasets, it expires, and revoking it
+affects nothing but that embed. The parameter is documented above because it
+exists and you will find it; it is not an alternative worth reaching for.
 
 ## React and Next.js
 
