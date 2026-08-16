@@ -16,7 +16,8 @@
 //      not satisfy the minimum.
 //   4. The data was not empty, per collection: every collection the page
 //      fetched items from produced at least one non-empty body of its own, and
-//      none of them answered 200 with a body that could not be parsed. (At
+//      none of them answered 200 with a body that could not be parsed — which
+//      includes one that never finished arriving, see BODY_READ_TIMEOUT_MS. (At
 //      least one non-empty rather than all, because ArcGIS's OGCFeatureLayer
 //      fetches the same collection once per viewport tile and legitimately
 //      gets empty answers for tiles the data does not reach.)
@@ -82,6 +83,34 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(",").map((s) => s.trim())
 // without weakening what the page proves.
 const PAGE_GAP_MS = Number(process.env.PAGE_GAP_MS ?? 1500);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A body read that never settles costs more than one that fails. runOnce waits
+// for every /items body before it asserts anything, so a demo that sends 200
+// headers and then stalls the body holds the whole run until the workflow's own
+// 15-minute timeout kills it — naming no page, no screenshot and no failed
+// request, which is the opposite of what these diagnostics are for (#17).
+// Bounding each read turns that into an unreadable body: an ordinary failed
+// attempt that retries, writes diagnostics, and says which collection stalled.
+//
+// Fixed rather than configurable, because it is a hang bound and not a tuning
+// knob. It sits far above any real read here — every items body is one page of
+// a subway collection, and the page has already had its whole `wait` to receive
+// it before the drain even starts — and far below the workflow timeout it
+// exists to keep the run away from.
+const BODY_READ_TIMEOUT_MS = 15000;
+
+// Promise.race plus the clearTimeout that makes it safe to call once per
+// response: an uncleared timer per read would keep the event loop alive after
+// the verdict is in, so a run that finished would sit waiting on nothing.
+function withTimeout(promise, ms, message) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 
 // Pinned so the pixel thresholds below mean the same thing on every machine.
 const VIEWPORT = { width: 1280, height: 720 };
@@ -296,10 +325,12 @@ function loadManifest() {
 //
 // Rows offering a command instead (`uv run python/analyze.py`, the `claude mcp
 // add` line) are verified by other jobs, and rows saying Planned assert
-// nothing. Those two rows are the only ones nothing reads, which is why they
-// drifted from index.html for a full review round — see issue #16. Both are
-// recognised by what the row offers rather than by directory name, so new
-// planned rows and new tools keep working without editing this file.
+// nothing. Both are recognised by what the row offers rather than by directory
+// name, so new planned rows and new tools keep working without editing this
+// file. Those command rows used to be the only ones in the table nothing read,
+// which is how they drifted from index.html for a full review round;
+// checkReadmeCommandsMatchGallery below now pairs each one with its gallery
+// card (#16).
 //
 // Rows are read whole, never by column position: this table gained a column
 // change and a semantic relocation in a single commit, and a check that breaks
@@ -389,6 +420,109 @@ function checkReadmeAgainstCi(manifest) {
 
   if (problems.length > 0) {
     console.error("README.md and CI disagree:\n" + problems.map((p) => `  - ${p}`).join("\n"));
+    process.exit(1);
+  }
+}
+
+// The other pair of hand-maintained copies, and the one nothing was reading.
+// README.md's Examples table offers a paste-able command in the `Run it` cell
+// of every row no browser job can check, and index.html carries that same
+// command again as the `address` of the matching gallery card. Both drifted in
+// #10: the README was corrected, index.html was not, and CI stayed green for a
+// full review round because no job compared the two files (#16).
+//
+// Two copies is fine. Two copies with nothing reading them shipped a broken
+// command to the page a reader is most likely to paste from.
+//
+// Both sides go through one predicate, so neither list can hide in the other's
+// blind spot. What each side offers up for comparison:
+//
+//   README   a table cell that is entirely one code span and nothing else.
+//            Read from a row's cells, never from a column index — this table
+//            has already gained a column and moved a claim between columns in
+//            a single commit, and a check that breaks on that gets deleted the
+//            first time it is inconvenient.
+//   index    an `address:` string literal in the EXAMPLES array.
+//
+// and then what makes one of those a command rather than an endpoint: it opens
+// with an executable name followed by an argument. Every endpoint address on
+// either side opens with "/", including the two carrying prose after it
+// ("/api/ → collectionId"), so the two populations do not overlap.
+const COMMAND_SHAPE = /^[a-z][a-z0-9_.+-]*\s+\S/i;
+const CELL_IS_ONE_CODE_SPAN = /^`([^`]+)`$/;
+const CARD_ADDRESS = /\baddress:\s*("(?:[^"\\]|\\.)*")/g;
+
+function checkReadmeCommandsMatchGallery() {
+  const readme = readFileSync(join(REPO, "README.md"), "utf8");
+  const html = readFileSync(join(REPO, "index.html"), "utf8");
+  const problems = [];
+
+  const rows = readme.split("\n").filter((l) => l.trimStart().startsWith("|"));
+  const readmeCommands = new Set();
+  for (const row of rows) {
+    for (const cell of row.split("|").map((c) => c.trim())) {
+      const span = CELL_IS_ONE_CODE_SPAN.exec(cell);
+      if (span && COMMAND_SHAPE.test(span[1])) readmeCommands.add(span[1]);
+    }
+  }
+
+  const cardCommands = new Set();
+  let addressLiterals = 0;
+  for (const match of html.matchAll(CARD_ADDRESS)) {
+    addressLiterals += 1;
+    let value;
+    try {
+      value = JSON.parse(match[1]);
+    } catch {
+      // Never skipped quietly. An address this check cannot read is an address
+      // it is not comparing, and a comparison that silently stops covering one
+      // of its inputs is the exact state issue #16 exists to end.
+      problems.push(
+        `index.html carries an address literal this check cannot read: ${match[1].slice(0, 60)}. ` +
+          `Keep card addresses plain double-quoted strings, or teach CARD_ADDRESS the new form.`,
+      );
+      continue;
+    }
+    if (COMMAND_SHAPE.test(value)) cardCommands.add(value);
+  }
+
+  // The guard that keeps this from decaying into decoration. Reshape either
+  // side past what the patterns above recognise and every comparison below
+  // ranges over an empty set: green, and asserting nothing, which is
+  // indistinguishable from the drift it is here to catch. So say so instead.
+  if (rows.length > 0 && readmeCommands.size === 0) {
+    problems.push(
+      "no README.md table cell offers a command in a form this check recognises, so it is asserting nothing. " +
+        "The Examples table has probably changed shape again: update CELL_IS_ONE_CODE_SPAN or COMMAND_SHAPE in " +
+        "ci/verify-examples.mjs to match how a row now offers a command to paste.",
+    );
+  }
+  if (addressLiterals === 0) {
+    problems.push(
+      "index.html has no card `address:` values this check can read, so it is asserting nothing. The EXAMPLES " +
+        "array has probably changed shape: update CARD_ADDRESS in ci/verify-examples.mjs.",
+    );
+  }
+
+  for (const command of readmeCommands) {
+    if (!cardCommands.has(command)) {
+      problems.push(
+        `README.md offers \`${command}\`, which no gallery card in index.html carries as its address. ` +
+          `These are two copies of one paste-able command; fix whichever one is wrong.`,
+      );
+    }
+  }
+  for (const command of cardCommands) {
+    if (!readmeCommands.has(command)) {
+      problems.push(
+        `index.html has a gallery card whose address is \`${command}\`, which no row of README.md's Examples ` +
+          `table offers. These are two copies of one paste-able command; fix whichever one is wrong.`,
+      );
+    }
+  }
+
+  if (problems.length > 0) {
+    console.error("README.md and index.html disagree:\n" + problems.map((p) => `  - ${p}`).join("\n"));
     process.exit(1);
   }
 }
@@ -545,7 +679,13 @@ async function runOnce(page, scratch, entry) {
       const record = { url, features: 0, unreadable: null, mismatch: null, pending: true };
       itemsBodies.push(record);
       bodyReads.push(
-        res.json().then(
+        // Bounded, never bare: see BODY_READ_TIMEOUT_MS. A stalled body lands
+        // in the rejection handler below like any other unreadable one.
+        withTimeout(
+          res.json(),
+          BODY_READ_TIMEOUT_MS,
+          `body never finished arriving, ${BODY_READ_TIMEOUT_MS}ms after the 200`,
+        ).then(
           (body) => {
             // The features array is the evidence; numberReturned is the
             // server's claim about itself. Taking the larger of the two let
@@ -591,6 +731,10 @@ async function runOnce(page, scratch, entry) {
   // it is awaiting would never be waited on: with several ArcGIS /items
   // requests in flight, one can land after the snapshot, and its body would
   // then miss the assertions entirely. Drain until the list stops growing.
+  //
+  // This loop is why every read is bounded: it waits for all of them, so one
+  // that never settles stops the run here, before a single assertion or any
+  // diagnostics (#17). Each read settles within BODY_READ_TIMEOUT_MS either way.
   for (let drained = 0; drained < bodyReads.length; ) {
     const batch = bodyReads.slice(drained);
     drained = bodyReads.length;
@@ -736,6 +880,7 @@ function writeDiagnostics(entry, failures, files) {
 
 const manifest = loadManifest();
 checkReadmeAgainstCi(manifest);
+checkReadmeCommandsMatchGallery();
 
 const entries = ONLY ? manifest.filter((e) => ONLY.includes(e.path)) : manifest;
 if (entries.length === 0) {
