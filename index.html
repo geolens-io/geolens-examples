@@ -265,7 +265,9 @@
   //   address   the call the example makes — the line every card carries.
   //             For python/ and claude-mcp/ this is a command a reader will
   //             paste, and the same string is in README.md's Examples table.
-  //             Two copies, no guard: change one and change the other.
+  //             Still two copies, now with a guard: ci/verify-examples.mjs
+  //             fails the build if a command here matches no README row, or a
+  //             README row's command matches no card here (#16).
   //   thumb     screenshot in .github/assets, or use `snippet` for a text panel
   //   datasets  demo catalog deep links, https://demo.getgeolens.com/datasets/<id>
   // ---------------------------------------------------------------------------
