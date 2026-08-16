@@ -4,15 +4,32 @@
 #     "mcp>=1.2,<2",
 # ]
 # ///
-"""Smoke-check the claude-mcp example: spawn the published geolens-mcp server
-over stdio against the demo, list its tools, and run one real search.
+"""Smoke-check the claude-mcp example: spawn the geolens-mcp server over stdio
+against the demo, list its tools, and run one real search.
+
+Runs twice, because the two runs catch different things:
+
+  pinned  the exact version claude-mcp/ tells users to install. This is the
+          one that gates the build. A check that does not exercise what the
+          docs say to run is testing the wrong thing.
+  latest  whatever `uvx geolens-mcp` resolves today. Early warning that a new
+          release broke against a live instance. That is real information but
+          it is not a regression in this repo, and failing on it would block
+          unrelated PRs, so it warns and does not fail.
+
+The pinned version is read from claude-mcp/mcp-config.example.json rather than
+written here. Two independent copies of a version string is the bug PR #7 just
+fixed, and rebuilding it one directory over would be a poor tribute.
 
 Run with: uv run ci/check-mcp.py
 """
 
 import asyncio
+import json
 import os
+import re
 import sys
+from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
@@ -26,17 +43,31 @@ EXPECTED_TOOLS = {
     "query",
 }
 
+REPO = Path(__file__).resolve().parent.parent
+MCP_CONFIG = REPO / "claude-mcp" / "mcp-config.example.json"
+INSTANCE = os.environ.get("GEOLENS_INSTANCE", "https://demo.getgeolens.com")
 
-async def main() -> None:
+
+def documented_spec() -> str:
+    """The `uvx` argument claude-mcp/mcp-config.example.json documents."""
+    config = json.loads(MCP_CONFIG.read_text())
+    args = config["mcpServers"]["geolens"]["args"]
+    spec = next((a for a in args if a.startswith("geolens-mcp")), None)
+    if spec is None:
+        raise SystemExit(f"{MCP_CONFIG} names no geolens-mcp package in args: {args}")
+    if not re.fullmatch(r"geolens-mcp@\d+\.\d+\.\d+", spec):
+        raise SystemExit(
+            f"{MCP_CONFIG} should pin an exact version (geolens-mcp@X.Y.Z), got {spec!r}. "
+            "The docs and this check read the same string, so unpinning there unpins CI here."
+        )
+    return spec
+
+
+async def check(spec: str) -> None:
     params = StdioServerParameters(
         command="uvx",
-        args=["geolens-mcp"],
-        env={
-            **os.environ,
-            "GEOLENS_INSTANCE": os.environ.get(
-                "GEOLENS_INSTANCE", "https://demo.getgeolens.com"
-            ),
-        },
+        args=[spec],
+        env={**os.environ, "GEOLENS_INSTANCE": INSTANCE},
     )
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
@@ -52,13 +83,41 @@ async def main() -> None:
             assert not result.isError, f"search_datasets errored: {result.content}"
             assert result.content, "search_datasets returned no content"
 
-            print(f"tools: {sorted(tools)}")
-            print("search_datasets(subway) returned content — OK")
+            print(f"  tools: {sorted(tools)}")
+            print("  search_datasets(subway) returned content")
+
+
+async def main() -> int:
+    pinned = documented_spec()
+
+    print(f"[pinned] {pinned} against {INSTANCE} — this one gates the build")
+    try:
+        await asyncio.wait_for(check(pinned), timeout=120)
+    except TimeoutError:
+        print(f"FAILED (pinned): {pinned} timed out after 120s", file=sys.stderr)
+        return 1
+    except Exception as exc:  # noqa: BLE001 - the failure text is the signal
+        print(f"FAILED (pinned): {pinned}: {exc!r}", file=sys.stderr)
+        print(
+            "The version claude-mcp/ documents does not work against the demo. "
+            "Fix the server or correct the pin in claude-mcp/mcp-config.example.json.",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"[pinned] {pinned} OK")
+
+    print(f"\n[latest] geolens-mcp (unpinned) against {INSTANCE} — warning only")
+    try:
+        await asyncio.wait_for(check("geolens-mcp"), timeout=120)
+        print("[latest] geolens-mcp OK")
+    except TimeoutError:
+        print(f"WARNING (latest): unpinned geolens-mcp timed out after 120s; {pinned} passed")
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARNING (latest): unpinned geolens-mcp failed: {exc!r}")
+        print(f"WARNING (latest): {pinned} passed, so this repo is not broken. A newer release may be.")
+
+    return 0
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(asyncio.wait_for(main(), timeout=120))
-    except TimeoutError:
-        print("MCP smoke check timed out after 120s", file=sys.stderr)
-        sys.exit(1)
+    sys.exit(asyncio.run(main()))

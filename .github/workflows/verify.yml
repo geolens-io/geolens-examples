@@ -33,15 +33,20 @@ jobs:
           # calibrated against this browser build, and playwright@1 floats.
           npm install playwright@1.62.1
           npx playwright install --with-deps chromium
-      - name: Serve repo and verify every page
+      - name: Serve the repo
         run: |
-          python3 -m http.server 8000 &
-          sleep 1
-          # Cheap and specific first, so a popup regression does not wait out
-          # the full render sweep. Both need the server this step started, so
-          # they share a step rather than relying on it outliving one.
-          node ci/check-popup-safety.mjs
-          node ci/verify-examples.mjs
+          nohup python3 -m http.server 8000 >/tmp/http-server.log 2>&1 &
+          for _ in $(seq 1 20); do
+            curl -sf -o /dev/null http://localhost:8000/ && exit 0
+            sleep 0.5
+          done
+          echo "http.server never came up on :8000" >&2
+          cat /tmp/http-server.log >&2
+          exit 1
+      - name: Verify every page renders live data
+        run: node ci/verify-examples.mjs
+      - name: Re-check the popup XSS fix
+        run: node ci/check-popup-safety.mjs
       - name: Upload failure diagnostics
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
