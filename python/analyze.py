@@ -15,6 +15,11 @@ Run it with no setup at all:
 uv reads the PEP 723 block above, builds a throwaway environment, and runs the
 script. There is no virtualenv to create and no requirements.txt to install.
 
+Point it somewhere else with arguments or environment variables:
+
+    uv run analyze.py https://geolens.example.com
+    uv run analyze.py https://geolens.example.com <lines-id> <stations-id>
+
 What it does: pulls two collections out of the GeoLens demo over OGC API -
 Features, measures the network in a metric CRS, joins stations to services
 spatially, prints a summary, and writes subway.png.
@@ -24,6 +29,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from collections import Counter
 
 import geopandas as gpd
@@ -38,12 +44,17 @@ from matplotlib.lines import Line2D  # noqa: E402
 # GeoLens connection
 # --------------------------------------------------------------------------
 
-BASE_URL = os.environ.get("GEOLENS_URL", "https://demo.getgeolens.com")
+# Arguments beat environment, environment beats the demo:
+#     analyze.py [instance-url [lines-id stations-id]]
+# The two collection ids move together, since a run needs both.
+ARGS = sys.argv[1:]
+
+BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_URL", "https://demo.getgeolens.com")
 
 # Collection ids are dataset UUIDs. Find them at GET /api/collections, or in
 # the web UI under a dataset's "Share / API" panel.
-LINES_ID = "de602fbe-8b30-4755-924f-c9e7fd9613b6"  # NYC Subway Lines (MTA)
-STATIONS_ID = "724bf894-dc1a-418c-abc6-555798c44d7c"  # NYC Subway Stations (MTA)
+LINES_ID = ARGS[1] if len(ARGS) > 2 else "de602fbe-8b30-4755-924f-c9e7fd9613b6"
+STATIONS_ID = ARGS[2] if len(ARGS) > 2 else "724bf894-dc1a-418c-abc6-555798c44d7c"
 
 # Public datasets need no credentials. For a private dataset, send an API key
 # in the X-Api-Key header. GeoLens also accepts ?api_key= in the query string,
@@ -69,6 +80,31 @@ METRIC_CRS = "EPSG:32618"
 # track centerline.
 NEAR_DISTANCE_M = 150
 
+# The demo is one shared machine on the public internet, so a request
+# occasionally times out or comes back 502 with nothing wrong at either end.
+# Retry those. Anything in the 4xx range is a bad request and retrying it just
+# asks the same wrong question again.
+ATTEMPTS = 3
+BACKOFF_S = 1.0
+RETRY_STATUS = {429, 500, 502, 503, 504}
+
+
+def get_json(client: httpx.Client, url: str) -> dict:
+    """GET one URL, retrying the failures that are worth retrying."""
+    for attempt in range(ATTEMPTS):
+        try:
+            response = client.get(url)
+            if response.status_code not in RETRY_STATUS:
+                response.raise_for_status()
+                return response.json()
+            reason = f"HTTP {response.status_code}"
+        except httpx.TransportError as exc:  # timeout, DNS, connection reset
+            reason = type(exc).__name__
+        if attempt + 1 < ATTEMPTS:
+            print(f"  {reason}, retrying")
+            time.sleep(BACKOFF_S * 2**attempt)
+    raise RuntimeError(f"{url} failed {ATTEMPTS} times, last {reason}")
+
 
 def fetch_collection(client: httpx.Client, collection_id: str) -> gpd.GeoDataFrame:
     """Read every feature of a collection into a GeoDataFrame.
@@ -84,15 +120,25 @@ def fetch_collection(client: httpx.Client, collection_id: str) -> gpd.GeoDataFra
 
     Paging is keyset-based (`after_gid`), not offset-based, so a page never
     shifts under you while you read. GeoLens omits the `next` link on the last
-    page, so "follow next until it is gone" terminates on its own.
+    page, so "follow next until it is gone" terminates on its own, as long as
+    the server is well behaved. This loop does not assume that: a `next` that
+    points back at a page already read would otherwise spin forever, quietly
+    appending the same features until the process runs out of memory.
     """
     url = f"{BASE_URL}/api/collections/{collection_id}/items?limit={PAGE_SIZE}"
     features: list[dict] = []
+    seen: set[str] = set()
 
     while url:
-        response = client.get(url)
-        response.raise_for_status()
-        payload = response.json()
+        if url in seen:
+            raise RuntimeError(f"pagination loop: {url} was served twice")
+        seen.add(url)
+
+        payload = get_json(client, url)
+        if "features" not in payload:
+            raise RuntimeError(
+                f"{url} is not a FeatureCollection (keys: {sorted(payload)[:5]})"
+            )
         features.extend(payload["features"])
         url = next(
             (link["href"] for link in payload.get("links", []) if link["rel"] == "next"),
@@ -240,7 +286,7 @@ def main() -> int:
     print("-" * w)
     print(f"  services            {len(lines):>10,}")
     print(f"  stations            {len(stations):>10,}")
-    print(f"  line geometry       {total_km:>10,.1f} km   (29 service geometries summed)")
+    print(f"  line geometry       {total_km:>10,.1f} km   ({len(lines)} service geometries summed)")
     print(f"  after dissolve      {distinct_km:>10,.1f} km   (coincident parts merged)")
     print(f"  measured in         {METRIC_CRS:>10}")
     print()
