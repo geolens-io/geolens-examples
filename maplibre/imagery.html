@@ -68,15 +68,39 @@
 
   map.addControl(new maplibregl.NavigationControl());
 
-  // Drop the "loading" line once the map settles; on failure say so in the
-  // page rather than only in the console. A CORS-blocked tile lands here.
   const status = document.getElementById("status");
-  map.on("idle", () => { if (!status.className) status.hidden = true; });
-  map.on("error", (e) => {
+  let missing = false; // set by the catalog check below; tiles cannot clear it
+
+  const fail = (message, err) => {
     status.hidden = false;
     status.className = "err";
-    status.textContent = `Could not load tiles from ${GEOLENS} — ${e.error?.message ?? "request failed"}. Instances older than v1.13.0 send no CORS header on raster tiles, which blocks them here.`;
-    console.error("GeoLens request failed:", e.error ?? e);
+    status.textContent = message;
+    console.error("GeoLens request failed:", err ?? message);
+  };
+
+  // Clear the line when a tile arrives, rather than when the map goes idle.
+  // MapLibre raises this only for a tile that came back, so it doubles as the
+  // recovery signal: a transient failure cannot latch red over a map that has
+  // since recovered. Tiles outside the footprint answer 204 and MapLibre treats
+  // those as ordinary empty tiles, so panning off the data is not a failure.
+  map.on("data", (e) => {
+    if (missing || !e.tile) return;
+    status.className = "";
+    status.hidden = true;
+  });
+
+  map.on("error", (e) =>
+    fail(`Could not load tiles from ${GEOLENS} — ${e.error?.message ?? "request failed"}. Instances older than v1.13.0 send no CORS header on raster tiles, which blocks them here.`, e.error ?? e),
+  );
+
+  // The tile route cannot tell you the dataset is gone: it answers 204 both for
+  // a tile outside the footprint and for a dataset id that does not exist, so
+  // those two look identical from here. The catalog is the only place the
+  // difference shows, so ask it once.
+  fetch(`${GEOLENS}/api/collections/${DEM}`).then((r) => {
+    if (r.ok) return;
+    missing = true;
+    fail(`${GEOLENS} has no dataset ${DEM} (${r.status} ${r.statusText}). List what is available at /api/collections.`);
   });
 </script>
 </body>

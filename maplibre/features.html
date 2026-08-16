@@ -90,10 +90,16 @@
 
   map.addControl(new maplibregl.NavigationControl());
 
-  // Drop the "loading" line once the map settles; on failure say so in the
-  // page rather than only in the console.
+  // Clear the line when data actually arrives, rather than when the map goes
+  // idle. MapLibre raises this event only for a tile that came back, so it also
+  // works as the recovery signal: a transient failure cannot latch red over a
+  // map that has since recovered.
   const status = document.getElementById("status");
-  map.on("idle", () => { if (!status.className) status.hidden = true; });
+  map.on("data", (e) => {
+    if (!e.tile) return;
+    status.className = "";
+    status.hidden = true;
+  });
   map.on("error", (e) => {
     status.hidden = false;
     status.className = "err";
