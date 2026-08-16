@@ -153,7 +153,12 @@
                "circle-stroke-color": "#101418", "circle-stroke-width": 1 } },
   ];
 
-  const show = async (record) => {
+  // `current()` is false once a later pick has superseded this one. Two awaits
+  // below means two chances for the user to move on, and responses come back
+  // in whatever order the network decides. Without this check the slower of
+  // two picks wins simply by landing last, and the map ends up showing a
+  // dataset the picker no longer names.
+  const show = async (record, current) => {
     const props = record.properties;
 
     // 2. The collection document is the dataset's OGC front door: it carries
@@ -164,6 +169,7 @@
         path: { dataset_id: record.id },
       }),
     );
+    if (!current()) return;
 
     // 3. Attribute names are a property of the data, so ask for one feature
     //    with the geometry left out: a few hundred bytes, not a download.
@@ -174,6 +180,7 @@
         query: { limit: 1, include_geometry: false },
       }),
     );
+    if (!current()) return;
     const fields = Object.entries(sample.features[0]?.properties ?? {});
 
     // 4. Take the tile template the record advertises. Reconstructing
@@ -246,10 +253,14 @@
 
   // Against your own instance the first thing to go wrong is usually config,
   // not code, so put the reason on the page instead of only in the console.
+  let generation = 0;
   const showOrExplain = async (record) => {
+    const mine = ++generation;
+    const current = () => mine === generation;
     try {
-      await show(record);
+      await show(record, current);
     } catch (err) {
+      if (!current()) return;
       meta.replaceChildren(el("h2", "Failed"), el("p", err.message));
       throw err;
     }
