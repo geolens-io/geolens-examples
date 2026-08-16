@@ -44,6 +44,7 @@
 //   BASE=http://localhost:8000            where the repo is served
 //   ONLY=maplibre/features.html           run one entry (comma-separated list)
 //   ATTEMPTS=2                            tries per page before it counts as red
+//   PAGE_GAP_MS=1500                      idle between page loads, to spare the demo
 //   DIAGNOSTICS_DIR=ci/diagnostics        where failure evidence is written
 import { chromium } from "playwright";
 import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -56,6 +57,20 @@ const BASE = process.env.BASE ?? "http://localhost:8000";
 const DIAGNOSTICS = process.env.DIAGNOSTICS_DIR ?? join(HERE, "diagnostics");
 const ATTEMPTS = Number(process.env.ATTEMPTS ?? 2);
 const ONLY = process.env.ONLY ? process.env.ONLY.split(",").map((s) => s.trim()) : null;
+
+// The demo is one small VM that normally serves almost nothing, and this
+// workflow runs on every push, every PR and weekly. Idling between pages
+// spreads the sweep instead of handing the VM a new page the instant the last
+// one closes.
+//
+// Being honest about what this does not fix: the sweep is already strictly
+// sequential and most of its wall clock is the per-entry `wait`, so the
+// sustained rate is around 2 req/s. The actual burst is inside a single page
+// (arcgis-js/imagery.html pulls ~130 tiles inside its 20s window, ~6/s) and
+// that is the map library requesting tiles, which cannot be paced from here
+// without weakening what the page proves.
+const PAGE_GAP_MS = Number(process.env.PAGE_GAP_MS ?? 1500);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Pinned so the pixel thresholds below mean the same thing on every machine.
 const VIEWPORT = { width: 1280, height: 720 };
@@ -196,6 +211,45 @@ function checkReadmeAgainstCi(manifest) {
 
   if (problems.length > 0) {
     console.error("README.md and CI disagree:\n" + problems.map((p) => `  - ${p}`).join("\n"));
+    process.exit(1);
+  }
+}
+
+// A `python3 -m http.server 8000` left running in a different checkout answers
+// on that port just as happily as yours, and a second one started on top of it
+// fails to bind while the `&` hides the error. The run then verifies someone
+// else's files and passes, which is the one outcome worse than failing.
+//
+// So prove the server is serving THIS checkout before trusting a single
+// assertion: every page under test has to come back over HTTP byte-identical
+// to the file on disk next to the manifest that named it.
+async function assertServerServesThisCheckout(manifest) {
+  const problems = [];
+  for (const entry of manifest) {
+    let local;
+    try {
+      local = readFileSync(join(REPO, entry.path), "utf8");
+    } catch {
+      problems.push(`${entry.path}: named in ci/manifest.json but not present in this checkout`);
+      continue;
+    }
+    try {
+      const res = await fetch(`${BASE}/${entry.path}`);
+      if (!res.ok) {
+        problems.push(`${entry.path}: ${BASE} answered ${res.status}`);
+      } else if ((await res.text()) !== local) {
+        problems.push(`${entry.path}: ${BASE} serves different bytes than this checkout`);
+      }
+    } catch (err) {
+      problems.push(`${entry.path}: cannot reach ${BASE} (${String(err).split("\n")[0]})`);
+    }
+  }
+  if (problems.length > 0) {
+    console.error(
+      `${BASE} is not serving this checkout:\n` +
+        problems.map((p) => `  - ${p}`).join("\n") +
+        `\nStart the server from ${REPO}, and check nothing else already holds that port.`,
+    );
     process.exit(1);
   }
 }
@@ -406,6 +460,8 @@ if (entries.length === 0) {
   process.exit(1);
 }
 
+await assertServerServesThisCheckout(entries);
+
 rmSync(DIAGNOSTICS, { recursive: true, force: true });
 
 const browser = await chromium.launch();
@@ -413,6 +469,7 @@ const scratch = await browser.newPage();
 await scratch.setContent("<!doctype html><title>pixel scratch</title>");
 
 const failed = [];
+let pagesRun = 0;
 const flaky = [];
 for (const entry of entries) {
   let last;
@@ -423,6 +480,8 @@ for (const entry of entries) {
   // is called out below in the log and in the job summary. A silently retried
   // flake is how a degrading demo goes unnoticed.
   for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    if (pagesRun > 0) await sleep(PAGE_GAP_MS);
+    pagesRun += 1;
     const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
     last = await runOnce(page, scratch, entry).catch((err) => ({
       failures: [`the page run threw: ${String(err).split("\n")[0]}`],
