@@ -21,10 +21,14 @@ The server is on PyPI, so `uvx` fetches and runs it on demand; there is nothing 
 Python 3.11 or newer. Every example below points at the public demo instance, which serves its
 catalog anonymously, so you can paste any of them as-is and have working tools in about a minute.
 
+Every example also pins `geolens-mcp@1.13.1`, the current release and the version the demo reports.
+The package ships with each GeoLens release, so the version to run is the one matching your
+instance. See [Things that will bite you](#things-that-will-bite-you) for how to move off the pin.
+
 ### Claude Code
 
 ```bash
-claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp
+claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.13.1
 ```
 
 For your own instance, add the key:
@@ -33,7 +37,7 @@ For your own instance, add the key:
 claude mcp add geolens \
   -e GEOLENS_INSTANCE=https://geolens.example.com \
   -e GEOLENS_API_KEY=your-api-key \
-  -- uvx geolens-mcp
+  -- uvx geolens-mcp@1.13.1
 ```
 
 `claude mcp add` writes to your local project scope by default; pass `-s user` to make it available
@@ -45,7 +49,7 @@ travels with the project:
   "mcpServers": {
     "geolens": {
       "command": "uvx",
-      "args": ["geolens-mcp"],
+      "args": ["geolens-mcp@1.13.1"],
       "env": {
         "GEOLENS_INSTANCE": "https://demo.getgeolens.com"
       }
@@ -68,7 +72,7 @@ Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/
   "mcpServers": {
     "geolens": {
       "command": "uvx",
-      "args": ["geolens-mcp"],
+      "args": ["geolens-mcp@1.13.1"],
       "env": {
         "GEOLENS_INSTANCE": "https://demo.getgeolens.com"
       }
@@ -267,8 +271,11 @@ no datasets, check `GEOLENS_API_KEY` before you go looking at the catalog.
 above, while the other five tools keep working. A session where "search works but query doesn't" is
 a credential problem, not a broken install.
 
-`uvx geolens-mcp` resolves the latest published version every run. Pin it with
-`uvx geolens-mcp@1.13.0` if you want a session to stay put.
+The version pin will go stale, and that is the trade. Without it, `uvx geolens-mcp` resolves the
+latest release on every run, so the server can change under a session you have not touched. With
+it, you stay put until you bump. `geolens-mcp` is released alongside GeoLens itself, so track your
+instance: `https://your-instance/api/health` reports the version to match. A pin uv cannot resolve
+fails loudly rather than quietly falling back.
 
 Raster datasets have no features. `get_features` against one errors rather than returning an empty
 collection; use `get_dataset_schema` to check `record_type` first.
