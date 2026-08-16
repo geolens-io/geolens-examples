@@ -7,7 +7,7 @@ This repo holds runnable examples for consuming GeoLens: one static file per exa
 - One file. No bundler and no `package.json` for the example itself: the library loads from a pinned CDN `<script>`/`<link>` (or, for `python/`, a single-file `uv run` script with inline dependencies).
 - Pin the library version explicitly (e.g. `maplibre-gl@5.24.0`), not `@latest`. A silent upstream upgrade shouldn't be what breaks someone's afternoon.
 - Runs anonymously against the public demo (`https://demo.getgeolens.com`) with zero setup. The `GEOLENS` constant near the top is the only thing a reader needs to change to point it at their own instance.
-- Comment the *why*, not the *what*. The existing examples explain things like why `<img>`-tag tile loading never checks CORS while `fetch`/WebGL loading does, or why OpenLayers reprojects GeoJSON automatically, not what `new ol.Map(...)` does.
+- Comment the *why*, not the *what*. The existing examples explain things like why a plain `<img>` tile load skips the CORS check while `crossOrigin`-set `<img>` and `fetch`/WebGL loading both need the header, or why OpenLayers reprojects GeoJSON automatically, not what `new ol.Map(...)` does.
 
 ## CI verifies every example against the live demo
 
