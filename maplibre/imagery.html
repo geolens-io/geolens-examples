@@ -84,7 +84,7 @@
   // since recovered. Tiles outside the footprint answer 204 and MapLibre treats
   // those as ordinary empty tiles, so panning off the data is not a failure.
   map.on("data", (e) => {
-    if (missing || !e.tile) return;
+    if (missing || !e.tile || e.sourceId !== "dem") return;
     status.className = "";
     status.hidden = true;
   });

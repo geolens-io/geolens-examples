@@ -68,9 +68,12 @@
   // idle. MapLibre raises this event only for a tile that came back, so it also
   // works as the recovery signal: a transient failure cannot latch red over a
   // map that has since recovered.
+  // Name the source rather than accepting any tile: on a page with more than
+  // one source, a tile from the healthy one would otherwise clear an error
+  // raised by the source that is actually broken.
   const status = document.getElementById("status");
   map.on("data", (e) => {
-    if (!e.tile) return;
+    if (!e.tile || e.sourceId !== "subway") return;
     status.className = "";
     status.hidden = true;
   });

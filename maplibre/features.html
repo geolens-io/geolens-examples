@@ -94,13 +94,23 @@
   // idle. MapLibre raises this event only for a tile that came back, so it also
   // works as the recovery signal: a transient failure cannot latch red over a
   // map that has since recovered.
+  // Readiness is per source, not per page. A tile from `lines` says nothing
+  // about whether `stations` arrived, so clearing on any source's data would
+  // report success with a layer missing from the map.
   const status = document.getElementById("status");
+  const SOURCES = ["lines", "stations"];
+  const arrived = new Set();
+
   map.on("data", (e) => {
-    if (!e.tile) return;
+    if (!e.tile || !SOURCES.includes(e.sourceId)) return;
+    arrived.add(e.sourceId);
+    if (arrived.size < SOURCES.length) return;
     status.className = "";
     status.hidden = true;
   });
+
   map.on("error", (e) => {
+    arrived.delete(e.sourceId); // it has to arrive again before this clears
     status.hidden = false;
     status.className = "err";
     status.textContent = `Could not load features from ${GEOLENS} — ${e.error?.message ?? "request failed"}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`;

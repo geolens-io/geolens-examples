@@ -260,7 +260,10 @@
   // Adding an example is one object in EXAMPLES below. `audience` picks the
   // section; naming an audience that has no cards yet creates its section.
   //   live      relative path in this repo, omit for anything that is not a page
-  //   address   the call the example makes — the line every card carries
+  //   address   the call the example makes — the line every card carries.
+  //             For python/ and claude-mcp/ this is a command a reader will
+  //             paste, and the same string is in README.md's Examples table.
+  //             Two copies, no guard: change one and change the other.
   //   thumb     screenshot in .github/assets, or use `snippet` for a text panel
   //   datasets  demo catalog deep links, https://demo.getgeolens.com/datasets/<id>
   // ---------------------------------------------------------------------------
@@ -378,8 +381,8 @@
       title: "Catalog tools in a Claude session",
       blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. The discovery tools need no credential.",
       tag: "MCP", kind: "tooling",
-      address: "uvx geolens-mcp",
-      snippet: "<b>$</b> uvx geolens-mcp\n\n<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 5 matched, 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
+      address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.13.1",
+      snippet: "<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 5 matched, 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
       source: "claude-mcp/README.md",
       docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/claude-mcp"],
       datasets: [], catalog: true,
@@ -389,7 +392,7 @@
       title: "Subway analysis with GeoPandas",
       blurb: "Reads both collections over OGC API Features, measures the network in a metric CRS, joins stations to services, and plots the result. Dependencies live in a PEP 723 header, so there is no virtualenv.",
       tag: "Python", kind: "vector",
-      address: "uv run analyze.py",
+      address: "uv run python/analyze.py",
       thumb: "assets/python-geopandas.jpg",
       source: "python/analyze.py",
       docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/python"],
