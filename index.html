@@ -520,6 +520,16 @@
       live: "stac/browse.html", source: "stac/browse.html",
       datasets: [],
     },
+    {
+      audience: "web-developer", tool: "MapLibre GL JS 5 · fetch",
+      title: "Semantic search over the catalog",
+      blurb: "Type what the data is about. The query runs against embeddings, so \"space rocks that fell to earth\" finds the meteorite dataset with none of those words in its title. Tick the box and the map's bounds filter the same query by record extent.",
+      tag: "Search", kind: "vector",
+      address: "/api/collections/datasets/items?q=...&bbox=...",
+      thumb: "assets/search-catalog.jpg",
+      live: "search/catalog.html", source: "search/catalog.html",
+      datasets: [],
+    },
   ];
 
   // ---------------------------------------------------------------------------

@@ -116,5 +116,14 @@
       "/raster-tiles/"
     ],
     "minDataResponses": 4
+  },
+  {
+    "path": "search/catalog.html",
+    "wait": 10000,
+    "requireUrls": [
+      "/api/collections/datasets/items?q=",
+      "/api/tiles/data.meteorite_landings_meteoritical_society/"
+    ],
+    "minDataResponses": 3
   }
 ]
