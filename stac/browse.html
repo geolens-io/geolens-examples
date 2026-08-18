@@ -207,22 +207,31 @@
 
   const draw = (item) => {
     const asset = item.assets?.raster_tiles;
-    if (!asset || !isHttp(asset.href)) return;
+    const drawable = asset && isHttp(asset.href);
 
+    // Selecting an item always replaces what was on the map, so an item with
+    // nothing to draw leaves the map bare rather than wearing the last one's
+    // imagery under a new label.
     selected = item.id;
     clearRaster();
-    map.addSource("item-raster", { type: "raster", tiles: [asset.href], tileSize: 256 });
-    // Under the footprints, so the outline of what you picked stays visible.
-    map.addLayer({ id: "item-raster", type: "raster", source: "item-raster" }, "footprints-line");
+    if (drawable) {
+      map.addSource("item-raster", { type: "raster", tiles: [asset.href], tileSize: 256 });
+      // Under the footprints, so the outline of what you picked stays visible.
+      map.addLayer({ id: "item-raster", type: "raster", source: "item-raster" }, "footprints-line");
+    }
     map.getSource("footprints").setData(footprints());
 
     for (const button of list.querySelectorAll("button.pick")) {
       button.setAttribute("aria-pressed", String(button.dataset.id === item.id));
     }
     status.className = "";
-    status.textContent = unread > 0
-      ? `Showing the first ${items.length} of ${items.length + unread} items that intersect this view; zoom in for the rest. Drawing ${item.properties.title ?? item.id}.`
-      : `${items.length} item(s) intersect this view. Drawing ${item.properties.title ?? item.id}.`;
+    const count = unread > 0
+      ? `Showing the first ${items.length} of ${items.length + unread} items that intersect this view; zoom in for the rest.`
+      : `${items.length} item(s) intersect this view.`;
+    const title = item.properties.title ?? item.id;
+    status.textContent = drawable
+      ? `${count} Drawing ${title}.`
+      : `${count} ${title} advertises no raster_tiles asset, so there is nothing to draw for it.`;
   };
 
   const render = () => {
@@ -289,29 +298,34 @@
       // Search pages like Features does: follow `rel="next"` until it stops
       // appearing, or until this page holds MAX_ITEMS. The demo has six items,
       // so one page covers it; a real archive of scenes will not fit in one.
-      const walk = async (box) => {
+      // One budget of MAX_ITEMS shared by every walk, and pages sliced to
+      // what still fits, so the page never holds more than it advertises.
+      // Two walks only when the view crosses the antimeridian; an item
+      // spanning both halves comes back twice and is kept once.
+      const seen = new Set();
+      const features = [];
+      let matched = 0;
+      let ranDry = true; // every walk reached its last page without hitting the cap
+      for (const box of boxes) {
         const bbox = box.map((n) => n.toFixed(4)).join(",");
         let url = `${SEARCH}?bbox=${bbox}&limit=20`;
-        const features = [];
-        let matched = 0;
-        while (url && features.length < MAX_ITEMS) {
+        let first = true;
+        while (url) {
+          if (features.length >= MAX_ITEMS) { ranDry = false; break; }
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const page = await res.json();
-          matched = page.numberMatched ?? matched;
-          features.push(...(page.features ?? []));
+          if (first) { matched += page.numberMatched ?? 0; first = false; }
+          const fresh = (page.features ?? []).filter((f) => !seen.has(f.id) && seen.add(f.id));
+          const take = fresh.slice(0, MAX_ITEMS - features.length);
+          features.push(...take);
           url = page.links?.find((l) => l.rel === "next")?.href ?? null;
+          if (take.length < fresh.length) { ranDry = false; url = null; }
         }
-        return { features, matched };
-      };
-      const pages = await Promise.all(boxes.map(walk));
-      // Two searches only when the view crosses the antimeridian; an item
-      // spanning both halves comes back twice and is kept once.
-      const seen = new Set();
-      found = {
-        features: pages.flatMap((p) => p.features).filter((f) => !seen.has(f.id) && seen.add(f.id)),
-        matched: pages.reduce((sum, p) => sum + p.matched, 0),
-      };
+      }
+      // With every page read, the unique items are the whole result and the
+      // summed per-box counts double-count anything that straddled the split.
+      found = { features, matched: ranDry ? features.length : matched };
     } catch (err) {
       // A newer search already replaced this one; it is not a failure.
       if (err.name === "AbortError") return;
