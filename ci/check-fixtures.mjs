@@ -42,7 +42,30 @@ const TIMEOUT_MS = Number(process.env.FIXTURE_TIMEOUT_MS ?? 15000);
 
 const { fixtures } = JSON.parse(readFileSync(join(HERE, "fixtures.json"), "utf8"));
 
-const get = (path) => fetch(`${DEMO}${path}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+// One shared demo on the public internet answers the odd request with a 502
+// or a timeout with nothing wrong at either end, and the browser sweep already
+// retries a page once for the same reason. A network error, a timeout or a 5xx
+// gets three attempts with a widening gap; a 4xx gets one, since asking the
+// same wrong question again does not help. Everything else about a response,
+// including its status, is for the caller to judge.
+const ATTEMPTS = Number(process.env.FIXTURE_ATTEMPTS ?? 3);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function get(path) {
+  let last;
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+    try {
+      const res = await fetch(`${DEMO}${path}`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (res.status < 500 || attempt === ATTEMPTS) return res;
+      last = new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      if (attempt === ATTEMPTS) throw err;
+      last = err;
+    }
+    console.log(`  retrying ${path} after ${oneLine(last)} (attempt ${attempt} of ${ATTEMPTS})`);
+    await sleep(1000 * attempt);
+  }
+  throw last;
+}
 // fetch() reports a DNS or connection failure as a bare "fetch failed" and puts
 // what actually happened in .cause, which is the half worth printing.
 const oneLine = (err) => String(err?.cause ?? err).split("\n")[0];

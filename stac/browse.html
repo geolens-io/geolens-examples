@@ -309,7 +309,7 @@
       const features = [];
       let ranDry = true; // every walk reached its last page without hitting the cap
       for (const box of boxes) {
-        const bbox = box.map((n) => n.toFixed(4)).join(",");
+        const bbox = box.map((n) => n.toFixed(6)).join(",");
         let url = `${SEARCH}?bbox=${bbox}&limit=20`;
         while (url) {
           if (features.length >= MAX_ITEMS) { ranDry = false; break; }

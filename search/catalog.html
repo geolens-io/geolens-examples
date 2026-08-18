@@ -103,7 +103,7 @@
     // bbox filters on the extent of the catalog *record*, not on features: a
     // dataset whose extent overlaps the box is a hit, including a global one.
     // It narrows which datasets are worth opening, and does not clip anything.
-    if (bbox) url.searchParams.set("bbox", bbox.map((n) => n.toFixed(4)).join(","));
+    if (bbox) url.searchParams.set("bbox", bbox.map((n) => n.toFixed(6)).join(","));
     return url;
   };
 

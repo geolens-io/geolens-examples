@@ -160,7 +160,7 @@
       // previous one ended by row id, and rows inserted or deleted mid-walk
       // cannot shift the pages under this reader the way an offset would.
       walk: for (const [i, box] of boxes.entries()) {
-        const bbox = box.map((n) => n.toFixed(4)).join(",");
+        const bbox = box.map((n) => n.toFixed(6)).join(",");
         let url = `${GEOLENS}/api/collections/${COLLECTION}/items?bbox=${bbox}&limit=${PAGE_SIZE}`;
         let first = true;
         while (url) {

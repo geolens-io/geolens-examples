@@ -46,11 +46,8 @@
       "title": "Meteorite Landings (Meteoritical Society)",
       "collection": "6030c57b-ce37-4198-aa1e-be78e0950f53",
       "itemType": "feature",
-      "search": {
-        "q": "space rocks that fell to earth",
-        "limit": 5,
-        "recordType": "vector_dataset"
-      },
+      "geometryType": "MultiPoint",
+      "minNumberMatched": 30000,
       "vectorTile": {
         "path": "/api/tiles/data.meteorite_landings_meteoritical_society/",
         "probe": "4/4/6.pbf",
@@ -59,6 +56,11 @@
           "application/vnd.mapbox-vector-tile"
         ],
         "grep": "meteorite_landings_meteoritical_society"
+      },
+      "search": {
+        "q": "space rocks that fell to earth",
+        "limit": 5,
+        "recordType": "vector_dataset"
       }
     }
   }
