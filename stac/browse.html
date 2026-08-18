@@ -318,11 +318,12 @@
         let url = `${SEARCH}?bbox=${bbox}&limit=20`;
         // A next link that points back at a page already read would spin this
         // loop forever, and dedupe would keep the cap from ever ending it. One
-        // sighting per URL; a second stops the walk.
+        // sighting per URL; a second is a failed search, not a quiet stop,
+        // since a page the server advertised was never read.
         const visited = new Set();
         while (url) {
           if (features.length >= MAX_ITEMS) { more = more || "maybe"; break; }
-          if (visited.has(url)) { console.warn("STAC next link repeats a page already read; stopping:", url); break; }
+          if (visited.has(url)) throw new Error(`the server's next link repeats a page already read (${url}), so the result is incomplete`);
           visited.add(url);
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);

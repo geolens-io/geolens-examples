@@ -164,10 +164,11 @@
         let url = `${GEOLENS}/api/collections/${COLLECTION}/items?bbox=${bbox}&limit=${PAGE_SIZE}`;
         let first = true;
         // A next link that points back at a page already read would spin this
-        // loop forever. One sighting per URL; a second stops the walk.
+        // loop forever. One sighting per URL; a second is a failed load, not a
+        // quiet stop, since a page the server advertised was never read.
         const visited = new Set();
         while (url) {
-          if (visited.has(url)) { console.warn("next link repeats a page already read; stopping:", url); break; }
+          if (visited.has(url)) throw new Error(`the server's next link repeats a page already read (${url}), so this view is incomplete`);
           visited.add(url);
           const res = await fetch(url, { signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
