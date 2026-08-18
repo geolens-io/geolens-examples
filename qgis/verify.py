@@ -10,11 +10,15 @@ from urllib.parse import quote
 # QGIS finds its providers through the prefix path: the macOS app bundle by default,
 # QGIS_PREFIX_PATH for anything else (a Linux package install is /usr).
 PREFIX = os.environ.get("QGIS_PREFIX_PATH") or next(iter(glob.glob("/Applications/QGIS*.app")), "/usr")
-os.environ.setdefault("PROJ_DATA", PREFIX + "/Contents/Resources/qgis/proj")
+# The macOS bundle keeps its own PROJ grid data and needs to be told where; a
+# packaged Linux install has PROJ configured already, so leave it alone there.
+_bundled_proj = PREFIX + "/Contents/Resources/qgis/proj"
+if os.path.isdir(_bundled_proj):
+    os.environ.setdefault("PROJ_DATA", _bundled_proj)
 
 from qgis.core import (Qgis, QgsApplication, QgsCoordinateReferenceSystem, QgsCoordinateTransform,
                        QgsMapRendererParallelJob, QgsMapSettings, QgsProject, QgsRasterLayer,
-                       QgsReferencedRectangle, QgsVectorLayer)
+                       QgsRectangle, QgsReferencedRectangle, QgsVectorLayer)
 from qgis.PyQt.QtCore import QEventLoop, QSize, Qt
 from qgis.PyQt.QtGui import QColor
 
@@ -58,20 +62,34 @@ project.addMapLayers([stations, lines, dem])
 extent = QgsCoordinateTransform(stations.crs(), mercator, project).transformBoundingBox(stations.extent())
 extent.scale(1.08)
 
-settings = QgsMapSettings()
-settings.setLayers([stations, lines])
-settings.setDestinationCrs(mercator)
-settings.setBackgroundColor(QColor("#0d1117"))
-settings.setOutputSize(QSize(760, 427))
-settings.setExtent(extent)
-job = QgsMapRendererParallelJob(settings)
-loop = QEventLoop()
-job.finished.connect(loop.quit)
-job.start()
-loop.exec()
+def render(layers, box, size=QSize(760, 427)):
+    settings = QgsMapSettings()
+    settings.setLayers(layers)
+    settings.setDestinationCrs(mercator)
+    settings.setBackgroundColor(QColor("#0d1117"))
+    settings.setOutputSize(size)
+    settings.setExtent(box)
+    job = QgsMapRendererParallelJob(settings)
+    loop = QEventLoop()
+    job.finished.connect(loop.quit)
+    job.start()
+    loop.exec()
+    return job.renderedImage()
+
 out = sys.argv[1] if len(sys.argv) > 1 else "qgis-features.png"
-job.renderedImage().save(out)
+render([stations, lines], extent).save(out)
 print("rendered", out)
+
+# isValid() on an XYZ layer only says the provider accepted the template. Draw
+# the DEM over the Matterhorn and require more than one colour, so a route that
+# starts answering errors or blank tiles fails here instead of passing quietly.
+wgs84 = QgsCoordinateReferenceSystem("OGC:CRS84")
+summit = QgsCoordinateTransform(wgs84, mercator, project).transformBoundingBox(
+    QgsRectangle(7.63, 45.95, 7.70, 46.00))
+image = render([dem], summit, QSize(256, 256))
+shades = {image.pixel(x, y) for x in range(0, 256, 16) for y in range(0, 256, 16)}
+assert len(shades) > 4, f"DEM render is a flat fill ({len(shades)} colour(s)): tiles did not paint"
+print("DEM painted", len(shades), "distinct colours in a 16x16 sample")
 
 if len(sys.argv) > 2:
     project.viewSettings().setDefaultViewExtent(QgsReferencedRectangle(extent, mercator))

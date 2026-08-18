@@ -169,7 +169,8 @@ if a whole dataset in one file is what you are after.
 ## Re-running the check
 
 `verify.py` opens the two feature layers and the DEM with QGIS's own providers, asserts validity
-and the 496 / 29 counts, renders the subway to a PNG, and optionally writes the project file. It
+and the 496 / 29 counts, renders the subway to a PNG, draws the DEM over the summit and requires
+it to paint more than a flat fill, and optionally writes the project file. It
 needs the Python that ships with QGIS:
 
 ```bash

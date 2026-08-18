@@ -163,6 +163,9 @@
   let items = [];
   let more = false; // the walk stopped at MAX_ITEMS with pages still to read
   let selected = null;
+  // STAC item ids are unique within a collection, not across the catalog, so
+  // identity here is collection plus id.
+  const key = (item) => `${item.collection ?? ""}/${item.id}`;
 
   // The footprints stay in one geojson source and get redrawn whole on every
   // search and every pick, so `selected` is a plain property rather than
@@ -172,7 +175,7 @@
     features: items.map((item) => ({
       type: "Feature",
       geometry: { type: "Polygon", coordinates: ring(item.bbox) },
-      properties: { selected: item.id === selected },
+      properties: { selected: key(item) === selected },
     })),
   });
 
@@ -212,7 +215,7 @@
     // Selecting an item always replaces what was on the map, so an item with
     // nothing to draw leaves the map bare rather than wearing the last one's
     // imagery under a new label.
-    selected = item.id;
+    selected = key(item);
     clearRaster();
     if (drawable) {
       map.addSource("item-raster", { type: "raster", tiles: [asset.href], tileSize: 256 });
@@ -222,7 +225,7 @@
     map.getSource("footprints").setData(footprints());
 
     for (const button of list.querySelectorAll("button.pick")) {
-      button.setAttribute("aria-pressed", String(button.dataset.id === item.id));
+      button.setAttribute("aria-pressed", String(button.dataset.key === key(item)));
     }
     status.className = "";
     const count = more
@@ -241,7 +244,7 @@
 
       const button = el("button", "pick");
       button.type = "button";
-      button.dataset.id = item.id;
+      button.dataset.key = key(item);
       button.setAttribute("aria-pressed", "false");
       button.append(
         el("span", "t", props.title ?? item.id),
@@ -313,7 +316,7 @@
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const page = await res.json();
-          const fresh = (page.features ?? []).filter((f) => !seen.has(f.id) && seen.add(f.id));
+          const fresh = (page.features ?? []).filter((f) => !seen.has(key(f)) && seen.add(key(f)));
           const take = fresh.slice(0, MAX_ITEMS - features.length);
           features.push(...take);
           url = page.links?.find((l) => l.rel === "next")?.href ?? null;
