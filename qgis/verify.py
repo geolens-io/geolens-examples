@@ -77,7 +77,7 @@ def render(layers, box, size=QSize(760, 427)):
     return job.renderedImage()
 
 out = sys.argv[1] if len(sys.argv) > 1 else "qgis-features.png"
-render([stations, lines], extent).save(out)
+assert render([stations, lines], extent).save(out), f"could not write {out}"
 print("rendered", out)
 
 # isValid() on an XYZ layer only says the provider accepted the template. Draw
@@ -93,5 +93,6 @@ print("DEM painted", len(shades), "distinct colours in a 16x16 sample")
 
 if len(sys.argv) > 2:
     project.viewSettings().setDefaultViewExtent(QgsReferencedRectangle(extent, mercator))
-    print("project written" if project.write(sys.argv[2]) else "project write FAILED", sys.argv[2])
+    assert project.write(sys.argv[2]), f"could not write project {sys.argv[2]}"
+    print("project written", sys.argv[2])
 app.exitQgis()

@@ -163,7 +163,12 @@
         const bbox = box.map((n) => n.toFixed(6)).join(",");
         let url = `${GEOLENS}/api/collections/${COLLECTION}/items?bbox=${bbox}&limit=${PAGE_SIZE}`;
         let first = true;
+        // A next link that points back at a page already read would spin this
+        // loop forever. One sighting per URL; a second stops the walk.
+        const visited = new Set();
         while (url) {
+          if (visited.has(url)) { console.warn("next link repeats a page already read; stopping:", url); break; }
+          visited.add(url);
           const res = await fetch(url, { signal });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const page = await res.json();

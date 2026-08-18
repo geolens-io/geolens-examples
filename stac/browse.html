@@ -316,8 +316,14 @@
       for (const box of boxes) {
         const bbox = box.map((n) => n.toFixed(6)).join(",");
         let url = `${SEARCH}?bbox=${bbox}&limit=20`;
+        // A next link that points back at a page already read would spin this
+        // loop forever, and dedupe would keep the cap from ever ending it. One
+        // sighting per URL; a second stops the walk.
+        const visited = new Set();
         while (url) {
           if (features.length >= MAX_ITEMS) { more = more || "maybe"; break; }
+          if (visited.has(url)) { console.warn("STAC next link repeats a page already read; stopping:", url); break; }
+          visited.add(url);
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const page = await res.json();
