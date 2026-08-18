@@ -2,6 +2,12 @@
 
 This repo holds runnable examples for consuming GeoLens: one static file per example, no build step, no framework glue beyond what the library itself needs.
 
+## Two kinds of example
+
+**Live.** A read, made anonymously, against the public demo. One file, zero setup, and CI replays it against `demo.getgeolens.com` on every push. Nearly everything here is one of these, and the rules in the next section are written for them.
+
+**Workflow.** An example that authenticates, or writes. `cli/` is the first: applying a catalog manifest is a write, the demo accepts no anonymous writes, and no amount of care gets that one running against it. A workflow example may hold more than one file, typically a manifest, a workflow YAML and a README, and CI checks whichever part runs with no credential, which for `cli/` means offline schema validation. Two things are not negotiable. The README says plainly which steps need a real instance, so a green build is never read as a verified apply. And nothing in the repo is a credential.
+
 ## What makes a good example here
 
 - One file. No bundler and no `package.json` for the example itself: the library loads from a pinned CDN `<script>`/`<link>` (or, for `python/`, a single-file `uv run` script with inline dependencies).
@@ -16,6 +22,7 @@ This repo holds runnable examples for consuming GeoLens: one static file per exa
 - **Browser examples**: `ci/verify-examples.mjs` loads every entry in `ci/manifest.json` with Playwright against the real demo. A page passes only if it reaches the demo, loads the specific data its manifest entry names, gets features back rather than an empty collection, keeps the console free of errors from the demo or the page itself, and actually paints — the middle of the viewport is screenshotted and must not be a flat fill. HTTP status alone is not the check: a vector tile answers 200 with its source-layer named wrong while the map stays blank. Failures from third-party hosts (a CDN, an analytics beacon) and cancelled requests are reported but never fail the build, and a page that fails is retried once before it counts as red.
 - **Python example**: runs `python/analyze.py` with `uv run` and checks it produces `subway.png`.
 - **MCP example**: `ci/check-mcp.py` spawns the exact `geolens-mcp` version pinned in `claude-mcp/mcp-config.example.json`, then the latest release. The pin gates the build, since that is what the docs tell people to install; the float only warns.
+- **CLI manifest**: `geolens validate cli/geolens.yaml` and `geolens schema` against the pinned `geolens-cli`. Both are offline, so they check that the manifest still matches the schema that release packages without needing an instance or a credential. The `apply` steps `cli/README.md` documents are not run here and cannot be.
 
 If your PR adds or changes a browser example, add or update its entry in `ci/manifest.json` and the status row in the README table. Otherwise CI isn't actually checking what you changed — and a README row claiming a directory is verified with nothing backing it fails the build on its own. An entry is four keys:
 
@@ -30,7 +37,7 @@ If your PR adds or changes a browser example, add or update its entry in `ci/man
 
 `requireUrls` are substrings that must each turn up in the URL of a successful demo response: the dataset UUID, qualified table name or tile path your example claims to load. `minDataResponses` is how many responses of real data it takes, counting only status 200, since a 204 is the server saying there is no tile at that address. Unknown or missing keys fail before the browser even starts, so a typo is an error rather than a check that quietly does nothing.
 
-The bar is simple: if it doesn't render against `demo.getgeolens.com` right now, it doesn't merge.
+The bar for a live example is simple: if it doesn't render against `demo.getgeolens.com` right now, it doesn't merge. A workflow example is held to whatever CI can genuinely run without a credential, plus a README that is straight about the steps it cannot.
 
 ## Running the verifier locally
 

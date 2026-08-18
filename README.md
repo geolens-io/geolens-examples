@@ -25,7 +25,7 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 | [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.14.0 (single-file `uv run` script) | SDK catalog search, schema semantics, server-side filter, export into GeoPandas | `uv run python/sdk-catalog.py` |
 | [`claude-mcp/`](claude-mcp/) | Claude via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0` |
 | `duckdb/` | DuckDB | SQL directly over the Features API | Planned |
-| `cli/` | geolens CLI | Catalog-as-code | Planned |
+| [`cli/`](cli/) | `geolens-cli` 1.14.0 | Catalog-as-code: offline `validate`, then `apply --dry-run` and `apply` against your instance | `uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml` |
 
 Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted, not just that the requests returned 200. Where an example draws two layers of its own, it also asserts each one painted, by colour. The embedded map is the exception: it renders seven layers GeoLens styles server-side, so CI proves the frame loaded and its tiles flowed, not that every layer is present. Both Python examples run green with one command.
 

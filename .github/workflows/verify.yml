@@ -76,6 +76,13 @@ jobs:
       - name: Run the SDK quickstart
         working-directory: python
         run: uv run sdk-catalog.py
+      # The catalog-as-code example. `apply` is a write and needs a credential,
+      # so CI checks the part that runs without one: the manifest still matches
+      # the schema this CLI release packages, and that schema still prints.
+      - name: Validate the CLI manifest
+        run: |
+          uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml
+          uvx --from geolens-cli==1.14.0 geolens schema >/dev/null
 
   mcp:
     name: MCP server smoke check

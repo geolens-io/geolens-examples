@@ -1,0 +1,67 @@
+# Catalog-as-code against your own GeoLens instance.
+#
+# Copy this file into `.github/workflows/` in the repo that holds your
+# geolens.yaml. It is an example for your repo, not a workflow this repo runs:
+# nothing here works against the public demo, which takes no anonymous writes.
+#
+#   pull request  →  validate the manifest, then ask the instance what applying
+#                    it would change. Nothing is written.
+#   push to main  →  apply it. main is what the catalog is.
+name: GeoLens catalog
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # The `secrets` context cannot be read from an `if:`, so the two secrets
+    # land in job-level env and the steps below test `env` instead. That is also
+    # exactly how the CLI wants them: GEOLENS_INSTANCE and GEOLENS_TOKEN are the
+    # only two variables it reads, and setting them replaces `geolens login`
+    # entirely, so no credential is ever written to the runner's disk.
+    env:
+      GEOLENS_INSTANCE: ${{ secrets.GEOLENS_INSTANCE }}
+      GEOLENS_TOKEN: ${{ secrets.GEOLENS_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # uvx runs the pinned CLI straight from PyPI, so the repo holding your
+      # manifest needs no Python project, no lockfile and no virtualenv for it.
+      - uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d # v10.0.0
+
+      # Offline, and unconditional. A missing `publication.intent` or a key that
+      # breaks the identity pattern should fail review whether or not this run
+      # can reach an instance, including on a fork, which holds no secrets.
+      - name: Validate the manifest
+        run: uvx --from geolens-cli==1.14.0 geolens validate geolens.yaml
+
+      # The plan step. --dry-run reaches the instance, matches every entry by
+      # key and reports create/update/skip without writing anything, which is
+      # the answer a reviewer wants to "what does merging this do?".
+      # --json goes BEFORE the subcommand. It is a global option, and
+      # `geolens apply --json` is an error.
+      - name: Preview the apply
+        if: ${{ github.event_name == 'pull_request' && env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
+        run: uvx --from geolens-cli==1.14.0 geolens --json apply --dry-run geolens.yaml
+
+      # The write, and only from main, so the catalog tracks the reviewed branch
+      # and no pull request can move it on its own. Applying an unchanged entry
+      # is a skip, so re-running this is cheap rather than a re-import.
+      - name: Apply the manifest
+        if: ${{ github.event_name == 'push' && env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
+        run: uvx --from geolens-cli==1.14.0 geolens --json apply geolens.yaml
+
+      # A fork holds no secrets, so both steps above skip and this job goes
+      # green having proved only that the file parses. Say that out loud, or a
+      # green check reads as "the instance agreed" when nobody asked it.
+      - name: Report that nothing was applied
+        if: ${{ env.GEOLENS_INSTANCE == '' || env.GEOLENS_TOKEN == '' }}
+        run: |
+          echo "GEOLENS_INSTANCE or GEOLENS_TOKEN is unset, so no apply ran."
+          echo "Offline schema validation is all this run checked."
