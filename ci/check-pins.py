@@ -29,7 +29,7 @@ REPO = Path(__file__).resolve().parent.parent
 HEALTH = "https://demo.getgeolens.com/api/health"
 
 SUFFIXES = {".py", ".md", ".html", ".json", ".yml", ".yaml", ".mjs", ".js", ".ts"}
-SKIP = {".git", "node_modules", "assets"}
+SKIP = {".git", ".claude", "node_modules", "assets"}  # .claude: local agent worktrees, never in CI
 
 # One pattern per published GeoLens client, in the exact form each file uses.
 PATTERNS = [
