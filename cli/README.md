@@ -122,7 +122,9 @@ a server, which is why they are the parts this repo's CI runs on every push.
 [`github-actions.yml`](github-actions.yml) is meant to be copied into `.github/workflows/` in the
 repo that holds your manifest. It validates on every event, previews with `--dry-run` on pull
 requests, applies on a push to `main`, and skips both networked steps when the secrets are missing so
-a fork's CI stays green and honest about what it checked.
+a fork's CI stays green and honest about what it checked. Applies to `main` run one at a time, in
+push order, and a run in progress is left to finish: two quick merges would otherwise race, and the
+older run finishing last would reconcile the catalog back to the older manifest.
 
 One GitHub Actions detail worth copying rather than rediscovering: the `secrets` context cannot be
 read from an `if:` condition. The secrets go into job-level `env`, and the steps guard on

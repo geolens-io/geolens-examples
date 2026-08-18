@@ -17,6 +17,16 @@ on:
 permissions:
   contents: read
 
+# One apply at a time per catalog, in push order. Two pushes to main in quick
+# succession would otherwise race, and the older run finishing last would
+# reconcile the catalog back to the older manifest. Not cancelling in progress
+# is deliberate: stopping an apply half way is worse than letting it finish,
+# and a queued newer run then applies over it. Pull-request runs only read, so
+# they queue behind nothing but their own branch.
+concurrency:
+  group: geolens-catalog-${{ github.event_name == 'push' && 'main' || github.ref }}
+  cancel-in-progress: false
+
 jobs:
   catalog:
     runs-on: ubuntu-latest
