@@ -485,15 +485,15 @@ function checkReadmeAgainstCi(manifest) {
 // row and its card IS the thing #16 is about, so the check has to carry it.
 //
 // The identity on each side is the example path: the README row names it
-// (`python/analyze.py`, `claude-mcp/`) and the card carries it as `source`. They
+// (`python/analyze.py`, `mcp/`) and the card carries it as `source`. They
 // agree exactly for two of the three pairs. The third does not, and the rule
 // says so rather than being loosened until it passes:
 //
 //   a README path pairs with a card `source` when the two are equal, or when
 //   the path names a directory (trailing "/") and the source is a file under it
 //
-// which is what lets the row saying `claude-mcp/` pair with the card sourced at
-// `claude-mcp/README.md`. That card's `source` also builds the "View source"
+// which is what lets the row saying `mcp/` pair with the card sourced at
+// `mcp/README.md`. That card's `source` also builds the "View source"
 // link, so it is not free to rewrite to satisfy this check.
 //
 // A rule that can match loosely can match twice, and a check that silently

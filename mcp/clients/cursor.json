@@ -1,0 +1,13 @@
+{
+  "_comment": "Cursor config for the GeoLens read-only MCP server. Save as .cursor/mcp.json in your project (or ~/.cursor/mcp.json to apply everywhere) and restart Cursor. As written it points at the public demo instance and needs no credentials. For your own instance, change GEOLENS_INSTANCE and add \"GEOLENS_API_KEY\": \"your-api-key\" to the env block.",
+  "mcpServers": {
+    "geolens": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["geolens-mcp@1.14.0"],
+      "env": {
+        "GEOLENS_INSTANCE": "https://demo.getgeolens.com"
+      }
+    }
+  }
+}

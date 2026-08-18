@@ -1,0 +1,12 @@
+{
+  "_comment": "Claude Desktop config for the GeoLens read-only MCP server. Merge the mcpServers block into your existing claude_desktop_config.json (macOS: ~/Library/Application Support/Claude/, Windows: %APPDATA%\\Claude\\) and restart Claude Desktop. As written it points at the public demo instance and needs no credentials. For your own instance, change GEOLENS_INSTANCE and add \"GEOLENS_API_KEY\": \"your-api-key\" to the env block. If Claude Desktop reports 'spawn uvx ENOENT', replace \"uvx\" with its absolute path from `which uvx` (`where uvx` on Windows) — Desktop launches servers with a minimal PATH. The pinned version matches what the demo runs; bump it when you upgrade your own instance, or drop the @1.14.0 to track the latest release.",
+  "mcpServers": {
+    "geolens": {
+      "command": "uvx",
+      "args": ["geolens-mcp@1.14.0"],
+      "env": {
+        "GEOLENS_INSTANCE": "https://demo.getgeolens.com"
+      }
+    }
+  }
+}

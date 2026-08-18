@@ -11,7 +11,7 @@
 #   - playwright@1.62.1, installed by a shell line in verify.yml
 #   - CDN pins in the example pages: maplibre-gl, leaflet, ol, @geolens/sdk
 #   - geolens==1.14.0, a PEP 723 inline dependency in python/sdk-catalog.py
-#   - geolens-mcp@1.14.0, in claude-mcp/mcp-config.example.json and index.html
+#   - geolens-mcp@1.14.0, in mcp/clients/*.{json,md} and index.html
 #
 # None of those has a manifest for Dependabot to read, and that is deliberate.
 # The examples have no build step, which is most of why they are readable, so

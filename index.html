@@ -263,7 +263,7 @@
   // section; naming an audience that has no cards yet creates its section.
   //   live      relative path in this repo, omit for anything that is not a page
   //   address   the call the example makes — the line every card carries.
-  //             For python/ and claude-mcp/ this is a command a reader will
+  //             For python/ and mcp/ this is a command a reader will
   //             paste, and the same string is in README.md's Examples table.
   //             Still two copies, now with a guard: ci/verify-examples.mjs
   //             fails the build if a command here matches no README row, or a
@@ -382,13 +382,13 @@
     },
     {
       audience: "ai-developer", tool: "geolens-mcp",
-      title: "Catalog tools in a Claude session",
-      blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. The discovery tools need no credential.",
+      title: "Catalog tools in an MCP client",
+      blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. Works with Claude Code, Claude Desktop, Cursor, Codex, or any MCP client. The discovery tools need no credential.",
       tag: "MCP", kind: "tooling",
       address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0",
       snippet: "<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 5 matched, 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
-      source: "claude-mcp/README.md",
-      docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/claude-mcp"],
+      source: "mcp/README.md",
+      docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/mcp"],
       datasets: [], catalog: true,
     },
     {
