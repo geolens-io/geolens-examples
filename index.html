@@ -499,6 +499,17 @@
       docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/python"],
       datasets: [],
     },
+    {
+      audience: "data-engineer", tool: "geolens-cli 1.14.0",
+      title: "A catalog declared in Git",
+      blurb: "A geolens.yaml naming datasets, their sources and their metadata, reconciled onto an instance by geolens apply. Each entry has a stable key, so re-applying an unchanged one skips instead of importing a second copy.",
+      tag: "CLI", kind: "tooling",
+      address: "uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml",
+      snippet: "<b>$</b> geolens validate cli/geolens.yaml\n  Manifest valid: cli/geolens.yaml\n\n<b>$</b> geolens --json apply --dry-run\n  ne-110m-countries          create\n  ne-110m-populated-places   create",
+      source: "cli/README.md",
+      docs: ["Manifest and CI workflow", "https://github.com/geolens-io/geolens-examples/tree/main/cli"],
+      datasets: [],
+    },
   ];
 
   // ---------------------------------------------------------------------------
