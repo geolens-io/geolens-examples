@@ -20,6 +20,7 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 | [`leaflet/features.html`](leaflet/features.html) | Leaflet 1.9 | GeoJSON features straight into `L.geoJSON` | [Live](https://geolens-io.github.io/geolens-examples/leaflet/features.html) |
 | [`leaflet/imagery.html`](leaflet/imagery.html) | Leaflet 1.9 | Raster tiles as plain `<img>`, so no CORS needed | [Live](https://geolens-io.github.io/geolens-examples/leaflet/imagery.html) |
 | [`typescript/catalog-map.html`](typescript/catalog-map.html) | `@geolens/sdk` 1.14.0 + MapLibre | Catalog search, schema and freshness, then the tile link the collection advertises | [Live](https://geolens-io.github.io/geolens-examples/typescript/catalog-map.html) |
+| [`search/catalog.html`](search/catalog.html) | MapLibre GL JS 5.x + `fetch` | Semantic catalog search, narrowed to the map view, then drawn | [Live](https://geolens-io.github.io/geolens-examples/search/catalog.html) |
 | [`embed/iframe.html`](embed/iframe.html) | No library | A saved GeoLens map in an iframe, styling and legend intact | [Live](https://geolens-io.github.io/geolens-examples/embed/iframe.html) |
 | [`python/analyze.py`](python/analyze.py) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | `uv run python/analyze.py` |
 | [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.14.0 (single-file `uv run` script) | SDK catalog search, schema semantics, server-side filter, export into GeoPandas | `uv run python/sdk-catalog.py` |

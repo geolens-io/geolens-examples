@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens: semantic + spatial catalog search</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: flex;
+      background: #101418;
+      color: #e6edf3;
+      font: 13px/1.5 ui-sans-serif, system-ui, sans-serif;
+    }
+    #panel {
+      width: 360px;
+      flex: none;
+      overflow-y: auto;
+      padding: 16px;
+      border-right: 1px solid #2b3440;
+      background: #1b2129;
+    }
+    #map { flex: 1; }
+    h1 { margin: 0 0 4px; font-size: 15px; }
+    p.lede { margin: 0 0 12px; color: #93a1b0; }
+    input[type=search] {
+      width: 100%; padding: 7px 8px; border: 1px solid #2b3440; border-radius: 4px;
+      background: #101418; color: #e6edf3; font: inherit;
+    }
+    label { display: block; margin: 8px 0 0; color: #93a1b0; }
+    #status { margin: 12px 0 8px; color: #93a1b0; }
+    #status.err { color: #ff8b7e; }
+    .hit {
+      width: 100%; display: block; text-align: left; margin: 0 0 8px;
+      padding: 9px 10px; border: 1px solid #2b3440; border-radius: 5px;
+      background: #101418; color: inherit; font: inherit; cursor: pointer;
+    }
+    .hit:hover { border-color: #4da3ff; }
+    .hit[aria-pressed=true] { border-color: #ffd166; }
+    .hit strong { display: block; margin-bottom: 3px; }
+    .hit span { display: block; color: #93a1b0; font-size: 12px; }
+    .hit .why { color: #ffd166; }
+    .hit .draws { color: #6ee7a8; }
+    code { font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  </style>
+</head>
+<body>
+<div id="panel">
+  <h1>Semantic + spatial catalog search</h1>
+  <p class="lede">Describe the data you want. The catalog matches on meaning, not
+    on words in the title. Tick the box to also constrain by what the map shows.</p>
+  <form id="form">
+    <input id="q" type="search" value="space rocks that fell to earth"
+           aria-label="Search the catalog" />
+    <label><input id="spatial" type="checkbox" /> limit to map view (adds <code>bbox</code>)</label>
+  </form>
+  <p id="status" role="status"></p>
+  <div id="results"></div>
+</div>
+<div id="map"></div>
+
+<script>
+  // Point this at your own GeoLens instance to search your own catalog. The
+  // demo is anonymous; a private instance takes an X-Api-Key header on the
+  // fetch below, and a transformRequest on the map for the tiles.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // `q` runs the query against embeddings the server keeps in pgvector, so it
+  // matches meaning: "space rocks that fell to earth" returns the meteorite
+  // dataset with none of those words in its title, description or keywords.
+  //
+  // Two URLs run that same query. `/api/search/datasets/?q=...` is the one the
+  // SDKs and the MCP server call, and its own rel=self link points straight at
+  // the OGC API Records items endpoint used below. This page calls the Records
+  // one because, as of v1.14.0, the /api/search/ route answers without an
+  // Access-Control-Allow-Origin header, so a browser on another origin gets a
+  // CORS error rather than results. /api/collections/ sends the anonymous
+  // wildcard, so it works from a page like this one with no setup.
+  //
+  // Same query from Python, where CORS does not apply — python/sdk-catalog.py:
+  //
+  //   search.sync_detailed(client=client, q="space rocks that fell to earth", limit=5)
+  //
+  // A standards client can filter this same collection with CQL2 instead, which
+  // is literal rather than semantic and is the right tool once you know the
+  // string you are after:
+  //
+  //   /api/collections/datasets/items?filter=title LIKE '%Subway%'
+  //
+  // What comes back is an OGC API Records FeatureCollection: each feature is a
+  // catalog record, `properties` carries the metadata (title, record_type,
+  // geometry_type, feature_count, updated, keywords, distributions), `bbox` is
+  // the record's extent, and `assets` carries raster tile links. Everything the
+  // cards below show is in that one response, so selecting a card fires no
+  // follow-up metadata request — only the map's own tile loads.
+  const search = (q, bbox) => {
+    const url = new URL(`${GEOLENS}/api/collections/datasets/items`);
+    url.searchParams.set("q", q);
+    url.searchParams.set("limit", "10");
+    // bbox filters on the extent of the catalog *record*, not on features: a
+    // dataset whose extent overlaps the box is a hit, including a global one.
+    // It narrows which datasets are worth opening, and does not clip anything.
+    if (bbox) url.searchParams.set("bbox", bbox);
+    return url;
+  };
+
+  const map = new maplibregl.Map({
+    container: "map",
+    center: [0, 20],
+    zoom: 1.5,
+    style: {
+      version: 8,
+      sources: {},
+      layers: [{ id: "bg", type: "background", paint: { "background-color": "#101418" } }],
+    },
+  });
+  map.addControl(new maplibregl.NavigationControl());
+
+  const form = document.getElementById("form");
+  const input = document.getElementById("q");
+  const spatial = document.getElementById("spatial");
+  const status = document.getElementById("status");
+  const results = document.getElementById("results");
+
+  // Catalog values are data, not markup. Titles, descriptions and keywords come
+  // from whoever can create a dataset on the instance, so they only ever reach
+  // the page as text. Nothing here builds HTML from a response.
+  const el = (tag, text, cls) => {
+    const node = document.createElement(tag);
+    if (text != null) node.textContent = String(text);
+    if (cls) node.className = cls;
+    return node;
+  };
+
+  // A 6-element bbox is 3D (minx, miny, minz, maxx, maxy, maxz).
+  const flatten = (bbox) =>
+    !bbox ? null : bbox.length === 6 ? [bbox[0], bbox[1], bbox[3], bbox[4]] : bbox;
+
+  const round = (n) => Number(n).toFixed(1);
+
+  // The response carries no score, rank or distance field, so there is nothing
+  // to show as relevance and this page does not invent one. What it can say
+  // honestly is measured here, in the browser: how much of the query survives
+  // literally in the record's own text. Zero overlap on a top hit is the whole
+  // point of the embedding search, and it is worth seeing.
+  const STOPWORDS = new Set(["the", "that", "and", "for", "with", "from", "into", "was", "were", "are"]);
+  const overlap = (query, props) => {
+    const terms = [...new Set((query.toLowerCase().match(/[a-z0-9]+/g) ?? []))]
+      .filter((t) => t.length > 2 && !STOPWORDS.has(t));
+    if (terms.length === 0) return null;
+    const text = [props.title, props.description, ...(props.keywords ?? [])]
+      .join(" ").toLowerCase();
+    const hit = terms.filter((t) => text.includes(t));
+    return hit.length === 0
+      ? `none of the ${terms.length} query words appear in this record — matched on meaning alone`
+      : `${hit.length} of ${terms.length} query words in this record's text: ${hit.join(", ")}`;
+  };
+
+  // Which layer, if any, this record can draw, taken from what it advertises
+  // rather than rebuilt from the dataset id. Vector datasets carry a
+  // vector_tiles distribution; raster and VRT datasets carry a raster_tiles
+  // asset. A record for something that is not a dataset (a collection, say)
+  // has neither, and says so on the card instead of failing.
+  const drawable = (feature) => {
+    const tiles = (feature.properties.distributions ?? []).find((d) => d.type === "vector_tiles");
+    // An MVT source-layer is named after the tile path segment it comes from,
+    // so the advertised URL already says what to put in `source-layer`.
+    if (tiles) return { kind: "vector", url: tiles.url, layer: tiles.url.split("/tiles/")[1].split("/")[0] };
+    const raster = feature.assets?.raster_tiles?.href;
+    if (raster) return { kind: "raster", url: raster };
+    return null;
+  };
+
+  const LAYERS = [
+    { id: "hit-fill", type: "fill", filter: ["==", "$type", "Polygon"],
+      paint: { "fill-color": "#4da3ff", "fill-opacity": 0.35 } },
+    { id: "hit-line", type: "line", filter: ["!=", "$type", "Point"],
+      paint: { "line-color": "#4da3ff", "line-width": 1.5 } },
+    { id: "hit-point", type: "circle", filter: ["==", "$type", "Point"],
+      paint: { "circle-radius": 3.5, "circle-color": "#ffd166",
+               "circle-stroke-color": "#101418", "circle-stroke-width": 1 } },
+  ];
+  const RASTER_LAYER = { id: "hit-raster", type: "raster" };
+
+  let drawn = [];
+  const clear = () => {
+    drawn.forEach((id) => map.getLayer(id) && map.removeLayer(id));
+    drawn = [];
+    if (map.getSource("hit")) map.removeSource("hit");
+  };
+
+  const select = (feature, button) => {
+    for (const other of results.querySelectorAll(".hit")) other.setAttribute("aria-pressed", "false");
+    button.setAttribute("aria-pressed", "true");
+
+    clear();
+    const source = drawable(feature);
+    if (source?.kind === "vector") {
+      map.addSource("hit", { type: "vector", tiles: [source.url] });
+      LAYERS.forEach((l) => {
+        map.addLayer({ ...l, source: "hit", "source-layer": source.layer });
+        drawn.push(l.id);
+      });
+    } else if (source?.kind === "raster") {
+      map.addSource("hit", { type: "raster", tiles: [source.url], tileSize: 256 });
+      map.addLayer({ ...RASTER_LAYER, source: "hit" });
+      drawn.push(RASTER_LAYER.id);
+    }
+
+    const bbox = flatten(feature.bbox);
+    if (bbox) map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 40, duration: 0 });
+  };
+
+  const card = (feature, query) => {
+    const p = feature.properties;
+    const button = el("button", null, "hit");
+    button.type = "button";
+    button.setAttribute("aria-pressed", "false");
+
+    const facts = [
+      p.record_type,
+      p.geometry_type,
+      p.feature_count != null ? `${p.feature_count.toLocaleString()} features` : null,
+      p.band_count != null ? `${p.band_count} band(s)` : null,
+    ].filter(Boolean).join(" · ");
+
+    const bbox = flatten(feature.bbox);
+    const source = drawable(feature);
+
+    button.append(el("strong", p.title));
+    button.append(el("span", facts));
+    // Freshness is on the record itself, so no extra request is needed for it.
+    if (p.updated) button.append(el("span", `updated ${p.updated.slice(0, 10)}`));
+    if (bbox) {
+      button.append(el("span",
+        `extent ${round(bbox[0])}, ${round(bbox[1])} → ${round(bbox[2])}, ${round(bbox[3])}`));
+    }
+    if (p.keywords?.length) button.append(el("span", p.keywords.join(", ")));
+    const why = overlap(query, p);
+    if (why) button.append(el("span", why, "why"));
+    button.append(el("span",
+      source ? `draws from its advertised ${source.kind} tiles` : "no tile link advertised; zooms to its extent only",
+      source ? "draws" : null));
+
+    button.addEventListener("click", () => select(feature, button));
+    return button;
+  };
+
+  // A search that is already running is worthless the moment the query changes,
+  // and its response can land after the newer one and overwrite it. Aborting is
+  // both the cheap fix for that race and one less request the server serves.
+  let pending = null;
+
+  const run = async (autoSelect) => {
+    pending?.abort();
+    const controller = new AbortController();
+    pending = controller;
+
+    const query = input.value;
+    // Read the bounds at search time. Re-searching on every map move would
+    // fight the fitBounds a card click does: the results would change under
+    // the card the reader just clicked. Toggle the box or press Enter instead.
+    const bbox = spatial.checked
+      ? map.getBounds().toArray().flat().map((n) => n.toFixed(4)).join(",")
+      : null;
+
+    let body;
+    try {
+      const res = await fetch(search(query, bbox), { signal: controller.signal });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      body = await res.json();
+    } catch (err) {
+      if (err.name === "AbortError") return; // a newer search superseded this one
+      status.className = "err";
+      status.textContent = `Search failed against ${GEOLENS}: ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS.`;
+      results.replaceChildren();
+      return;
+    }
+
+    status.className = "";
+    // numberMatched is the size of the result set; the features array is this
+    // page of it. They differ as soon as the catalog has more hits than `limit`.
+    status.textContent = body.numberMatched === body.numberReturned
+      ? `${body.numberMatched} record(s) matched${bbox ? ", inside the current view" : ""}`
+      : `${body.numberReturned} of ${body.numberMatched} matched${bbox ? ", inside the current view" : ""}`;
+
+    const cards = body.features.map((f) => card(f, query));
+    results.replaceChildren(...cards);
+    // Draw the top hit without waiting for a click, so the page opens with data
+    // on the map rather than an empty one and an invitation.
+    if (autoSelect && cards.length > 0) select(body.features[0], cards[0]);
+  };
+
+  // Search on Enter, and 350ms after typing stops. Firing per keystroke would
+  // send a request for every prefix of the query, each one an embedding lookup.
+  let debounce;
+  input.addEventListener("input", () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => run(false), 350);
+  });
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    clearTimeout(debounce);
+    run(false);
+  });
+  spatial.addEventListener("change", () => run(false));
+
+  // MapLibre reports tile failures on its own error event and stays quiet
+  // through normal loads. The else branch is not optional: attaching any error
+  // listener replaces MapLibre's built-in console logging, so anything this
+  // handler declines to show has to be forwarded or it disappears.
+  map.on("error", (e) => {
+    const message = String(e?.error?.message ?? e?.error ?? "");
+    if (message.includes("AJAXError")) {
+      status.className = "err";
+      status.textContent = `Tiles failed: ${message}`;
+      return;
+    }
+    console.error(e?.error ?? e);
+  });
+
+  run(true);
+</script>
+</body>
+</html>
