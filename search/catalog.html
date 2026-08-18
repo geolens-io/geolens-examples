@@ -311,7 +311,11 @@
       if (err.name === "AbortError") return; // a newer search superseded this one
       status.className = "err";
       status.textContent = `Search failed against ${GEOLENS}: ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS.`;
+      // No cards, so nothing on the map either: a failed search should not
+      // leave the previous result drawn under an error about a different one.
       results.replaceChildren();
+      clear();
+      drawnId = null;
       return;
     }
 
