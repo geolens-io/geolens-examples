@@ -103,8 +103,25 @@
     // bbox filters on the extent of the catalog *record*, not on features: a
     // dataset whose extent overlaps the box is a hit, including a global one.
     // It narrows which datasets are worth opening, and does not clip anything.
-    if (bbox) url.searchParams.set("bbox", bbox);
+    if (bbox) url.searchParams.set("bbox", bbox.map((n) => n.toFixed(4)).join(","));
     return url;
+  };
+
+  // The server holds one copy of the world; MapLibre's bounds can hold several
+  // (zoomed out) or straddle the antimeridian (west 170, east 190). Clamp the
+  // latitude, collapse a wider-than-the-world view to the world, and split a
+  // view across ±180 into two boxes so the far side is not dropped: a bbox of
+  // 170..190 compares numerically on the server and misses -180..-170.
+  const wrapLng = (v) => {
+    const r = ((((v + 180) % 360) + 360) % 360) - 180;
+    return r === -180 && v > 0 ? 180 : r;
+  };
+  const viewBoxes = (map) => {
+    const b = map.getBounds();
+    const s = Math.max(b.getSouth(), -90), n = Math.min(b.getNorth(), 90);
+    if (b.getEast() - b.getWest() >= 360) return [[-180, s, 180, n]];
+    const w = wrapLng(b.getWest()), e = wrapLng(b.getEast());
+    return w <= e ? [[w, s, e, n]] : [[w, s, 180, n], [-180, s, e, n]];
   };
 
   const map = new maplibregl.Map({
@@ -263,15 +280,29 @@
     // Read the bounds at search time. Re-searching on every map move would
     // fight the fitBounds a card click does: the results would change under
     // the card the reader just clicked. Toggle the box or press Enter instead.
-    const bbox = spatial.checked
-      ? map.getBounds().toArray().flat().map((n) => n.toFixed(4)).join(",")
-      : null;
+    const boxes = spatial.checked ? viewBoxes(map) : [null];
+    const bbox = boxes[0];
 
     let body;
     try {
-      const res = await fetch(search(query, bbox), { signal: controller.signal });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      body = await res.json();
+      // One request per box; two only when the view crosses the antimeridian.
+      // Their results merge by record id, and the matched counts add up.
+      const pages = await Promise.all(boxes.map(async (box) => {
+        const res = await fetch(search(query, box), { signal: controller.signal });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        return res.json();
+      }));
+      const seen = new Set();
+      const features = pages.flatMap((p) => p.features).filter((f) => !seen.has(f.id) && seen.add(f.id));
+      // A record spanning both halves is in both responses. When every page
+      // came back whole, the unique count is the exact match count; otherwise
+      // the sum is the best available figure.
+      const whole = pages.every((p) => p.numberReturned === p.numberMatched);
+      body = {
+        features,
+        numberReturned: features.length,
+        numberMatched: whole ? features.length : pages.reduce((sum, p) => sum + (p.numberMatched ?? 0), 0),
+      };
     } catch (err) {
       if (err.name === "AbortError") return; // a newer search superseded this one
       status.className = "err";
@@ -322,7 +353,10 @@
     console.error(e?.error ?? e);
   });
 
-  run(true);
+  // The first search draws its top hit, and addSource/addLayer need the style
+  // to be loaded first. Against a fast instance the search can win that race,
+  // so wait for the map rather than the other way round.
+  map.on("load", () => run(true));
 </script>
 </body>
 </html>

@@ -123,15 +123,24 @@
     inflight = new AbortController();
     const { signal } = inflight;
 
-    // Zoomed out far enough, MapLibre's bounds run past the antimeridian and
-    // repeat the world; the server has one copy, so ask for at most that.
+    // The server holds one copy of the world; MapLibre's bounds can hold
+    // several (zoomed out) or straddle the antimeridian (west 170, east 190).
+    // Clamp the latitude, collapse a wider-than-the-world view to the world,
+    // and split a view across ±180 into two walks, because a bbox of 170..190
+    // compares numerically on the server and misses -180..-170.
     const b = map.getBounds();
-    const bbox = [
-      Math.max(b.getWest(), -180), Math.max(b.getSouth(), -90),
-      Math.min(b.getEast(), 180), Math.min(b.getNorth(), 90),
-    ].map((n) => n.toFixed(4)).join(",");
+    const south = Math.max(b.getSouth(), -90), north = Math.min(b.getNorth(), 90);
+    const wrapLng = (v) => {
+      const r = ((((v + 180) % 360) + 360) % 360) - 180;
+      return r === -180 && v > 0 ? 180 : r;
+    };
+    let boxes;
+    if (b.getEast() - b.getWest() >= 360) boxes = [[-180, south, 180, north]];
+    else {
+      const w = wrapLng(b.getWest()), e = wrapLng(b.getEast());
+      boxes = w <= e ? [[w, south, e, north]] : [[w, south, 180, north], [-180, south, e, north]];
+    }
 
-    let url = `${GEOLENS}/api/collections/${COLLECTION}/items?bbox=${bbox}&limit=${PAGE_SIZE}`;
     const features = [];
     let pages = 0;
     let matched = 0;
@@ -149,21 +158,32 @@
       // is keyset-based (`after_gid=`), so each page starts where the
       // previous one ended by row id, and rows inserted or deleted mid-walk
       // cannot shift the pages under this reader the way an offset would.
-      while (url) {
-        const res = await fetch(url, { signal });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const page = await res.json();
-        if (mine !== seq) return; // a newer view owns the map now
+      walk: for (const [i, box] of boxes.entries()) {
+        const bbox = box.map((n) => n.toFixed(4)).join(",");
+        let url = `${GEOLENS}/api/collections/${COLLECTION}/items?bbox=${bbox}&limit=${PAGE_SIZE}`;
+        let first = true;
+        while (url) {
+          const res = await fetch(url, { signal });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const page = await res.json();
+          if (mine !== seq) return; // a newer view owns the map now
 
-        pages += 1;
-        matched = page.numberMatched ?? matched;
-        features.push(...page.features);
-        // Paint each page as it lands rather than after the whole walk, so a
-        // three-page view shows its first thousand points a round-trip early.
-        map.getSource("meteorites").setData({ type: "FeatureCollection", features });
+          pages += 1;
+          // numberMatched is per walk and the same on every page of it, so
+          // count it once per box.
+          if (first) { matched += page.numberMatched ?? 0; first = false; }
+          features.push(...page.features);
+          // Paint each page as it lands rather than after the whole walk, so a
+          // three-page view shows its first thousand points a round-trip early.
+          map.getSource("meteorites").setData({ type: "FeatureCollection", features });
 
-        if (features.length >= MAX_FEATURES) { capped = true; break; }
-        url = page.links?.find((l) => l.rel === "next")?.href ?? null;
+          url = page.links?.find((l) => l.rel === "next")?.href ?? null;
+          // Capped means "there was more and we stopped". A view that matches
+          // exactly MAX_FEATURES ends its last page at the cap with no next
+          // link, and that is a complete result, not a truncated one.
+          const more = url !== null || i < boxes.length - 1;
+          if (features.length >= MAX_FEATURES && more) { capped = true; break walk; }
+        }
       }
     } catch (err) {
       if (err.name === "AbortError") return; // superseded on purpose, nothing to report

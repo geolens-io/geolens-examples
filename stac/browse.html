@@ -260,18 +260,36 @@
     const controller = new AbortController();
     inflight = controller;
 
-    // Clamp: pan past the antimeridian or tilt the view and getBounds() hands
-    // back coordinates off the ends of the world, which the search rejects.
+    // The server holds one copy of the world; MapLibre's bounds can hold
+    // several (zoomed out) or straddle the antimeridian (west 170, east 190).
+    // Clamp the latitude, collapse a wider-than-the-world view to the world,
+    // and split a view across ±180 into two searches, because a bbox of
+    // 170..190 compares numerically on the server and misses -180..-170.
     const b = map.getBounds();
-    const lng = (v) => Math.min(180, Math.max(-180, v)).toFixed(4);
-    const lat = (v) => Math.min(90, Math.max(-90, v)).toFixed(4);
-    const bbox = [lng(b.getWest()), lat(b.getSouth()), lng(b.getEast()), lat(b.getNorth())];
+    const south = Math.max(b.getSouth(), -90), north = Math.min(b.getNorth(), 90);
+    const wrapLng = (v) => {
+      const r = ((((v + 180) % 360) + 360) % 360) - 180;
+      return r === -180 && v > 0 ? 180 : r;
+    };
+    let boxes;
+    if (b.getEast() - b.getWest() >= 360) boxes = [[-180, south, 180, north]];
+    else {
+      const w = wrapLng(b.getWest()), e = wrapLng(b.getEast());
+      boxes = w <= e ? [[w, south, e, north]] : [[w, south, 180, north], [-180, south, e, north]];
+    }
 
     let found;
     try {
-      const res = await fetch(`${SEARCH}?bbox=${bbox.join(",")}&limit=20`, { signal: controller.signal });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      found = await res.json();
+      const pages = await Promise.all(boxes.map(async (box) => {
+        const bbox = box.map((n) => n.toFixed(4)).join(",");
+        const res = await fetch(`${SEARCH}?bbox=${bbox}&limit=20`, { signal: controller.signal });
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        return res.json();
+      }));
+      // Two searches only when the view crosses the antimeridian; an item
+      // spanning both halves comes back twice and is kept once.
+      const seen = new Set();
+      found = { features: pages.flatMap((p) => p.features ?? []).filter((f) => !seen.has(f.id) && seen.add(f.id)) };
     } catch (err) {
       // A newer search already replaced this one; it is not a failure.
       if (err.name === "AbortError") return;
