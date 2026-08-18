@@ -249,8 +249,8 @@ itself is untested here, since the demo datasets are public and need no key.
 ## Pinned versions
 
 `analyze.py` pins `geopandas==1.1.4`, `httpx==0.28.1`, `matplotlib==3.11.1`;
-`sdk-catalog.py` pins `geolens==1.13.1` and `geopandas==1.1.4`. Those were the
-current releases on 2026-08-15, and both scripts were run against the live demo on
+`sdk-catalog.py` pins `geolens==1.14.0` and `geopandas==1.1.4`. Those were the
+current releases on 2026-08-18, and both scripts were run against the live demo on
 that date. `requires-python = ">=3.11"` comes from matplotlib 3.11, the strictest
 floor of the set.
 

@@ -21,14 +21,14 @@ The server is on PyPI, so `uvx` fetches and runs it on demand; there is nothing 
 Python 3.11 or newer. Every example below points at the public demo instance, which serves its
 catalog anonymously, so you can paste any of them as-is and have working tools in about a minute.
 
-Every example also pins `geolens-mcp@1.13.1`, the current release and the version the demo reports.
+Every example also pins `geolens-mcp@1.14.0`, the current release and the version the demo reports.
 The package ships with each GeoLens release, so the version to run is the one matching your
 instance. See [Things that will bite you](#things-that-will-bite-you) for how to move off the pin.
 
 ### Claude Code
 
 ```bash
-claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.13.1
+claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0
 ```
 
 For your own instance, add the key:
@@ -37,7 +37,7 @@ For your own instance, add the key:
 claude mcp add geolens \
   -e GEOLENS_INSTANCE=https://geolens.example.com \
   -e GEOLENS_API_KEY=your-api-key \
-  -- uvx geolens-mcp@1.13.1
+  -- uvx geolens-mcp@1.14.0
 ```
 
 `claude mcp add` writes to your local project scope by default; pass `-s user` to make it available
@@ -49,7 +49,7 @@ travels with the project:
   "mcpServers": {
     "geolens": {
       "command": "uvx",
-      "args": ["geolens-mcp@1.13.1"],
+      "args": ["geolens-mcp@1.14.0"],
       "env": {
         "GEOLENS_INSTANCE": "https://demo.getgeolens.com"
       }
@@ -72,7 +72,7 @@ Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/
   "mcpServers": {
     "geolens": {
       "command": "uvx",
-      "args": ["geolens-mcp@1.13.1"],
+      "args": ["geolens-mcp@1.14.0"],
       "env": {
         "GEOLENS_INSTANCE": "https://demo.getgeolens.com"
       }
