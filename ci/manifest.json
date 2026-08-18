@@ -125,5 +125,16 @@
       "/api/tiles/data.meteorite_landings_meteoritical_society/"
     ],
     "minDataResponses": 3
+  },
+  {
+    "path": "maplibre/features-viewport.html",
+    "wait": 10000,
+    "requireUrls": [
+      "/collections/6030c57b-ce37-4198-aa1e-be78e0950f53/items"
+    ],
+    "minDataResponses": 3,
+    "requireColors": [
+      "#ffd166"
+    ]
   }
 ]
