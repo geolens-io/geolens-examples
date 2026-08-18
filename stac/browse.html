@@ -361,7 +361,10 @@
     // the whole planet (ETOPO global relief), so it matches every view you can
     // pick. Rank by what covers the middle of the map, tightest footprint
     // first, and the scene you are looking at lands above the global backdrop.
-    const middle = map.getCenter();
+    // Panned into a world copy, the centre reads as 190° while every bbox is
+    // in ±180, so wrap it the same way as the search boxes.
+    const centre = map.getCenter();
+    const middle = { lng: wrapLng(centre.lng), lat: centre.lat };
     items = found.features.sort(
       (a, b) => covers(b.bbox, middle) - covers(a.bbox, middle) || area(a.bbox) - area(b.bbox),
     );
