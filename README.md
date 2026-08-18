@@ -12,6 +12,7 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 |---|---|---|---|
 | [`maplibre/vector-tiles.html`](maplibre/vector-tiles.html) | MapLibre GL JS 5.x | Vector tiles (MVT) cut per request from PostGIS | [Live](https://geolens-io.github.io/geolens-examples/maplibre/vector-tiles.html) |
 | [`maplibre/features.html`](maplibre/features.html) | MapLibre GL JS 5.x | GeoJSON features, click identify with no round-trip | [Live](https://geolens-io.github.io/geolens-examples/maplibre/features.html) |
+| [`maplibre/features-viewport.html`](maplibre/features-viewport.html) | MapLibre GL JS 5.x | Features by viewport: `bbox`, `rel="next"` paging, cancellation, and the cap where vector tiles take over | [Live](https://geolens-io.github.io/geolens-examples/maplibre/features-viewport.html) |
 | [`maplibre/imagery.html`](maplibre/imagery.html) | MapLibre GL JS 5.x | Raster tiles through a WebGL texture (needs CORS) | [Live](https://geolens-io.github.io/geolens-examples/maplibre/imagery.html) |
 | [`arcgis-js/features.html`](arcgis-js/features.html) | ArcGIS Maps SDK for JavaScript 4.x/5.x | `OGCFeatureLayer` against the OGC API landing page | [Live](https://geolens-io.github.io/geolens-examples/arcgis-js/features.html) |
 | [`arcgis-js/imagery.html`](arcgis-js/imagery.html) | ArcGIS Maps SDK for JavaScript 4.x/5.x | `WebTileLayer` with Esri's `{level}/{col}/{row}` names | [Live](https://geolens-io.github.io/geolens-examples/arcgis-js/imagery.html) |
@@ -111,7 +112,7 @@ curl "https://demo.getgeolens.com/api/collections/724bf894-dc1a-418c-abc6-555798
 
 `numberMatched` is what the query found; `numberReturned` is what this page contains. When they differ you are holding a partial result, which is the signal that a one-shot fetch has truncated your data.
 
-It is not the signal that another page exists. Walk the stations collection at `limit=400` and the last page returns 96 of 496 matched, counts differing, with no `next` link on it. The `rel="next"` link is the authority: follow it until it stops appearing, and read the counts as a diagnostic rather than a loop condition. Paging is keyset-based (`after_gid=`), so rows do not shift under a reader mid-scan. `python/analyze.py` does exactly that in a few lines.
+It is not the signal that another page exists. Walk the stations collection at `limit=400` and the last page returns 96 of 496 matched, counts differing, with no `next` link on it. The `rel="next"` link is the authority: follow it until it stops appearing, and read the counts as a diagnostic rather than a loop condition. Paging is keyset-based (`after_gid=`), so rows do not shift under a reader mid-scan. `python/analyze.py` does exactly that in a few lines. [`maplibre/features-viewport.html`](maplibre/features-viewport.html) is the same guidance in a browser: it requests `bbox=<view>` on every settled view, follows `next`, cancels the walk a pan made stale, and stops at a per-view cap that says on screen when to switch to vector tiles.
 
 ## License
 

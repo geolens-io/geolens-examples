@@ -288,6 +288,7 @@
   const LINES = ["Subway lines", "de602fbe-8b30-4755-924f-c9e7fd9613b6"];
   const STATIONS = ["Subway stations", "724bf894-dc1a-418c-abc6-555798c44d7c"];
   const DEM = ["Matterhorn DEM", "6f03bafa-34b3-4902-9351-40ce09a8181f"];
+  const METEORITES = ["Meteorite landings", "6030c57b-ce37-4198-aa1e-be78e0950f53"];
 
   const EXAMPLES = [
     {
@@ -309,6 +310,16 @@
       thumb: "assets/maplibre-features.jpg",
       live: "maplibre/features.html", source: "maplibre/features.html",
       datasets: [LINES, STATIONS],
+    },
+    {
+      audience: "web-developer", tool: "MapLibre GL JS 5",
+      title: "Features by viewport in MapLibre",
+      blurb: "Asks for the current view with bbox, follows the paging links to the end, cancels a walk the next pan made stale, and stops at a per-view cap that says on screen when vector tiles should take over.",
+      tag: "OGC Features", kind: "vector",
+      address: "/api/collections/{id}/items?bbox=...&limit=...",
+      thumb: "assets/maplibre-features-viewport.jpg",
+      live: "maplibre/features-viewport.html", source: "maplibre/features-viewport.html",
+      datasets: [METEORITES],
     },
     {
       audience: "web-developer", tool: "MapLibre GL JS 5",
