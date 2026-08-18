@@ -79,6 +79,9 @@
   // what the Sentinel-2 scenes here use. Search matches either against a
   // datetime range, so a reader has to handle both. See when() below.
   const SEARCH = `${GEOLENS}/api/stac/search`;
+  // Enough for a screenful of footprints. Past this the honest move is a
+  // tighter view, and the status line says how many were left unread.
+  const MAX_ITEMS = 100;
 
   // Manhattan and the harbour, inside the Sentinel-2 scenes the demo publishes.
   const map = new maplibregl.Map({
@@ -158,6 +161,7 @@
       : "no datetime");
 
   let items = [];
+  let unread = 0; // items the search matched beyond what this page walked
   let selected = null;
 
   // The footprints stay in one geojson source and get redrawn whole on every
@@ -216,7 +220,9 @@
       button.setAttribute("aria-pressed", String(button.dataset.id === item.id));
     }
     status.className = "";
-    status.textContent = `${items.length} item(s) intersect this view. Drawing ${item.properties.title ?? item.id}.`;
+    status.textContent = unread > 0
+      ? `Showing the first ${items.length} of ${items.length + unread} items that intersect this view; zoom in for the rest. Drawing ${item.properties.title ?? item.id}.`
+      : `${items.length} item(s) intersect this view. Drawing ${item.properties.title ?? item.id}.`;
   };
 
   const render = () => {
@@ -280,16 +286,32 @@
 
     let found;
     try {
-      const pages = await Promise.all(boxes.map(async (box) => {
+      // Search pages like Features does: follow `rel="next"` until it stops
+      // appearing, or until this page holds MAX_ITEMS. The demo has six items,
+      // so one page covers it; a real archive of scenes will not fit in one.
+      const walk = async (box) => {
         const bbox = box.map((n) => n.toFixed(4)).join(",");
-        const res = await fetch(`${SEARCH}?bbox=${bbox}&limit=20`, { signal: controller.signal });
-        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-        return res.json();
-      }));
+        let url = `${SEARCH}?bbox=${bbox}&limit=20`;
+        const features = [];
+        let matched = 0;
+        while (url && features.length < MAX_ITEMS) {
+          const res = await fetch(url, { signal: controller.signal });
+          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          const page = await res.json();
+          matched = page.numberMatched ?? matched;
+          features.push(...(page.features ?? []));
+          url = page.links?.find((l) => l.rel === "next")?.href ?? null;
+        }
+        return { features, matched };
+      };
+      const pages = await Promise.all(boxes.map(walk));
       // Two searches only when the view crosses the antimeridian; an item
       // spanning both halves comes back twice and is kept once.
       const seen = new Set();
-      found = { features: pages.flatMap((p) => p.features ?? []).filter((f) => !seen.has(f.id) && seen.add(f.id)) };
+      found = {
+        features: pages.flatMap((p) => p.features).filter((f) => !seen.has(f.id) && seen.add(f.id)),
+        matched: pages.reduce((sum, p) => sum + p.matched, 0),
+      };
     } catch (err) {
       // A newer search already replaced this one; it is not a failure.
       if (err.name === "AbortError") return;
@@ -302,9 +324,10 @@
     // pick. Rank by what covers the middle of the map, tightest footprint
     // first, and the scene you are looking at lands above the global backdrop.
     const middle = map.getCenter();
-    items = (found.features ?? []).sort(
+    items = found.features.sort(
       (a, b) => covers(b.bbox, middle) - covers(a.bbox, middle) || area(a.bbox) - area(b.bbox),
     );
+    unread = Math.max(0, found.matched - items.length);
     selected = null;
     render();
     map.getSource("footprints").setData(footprints());

@@ -172,7 +172,11 @@
           // numberMatched is per walk and the same on every page of it, so
           // count it once per box.
           if (first) { matched += page.numberMatched ?? 0; first = false; }
-          features.push(...page.features);
+          // Take only what fits under the cap, so the page never holds more
+          // than it says it does: 4,500 held plus a 1,000-row page is 5,000
+          // held and 500 left on the server, not 5,500 held.
+          const take = page.features.slice(0, MAX_FEATURES - features.length);
+          features.push(...take);
           // Paint each page as it lands rather than after the whole walk, so a
           // three-page view shows its first thousand points a round-trip early.
           map.getSource("meteorites").setData({ type: "FeatureCollection", features });
@@ -180,8 +184,9 @@
           url = page.links?.find((l) => l.rel === "next")?.href ?? null;
           // Capped means "there was more and we stopped". A view that matches
           // exactly MAX_FEATURES ends its last page at the cap with no next
-          // link, and that is a complete result, not a truncated one.
-          const more = url !== null || i < boxes.length - 1;
+          // link and nothing left over, and that is a complete result, not a
+          // truncated one.
+          const more = take.length < page.features.length || url !== null || i < boxes.length - 1;
           if (features.length >= MAX_FEATURES && more) { capped = true; break walk; }
         }
       }
