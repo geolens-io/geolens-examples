@@ -385,7 +385,7 @@
       title: "Catalog tools in a Claude session",
       blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. The discovery tools need no credential.",
       tag: "MCP", kind: "tooling",
-      address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.13.1",
+      address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0",
       snippet: "<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 5 matched, 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
       source: "claude-mcp/README.md",
       docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/claude-mcp"],
@@ -403,7 +403,7 @@
       datasets: [LINES, STATIONS],
     },
     {
-      audience: "web-developer", tool: "@geolens/sdk 1.13.1 · MapLibre",
+      audience: "web-developer", tool: "@geolens/sdk 1.14.0 · MapLibre",
       title: "Catalog to map with the SDK",
       blurb: "Searches the catalog, shows what it knows that a tile URL cannot — origin, freshness, schema — then adds the layer using the tile template the collection advertises. No dataset id or table name is written into this page.",
       tag: "TypeScript SDK", kind: "vector",
@@ -423,7 +423,7 @@
       datasets: [],
     },
     {
-      audience: "data-scientist", tool: "geolens 1.13.1 · single-file uv script",
+      audience: "data-scientist", tool: "geolens 1.14.0 · single-file uv script",
       title: "Catalog to GeoPandas with the SDK",
       blurb: "Searches the catalog, reads a dataset's schema as GeoLens understands it — label, categorical, measure, temporal — filters server-side in SQL, and exports the matching rows straight into a GeoDataFrame.",
       tag: "Python SDK", kind: "vector",
