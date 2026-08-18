@@ -145,6 +145,7 @@
     let pages = 0;
     let matched = 0;
     let capped = false;
+    let uncounted = false; // the cap stopped the walk before a second box reported its count
 
     status.className = "";
     status.textContent = "Loading this view…";
@@ -187,7 +188,11 @@
           // link and nothing left over, and that is a complete result, not a
           // truncated one.
           const more = take.length < page.features.length || url !== null || i < boxes.length - 1;
-          if (features.length >= MAX_FEATURES && more) { capped = true; break walk; }
+          if (features.length >= MAX_FEATURES && more) {
+            capped = true;
+            uncounted = i < boxes.length - 1;
+            break walk;
+          }
         }
       }
     } catch (err) {
@@ -205,7 +210,9 @@
       // feature the view matched, whatever the two counts looked like on the
       // way there.
       status.className = "capped";
-      status.textContent = `Holding ${fmt(held)} of ${fmt(matched)} matched after ${pages} pages: truncated at the ${fmt(MAX_FEATURES)}-feature cap for one view. This is where vector tiles take over.`;
+      // A dateline view the cap cut short never asked its second box how many
+      // it holds, so the total is a floor, and the HUD says so.
+      status.textContent = `Holding ${fmt(held)} of ${uncounted ? "at least " : ""}${fmt(matched)} matched after ${pages} pages: truncated at the ${fmt(MAX_FEATURES)}-feature cap for one view. This is where vector tiles take over.`;
       const a = document.createElement("a");
       a.href = "vector-tiles.html";
       a.textContent = "See maplibre/vector-tiles.html";

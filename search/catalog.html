@@ -203,6 +203,7 @@
   const RASTER_LAYER = { id: "hit-raster", type: "raster" };
 
   let drawn = [];
+  let drawnId = null; // the record the map is currently showing
   const clear = () => {
     drawn.forEach((id) => map.getLayer(id) && map.removeLayer(id));
     drawn = [];
@@ -214,6 +215,7 @@
     button.setAttribute("aria-pressed", "true");
 
     clear();
+    drawnId = feature.id;
     const source = drawable(feature);
     if (source?.kind === "vector") {
       map.addSource("hit", { type: "vector", tiles: [source.url] });
@@ -320,6 +322,12 @@
 
     const cards = body.features.map((f) => card(f, query));
     results.replaceChildren(...cards);
+    // The map shows what the list offers. If the record on the map is still a
+    // hit, keep it drawn and marked; if the new results dropped it, clear the
+    // map rather than leave a layer no visible card accounts for.
+    const still = body.features.findIndex((f) => f.id === drawnId);
+    if (still >= 0) cards[still].setAttribute("aria-pressed", "true");
+    else if (drawnId !== null) { clear(); drawnId = null; }
     // Draw the top hit without waiting for a click, so the page opens with data
     // on the map rather than an empty one and an invitation.
     if (autoSelect && cards.length > 0) select(body.features[0], cards[0]);

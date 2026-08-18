@@ -80,7 +80,7 @@
   // datetime range, so a reader has to handle both. See when() below.
   const SEARCH = `${GEOLENS}/api/stac/search`;
   // Enough for a screenful of footprints. Past this the honest move is a
-  // tighter view, and the status line says how many were left unread.
+  // tighter view, and the status line says there is more than it shows.
   const MAX_ITEMS = 100;
 
   // Manhattan and the harbour, inside the Sentinel-2 scenes the demo publishes.
@@ -161,7 +161,7 @@
       : "no datetime");
 
   let items = [];
-  let unread = 0; // items the search matched beyond what this page walked
+  let more = false; // the walk stopped at MAX_ITEMS with pages still to read
   let selected = null;
 
   // The footprints stay in one geojson source and get redrawn whole on every
@@ -225,8 +225,8 @@
       button.setAttribute("aria-pressed", String(button.dataset.id === item.id));
     }
     status.className = "";
-    const count = unread > 0
-      ? `Showing the first ${items.length} of ${items.length + unread} items that intersect this view; zoom in for the rest.`
+    const count = more
+      ? `Showing the first ${items.length} items that intersect this view; there are more, zoom in for the rest.`
       : `${items.length} item(s) intersect this view.`;
     const title = item.properties.title ?? item.id;
     status.textContent = drawable
@@ -304,18 +304,15 @@
       // spanning both halves comes back twice and is kept once.
       const seen = new Set();
       const features = [];
-      let matched = 0;
       let ranDry = true; // every walk reached its last page without hitting the cap
       for (const box of boxes) {
         const bbox = box.map((n) => n.toFixed(4)).join(",");
         let url = `${SEARCH}?bbox=${bbox}&limit=20`;
-        let first = true;
         while (url) {
           if (features.length >= MAX_ITEMS) { ranDry = false; break; }
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const page = await res.json();
-          if (first) { matched += page.numberMatched ?? 0; first = false; }
           const fresh = (page.features ?? []).filter((f) => !seen.has(f.id) && seen.add(f.id));
           const take = fresh.slice(0, MAX_ITEMS - features.length);
           features.push(...take);
@@ -323,9 +320,12 @@
           if (take.length < fresh.length) { ranDry = false; url = null; }
         }
       }
-      // With every page read, the unique items are the whole result and the
-      // summed per-box counts double-count anything that straddled the split.
-      found = { features, matched: ranDry ? features.length : matched };
+      // With every page read, the unique items are the whole result. When the
+      // cap stopped the walk, no total is trustworthy: the per-box counts
+      // double-count anything that straddled the split, and a box the cap
+      // skipped was never counted at all. So the page reports "more" and
+      // does not put a number on it.
+      found = { features, more: !ranDry };
     } catch (err) {
       // A newer search already replaced this one; it is not a failure.
       if (err.name === "AbortError") return;
@@ -341,7 +341,7 @@
     items = found.features.sort(
       (a, b) => covers(b.bbox, middle) - covers(a.bbox, middle) || area(a.bbox) - area(b.bbox),
     );
-    unread = Math.max(0, found.matched - items.length);
+    more = found.more;
     selected = null;
     render();
     map.getSource("footprints").setData(footprints());
