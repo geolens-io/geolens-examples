@@ -145,7 +145,9 @@
     let pages = 0;
     let matched = 0;
     let capped = false;
-    let uncounted = false; // the cap stopped the walk before a second box reported its count
+    // A feature whose geometry touches both sides of the dateline comes back
+    // from both walks; keep it once, by id.
+    const seen = new Set();
 
     status.className = "";
     status.textContent = "Loading this view…";
@@ -182,7 +184,10 @@
           // Take only what fits under the cap, so the page never holds more
           // than it says it does: 4,500 held plus a 1,000-row page is 5,000
           // held and 500 left on the server, not 5,500 held.
-          const take = page.features.slice(0, MAX_FEATURES - features.length);
+          const fresh = boxes.length === 1
+            ? page.features
+            : page.features.filter((f) => f.id === undefined || (!seen.has(f.id) && seen.add(f.id)));
+          const take = fresh.slice(0, MAX_FEATURES - features.length);
           features.push(...take);
           // Paint each page as it lands rather than after the whole walk, so a
           // three-page view shows its first thousand points a round-trip early.
@@ -193,12 +198,8 @@
           // exactly MAX_FEATURES ends its last page at the cap with no next
           // link and nothing left over, and that is a complete result, not a
           // truncated one.
-          const more = take.length < page.features.length || url !== null || i < boxes.length - 1;
-          if (features.length >= MAX_FEATURES && more) {
-            capped = true;
-            uncounted = i < boxes.length - 1;
-            break walk;
-          }
+          const more = take.length < fresh.length || url !== null || i < boxes.length - 1;
+          if (features.length >= MAX_FEATURES && more) { capped = true; break walk; }
         }
       }
     } catch (err) {
@@ -215,14 +216,18 @@
 
     window.__viewportLoads += 1;
     const held = features.length;
+    // Two walks' numberMatched values overlap by whatever straddled the split,
+    // so for a dateline view that ran dry the unique count is the true total,
+    // and for one the cap cut short there is no exact total to give.
+    const split = boxes.length > 1;
+    if (split && !capped) matched = held;
     if (capped) {
       // Truncated, and said so. Anything short of this line held every
       // feature the view matched, whatever the two counts looked like on the
       // way there.
       status.className = "capped";
-      // A dateline view the cap cut short never asked its second box how many
-      // it holds, so the total is a floor, and the HUD says so.
-      status.textContent = `Holding ${fmt(held)} of ${uncounted ? "at least " : ""}${fmt(matched)} matched after ${pages} pages: truncated at the ${fmt(MAX_FEATURES)}-feature cap for one view. This is where vector tiles take over.`;
+      const total = split ? "more than that" : fmt(matched);
+      status.textContent = `Holding ${fmt(held)} of ${total} matched after ${pages} pages: truncated at the ${fmt(MAX_FEATURES)}-feature cap for one view. This is where vector tiles take over.`;
       const a = document.createElement("a");
       a.href = "vector-tiles.html";
       a.textContent = "See maplibre/vector-tiles.html";
