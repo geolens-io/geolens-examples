@@ -510,6 +510,16 @@
       docs: ["Manifest and CI workflow", "https://github.com/geolens-io/geolens-examples/tree/main/cli"],
       datasets: [],
     },
+    {
+      audience: "web-developer", tool: "MapLibre GL JS 5",
+      title: "STAC search in MapLibre",
+      blurb: "Search the STAC API for items covering the current view, list what came back with its footprint and time, and draw the tile asset the item advertises. Nothing about the imagery is hardcoded here.",
+      tag: "STAC", kind: "raster",
+      address: "/api/stac/search?bbox={w,s,e,n}",
+      thumb: "assets/stac-browse.jpg",
+      live: "stac/browse.html", source: "stac/browse.html",
+      datasets: [],
+    },
   ];
 
   // ---------------------------------------------------------------------------
