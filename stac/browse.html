@@ -170,11 +170,14 @@
   // The footprints stay in one geojson source and get redrawn whole on every
   // search and every pick, so `selected` is a plain property rather than
   // feature state to keep in sync.
+  // The item's geometry is the footprint: a satellite scene is a rotated
+  // quadrilateral, and its bbox overstates where it has pixels. The bbox ring
+  // is only the fallback for an item that carries no geometry at all.
   const footprints = () => ({
     type: "FeatureCollection",
     features: items.map((item) => ({
       type: "Feature",
-      geometry: { type: "Polygon", coordinates: ring(item.bbox) },
+      geometry: item.geometry ?? { type: "Polygon", coordinates: ring(item.bbox) },
       properties: { selected: key(item) === selected },
     })),
   });
