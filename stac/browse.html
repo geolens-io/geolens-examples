@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + MapLibre: STAC item search</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: flex;
+      background: #101418;
+      color: #e6edf3;
+      font: 13px/1.5 ui-sans-serif, system-ui, sans-serif;
+    }
+    #panel {
+      width: 340px;
+      flex: none;
+      overflow-y: auto;
+      padding: 16px;
+      border-right: 1px solid #2b3440;
+      background: #1b2129;
+    }
+    #map { flex: 1; }
+    h1 { margin: 0 0 4px; font-size: 15px; }
+    p.lede { margin: 0 0 12px; color: #93a1b0; }
+    #status { margin: 0 0 12px; color: #93a1b0; }
+    #status.err { color: #ff8b7e; }
+    ol { margin: 0; padding: 0; list-style: none; }
+    li { margin-bottom: 8px; }
+    button.pick {
+      display: block;
+      width: 100%;
+      padding: 8px 10px;
+      text-align: left;
+      border: 1px solid #2b3440;
+      border-radius: 4px;
+      background: #101418;
+      color: #e6edf3;
+      font: inherit;
+      cursor: pointer;
+    }
+    button.pick:hover { border-color: #4da3ff; }
+    button.pick[aria-pressed="true"] { border-color: #ffd166; }
+    .t { display: block; margin-bottom: 3px; }
+    .m, .a { display: block; color: #93a1b0; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .a { color: #ffd166; }
+    a { color: #4da3ff; font-size: 11px; }
+  </style>
+</head>
+<body>
+<div id="panel">
+  <h1>STAC search &rarr; imagery</h1>
+  <p class="lede">Items covering the current view, straight from
+    <code>/api/stac/search</code>. Pick one to draw its tiles.</p>
+  <p id="status" role="status">Searching…</p>
+  <ol id="items"></ol>
+</div>
+<div id="map"></div>
+
+<script>
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // Why STAC and not the Features API: /api/collections answers "what rows are
+  // in this table", and STAC answers "what imagery covers this place, and where
+  // do I get the pixels". One GET returns items — a metadata record per scene,
+  // each carrying a footprint, a time, and a set of assets. The demo's root is
+  // at /api/stac/ and advertises search, collections and conformance.
+  //
+  // The same search from pystac-client, which builds the query for you:
+  //   Client.open("https://demo.getgeolens.com/api/stac").search(bbox=[-74.2, 40.6, -73.75, 40.9]).item_collection()
+  //
+  // The demo honours bbox, collections, datetime and limit on GET, and takes
+  // the same query as JSON over POST. An item's time can arrive two ways: a
+  // single `datetime`, or a null one plus start_datetime/end_datetime, which is
+  // what the Sentinel-2 scenes here use. Search matches either against a
+  // datetime range, so a reader has to handle both. See when() below.
+  const SEARCH = `${GEOLENS}/api/stac/search`;
+
+  // Manhattan and the harbour, inside the Sentinel-2 scenes the demo publishes.
+  const map = new maplibregl.Map({
+    container: "map",
+    center: [-73.98, 40.75],
+    zoom: 10,
+    style: {
+      version: 8,
+      sources: {},
+      // No basemap: everything on this map came out of the search below.
+      layers: [{ id: "bg", type: "background", paint: { "background-color": "#101418" } }],
+    },
+  });
+  map.addControl(new maplibregl.NavigationControl());
+
+  const status = document.getElementById("status");
+  const list = document.getElementById("items");
+
+  const fail = (message, err) => {
+    status.className = "err";
+    status.textContent = message;
+    console.error(err ?? message);
+  };
+
+  // Attaching any error listener replaces MapLibre's own console logging, so
+  // this has to forward or a failed tile disappears from both places.
+  map.on("error", (e) => {
+    fail(`Tiles from ${GEOLENS} failed: ${e.error?.message ?? "request failed"}`, e.error ?? e);
+  });
+
+  // Item values are data, not markup. A title or a collection id containing
+  // HTML renders as characters here rather than executing. The demo catalog is
+  // curated; your own instance's is written by whoever can publish a dataset.
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = String(text);
+    return node;
+  };
+
+  // Advertised hrefs are item values too, so only http(s) becomes clickable —
+  // and only the scheme check comes from URL(). Never hand the parsed .href to
+  // MapLibre: it percent-encodes the braces in {z}/{x}/{y} and the template
+  // stops resolving.
+  const isHttp = (href) => {
+    try {
+      return /^https?:$/.test(new URL(href, location.href).protocol);
+    } catch {
+      return false;
+    }
+  };
+
+  // A STAC bbox is [west, south, east, north], or six numbers when it carries
+  // elevation. It is also exactly what the search filtered on, so drawing it
+  // shows why each item came back.
+  const flat = (bbox) => (bbox.length === 6 ? [bbox[0], bbox[1], bbox[3], bbox[4]] : bbox);
+
+  const ring = (bbox) => {
+    const [w, s, e, n] = flat(bbox);
+    return [[[w, s], [e, s], [e, n], [w, n], [w, s]]];
+  };
+
+  const area = (bbox) => {
+    const [w, s, e, n] = flat(bbox);
+    return (e - w) * (n - s);
+  };
+
+  const covers = (bbox, { lng, lat }) => {
+    const [w, s, e, n] = flat(bbox);
+    return w <= lng && lng <= e && s <= lat && lat <= n;
+  };
+
+  const when = (props) =>
+    props.datetime ??
+    (props.start_datetime
+      ? `${props.start_datetime} / ${props.end_datetime ?? "open"}`
+      : "no datetime");
+
+  let items = [];
+  let selected = null;
+
+  // The footprints stay in one geojson source and get redrawn whole on every
+  // search and every pick, so `selected` is a plain property rather than
+  // feature state to keep in sync.
+  const footprints = () => ({
+    type: "FeatureCollection",
+    features: items.map((item) => ({
+      type: "Feature",
+      geometry: { type: "Polygon", coordinates: ring(item.bbox) },
+      properties: { selected: item.id === selected },
+    })),
+  });
+
+  map.on("load", () => {
+    map.addSource("footprints", { type: "geojson", data: footprints() });
+    map.addLayer({
+      id: "footprints-line",
+      type: "line",
+      source: "footprints",
+      paint: {
+        "line-color": ["case", ["get", "selected"], "#ffd166", "#4da3ff"],
+        "line-width": ["case", ["get", "selected"], 2, 1],
+      },
+    });
+    search();
+  });
+
+  // What an asset is: a pointer to the actual bytes, keyed by a name the
+  // publisher chooses. GeoLens publishes one per item, `raster_tiles`, and its
+  // href is an XYZ template rather than a file, because GeoLens serves rasters
+  // as tiles cut per request. The item is the catalog entry that tells you
+  // where they live; the ?v= on the end is the cache version the server put
+  // there, so pass the href through unchanged instead of rebuilding it.
+  //
+  // These items advertise no COG or GeoTIFF asset, so the other half of the
+  // usual STAC workflow — read a window of pixels, compute an index — has
+  // nothing to read here. That needs an item whose assets include the raw file.
+  const clearRaster = () => {
+    if (map.getLayer("item-raster")) map.removeLayer("item-raster");
+    if (map.getSource("item-raster")) map.removeSource("item-raster");
+  };
+
+  const draw = (item) => {
+    const asset = item.assets?.raster_tiles;
+    if (!asset || !isHttp(asset.href)) return;
+
+    selected = item.id;
+    clearRaster();
+    map.addSource("item-raster", { type: "raster", tiles: [asset.href], tileSize: 256 });
+    // Under the footprints, so the outline of what you picked stays visible.
+    map.addLayer({ id: "item-raster", type: "raster", source: "item-raster" }, "footprints-line");
+    map.getSource("footprints").setData(footprints());
+
+    for (const button of list.querySelectorAll("button.pick")) {
+      button.setAttribute("aria-pressed", String(button.dataset.id === item.id));
+    }
+    status.className = "";
+    status.textContent = `${items.length} item(s) intersect this view. Drawing ${item.properties.title ?? item.id}.`;
+  };
+
+  const render = () => {
+    list.replaceChildren(...items.map((item) => {
+      const props = item.properties;
+      const asset = item.assets?.raster_tiles;
+
+      const button = el("button", "pick");
+      button.type = "button";
+      button.dataset.id = item.id;
+      button.setAttribute("aria-pressed", "false");
+      button.append(
+        el("span", "t", props.title ?? item.id),
+        el("span", "m", item.collection),
+        el("span", "m", when(props)),
+        el("span", "m", flat(item.bbox).map((n) => n.toFixed(3)).join(", ")),
+        el("span", "a", asset ? `raster_tiles · ${asset.type}` : "no raster_tiles asset"),
+      );
+      button.addEventListener("click", () => draw(item));
+
+      const li = el("li");
+      li.append(button);
+
+      // rel=self is the item document itself: the same JSON this list is
+      // built from, one item at a time.
+      const self = item.links?.find((l) => l.rel === "self");
+      if (self && isHttp(self.href)) {
+        const link = el("a", null, "item JSON");
+        link.href = self.href;
+        li.append(link);
+      }
+      return li;
+    }));
+  };
+
+  let inflight = null;
+  let debounce = null;
+
+  const search = async () => {
+    inflight?.abort();
+    const controller = new AbortController();
+    inflight = controller;
+
+    // Clamp: pan past the antimeridian or tilt the view and getBounds() hands
+    // back coordinates off the ends of the world, which the search rejects.
+    const b = map.getBounds();
+    const lng = (v) => Math.min(180, Math.max(-180, v)).toFixed(4);
+    const lat = (v) => Math.min(90, Math.max(-90, v)).toFixed(4);
+    const bbox = [lng(b.getWest()), lat(b.getSouth()), lng(b.getEast()), lat(b.getNorth())];
+
+    let found;
+    try {
+      const res = await fetch(`${SEARCH}?bbox=${bbox.join(",")}&limit=20`, { signal: controller.signal });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      found = await res.json();
+    } catch (err) {
+      // A newer search already replaced this one; it is not a failure.
+      if (err.name === "AbortError") return;
+      fail(`STAC search against ${GEOLENS} failed: ${err.message}`, err);
+      return;
+    }
+
+    // Search returns everything that intersects the bbox, and one item here is
+    // the whole planet (ETOPO global relief), so it matches every view you can
+    // pick. Rank by what covers the middle of the map, tightest footprint
+    // first, and the scene you are looking at lands above the global backdrop.
+    const middle = map.getCenter();
+    items = (found.features ?? []).sort(
+      (a, b) => covers(b.bbox, middle) - covers(a.bbox, middle) || area(a.bbox) - area(b.bbox),
+    );
+    selected = null;
+    render();
+    map.getSource("footprints").setData(footprints());
+
+    if (items.length === 0) {
+      clearRaster();
+      status.className = "";
+      status.textContent = "No items intersect this view. Pan or zoom out.";
+      return;
+    }
+    draw(items[0]);
+  };
+
+  // Re-search as the view changes. Debounced, because a drag ends in one
+  // moveend but a wheel zoom ends in several.
+  map.on("moveend", () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(search, 400);
+  });
+</script>
+</body>
+</html>

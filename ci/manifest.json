@@ -107,5 +107,14 @@
       "/m/NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU"
     ],
     "minDataResponses": 10
+  },
+  {
+    "path": "stac/browse.html",
+    "wait": 10000,
+    "requireUrls": [
+      "/api/stac/search",
+      "/raster-tiles/"
+    ],
+    "minDataResponses": 4
   }
 ]
