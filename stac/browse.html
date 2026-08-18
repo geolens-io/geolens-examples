@@ -289,7 +289,13 @@
 
       // rel=self is the item document itself: the same JSON this list is
       // built from, one item at a time.
-      const self = absolute(item.links?.find((l) => l.rel === "self")?.href, item);
+      // The self link resolves against the search response, not against
+      // itself, which is what absolute(href, item) would do with it.
+      let self = null;
+      try {
+        const href = item.links?.find((l) => l.rel === "self")?.href;
+        self = href ? new URL(href, SEARCH).href : null;
+      } catch { self = null; }
       if (self && isHttp(self)) {
         const link = el("a", null, "item JSON");
         link.href = self;
