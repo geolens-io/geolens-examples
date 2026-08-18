@@ -144,14 +144,19 @@
     return [[[w, s], [e, s], [e, n], [w, n], [w, s]]];
   };
 
+  // A STAC bbox may cross the antimeridian, written west > east (170 to -170).
+  // Its width is measured the long way round, and it covers a longitude that
+  // is east of west or west of east rather than between the two.
+  const width = (w, e) => (w <= e ? e - w : e + 360 - w);
   const area = (bbox) => {
     const [w, s, e, n] = flat(bbox);
-    return (e - w) * (n - s);
+    return width(w, e) * (n - s);
   };
 
   const covers = (bbox, { lng, lat }) => {
     const [w, s, e, n] = flat(bbox);
-    return w <= lng && lng <= e && s <= lat && lat <= n;
+    const inLng = w <= e ? w <= lng && lng <= e : lng >= w || lng <= e;
+    return inLng && s <= lat && lat <= n;
   };
 
   const when = (props) =>
