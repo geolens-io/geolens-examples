@@ -5,12 +5,13 @@ reads all of those without a plugin. This walkthrough adds the public demo to QG
 analyst would: connect, find data in the catalog, add layers, then point the same steps at a
 private instance. Everything below runs anonymously.
 
-Verified against QGIS 4.2.1 (Belém do Pará) on macOS. The dialog names come from the QGIS 4.2.1
-source. The provider behaviour (which URLs QGIS requests, what it does with a filter, whether a
+Verified against QGIS 4.2.1 (Belém do Pará) on macOS. The screenshots are QGIS 4.2.1 itself,
+opened on a clean profile with the project below and driven by a startup script rather than a
+mouse. The provider behaviour (which URLs QGIS requests, what it does with a filter, whether a
 header reaches the server) comes from running the bundled PyQGIS headless against the demo.
-[`verify.py`](verify.py) is that check, and it rendered the screenshot.
+[`verify.py`](verify.py) is that check.
 
-![NYC subway stations and lines rendered by QGIS from the GeoLens demo](../assets/qgis-features.jpg)
+![QGIS 4.2 with the NYC subway stations and lines from the GeoLens demo in the Layers panel and on the map](../assets/qgis-window.jpg)
 
 The shortcut: open [`geolens-demo.qgz`](geolens-demo.qgz). It holds the three layers below,
 styled, with the map on New York. Read on for how they got there.
@@ -26,6 +27,8 @@ Layer ▸ Add Layer ▸ Add WFS / OGC API - Features Layer… opens the Data Sou
 | URL | `https://demo.getgeolens.com/api/` |
 | Version | `OGC API - Features` |
 
+![Create a New WFS Connection, filled in for the GeoLens demo with Version set to OGC API - Features](../assets/qgis-new-connection.jpg)
+
 Leave the rest alone and press OK. Keep the trailing slash on the URL. GeoLens answers a bare
 `/api` with a redirect to a port QGIS cannot reach, so instead of a collection list you get an
 error box. QGIS's own tooltip on the URL box warns that some OGC API servers need the slash; this
@@ -34,7 +37,10 @@ GetCapabilities first, fails, and falls back to the landing page. Picking `OGC A
 skips the failed probe.
 
 Press **Connect**. The table fills with every collection the demo publishes, thirty at the time
-of writing, titled the way the catalog titles them. Select *NYC Subway Stations (MTA)* and
+of writing, titled the way the catalog titles them.
+
+![The connection dialog after Connect: the demo's collections listed by title, name and abstract, including the GeoLens Dataset Catalog](../assets/qgis-collections.jpg)
+ Select *NYC Subway Stations (MTA)* and
 *NYC Subway Lines (MTA)*, and press **Add**. They land in the project as `MultiPoint` and
 `MultiLineString` layers in `OGC:CRS84`, and QGIS reprojects them into whatever the project CRS is.
 
