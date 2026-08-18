@@ -332,6 +332,15 @@
     } catch (err) {
       // A newer search already replaced this one; it is not a failure.
       if (err.name === "AbortError") return;
+      // The list, footprints and raster described the previous view. Leaving
+      // them up under an error about this one would show items the map is no
+      // longer looking at, so the failure clears them.
+      items = [];
+      selected = null;
+      more = false;
+      render();
+      map.getSource("footprints").setData(footprints());
+      clearRaster();
       fail(`STAC search against ${GEOLENS} failed: ${err.message}`, err);
       return;
     }
