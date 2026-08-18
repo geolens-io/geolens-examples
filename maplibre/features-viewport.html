@@ -193,7 +193,9 @@
           // three-page view shows its first thousand points a round-trip early.
           map.getSource("meteorites").setData({ type: "FeatureCollection", features });
 
-          url = page.links?.find((l) => l.rel === "next")?.href ?? null;
+          // A relative next href is relative to the response, not this page.
+          const next = page.links?.find((l) => l.rel === "next")?.href;
+          url = next ? new URL(next, res.url).href : null;
           // Capped means "there was more and we stopped". A view that matches
           // exactly MAX_FEATURES ends its last page at the cap with no next
           // link and nothing left over, and that is a complete result, not a

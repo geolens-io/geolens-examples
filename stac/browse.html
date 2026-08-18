@@ -128,9 +128,24 @@
   // stops resolving.
   const isHttp = (href) => {
     try {
-      return /^https?:$/.test(new URL(href, location.href).protocol);
+      return /^https?:$/.test(new URL(href).protocol);
     } catch {
       return false;
+    }
+  };
+
+  // STAC allows relative hrefs, and they are relative to the item document,
+  // not to this page. Resolve against the item's own rel=self link (or the
+  // search endpoint when it has none), and put the tile template's braces
+  // back, since URL parsing percent-encodes them and MapLibre needs them raw.
+  const absolute = (href, item) => {
+    if (typeof href !== "string") return null;
+    if (/^https?:\/\//i.test(href)) return href;
+    const base = item?.links?.find((l) => l.rel === "self")?.href ?? SEARCH;
+    try {
+      return new URL(href, base).href.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
+    } catch {
+      return null;
     }
   };
 
@@ -218,7 +233,8 @@
 
   const draw = (item) => {
     const asset = item.assets?.raster_tiles;
-    const drawable = asset && isHttp(asset.href);
+    const href = asset ? absolute(asset.href, item) : null;
+    const drawable = href && isHttp(href);
 
     // Selecting an item always replaces what was on the map, so an item with
     // nothing to draw leaves the map bare rather than wearing the last one's
@@ -226,7 +242,7 @@
     selected = key(item);
     clearRaster();
     if (drawable) {
-      map.addSource("item-raster", { type: "raster", tiles: [asset.href], tileSize: 256 });
+      map.addSource("item-raster", { type: "raster", tiles: [href], tileSize: 256 });
       // Under the footprints, so the outline of what you picked stays visible.
       map.addLayer({ id: "item-raster", type: "raster", source: "item-raster" }, "footprints-line");
     }
@@ -270,10 +286,10 @@
 
       // rel=self is the item document itself: the same JSON this list is
       // built from, one item at a time.
-      const self = item.links?.find((l) => l.rel === "self");
-      if (self && isHttp(self.href)) {
+      const self = absolute(item.links?.find((l) => l.rel === "self")?.href, item);
+      if (self && isHttp(self)) {
         const link = el("a", null, "item JSON");
-        link.href = self.href;
+        link.href = self;
         li.append(link);
       }
       return li;
@@ -339,7 +355,10 @@
           const fresh = (page.features ?? []).filter((f) => !seen.has(key(f)) && seen.add(key(f)));
           const take = fresh.slice(0, MAX_ITEMS - features.length);
           features.push(...take);
-          url = page.links?.find((l) => l.rel === "next")?.href ?? null;
+          // STAC allows a relative next href; it is relative to the response,
+          // not to this page, so resolve it against where the page came from.
+          const next = page.links?.find((l) => l.rel === "next")?.href;
+          url = next ? new URL(next, res.url).href : null;
           if (take.length < fresh.length) { more = "yes"; url = null; }
           if (features.length >= MAX_ITEMS && url) { more = "yes"; url = null; }
         }
