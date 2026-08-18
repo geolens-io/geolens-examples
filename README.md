@@ -36,6 +36,7 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 | [`python/analyze.py`](python/analyze.py) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | `uv run python/analyze.py` |
 | [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.14.0 (single-file `uv run` script) | SDK catalog search, schema semantics, server-side filter, export into GeoPandas | `uv run python/sdk-catalog.py` |
 | [`mcp/`](mcp/) | Any MCP client via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0` |
+| [`qgis/`](qgis/) | QGIS 4.2 | OGC API Features + Records with CQL2, XYZ raster, tile-token auth | `https://demo.getgeolens.com/api/` |
 | `duckdb/` | DuckDB | SQL directly over the Features API | Planned |
 | [`cli/`](cli/) | `geolens-cli` 1.14.0 | Catalog-as-code: offline `validate`, then `apply --dry-run` and `apply` against your instance | `uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml` |
 

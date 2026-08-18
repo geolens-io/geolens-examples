@@ -541,6 +541,17 @@
       live: "search/catalog.html", source: "search/catalog.html",
       datasets: [],
     },
+    {
+      audience: "gis-analyst", tool: "QGIS 4.2",
+      title: "GeoLens in QGIS",
+      blurb: "One OGC API - Features connection lists every collection, the catalog included, so you browse records and add layers without leaving the Data Source Manager. The DEM comes in as XYZ tiles, and an API Header configuration carries the key for a private instance.",
+      tag: "OGC Features", kind: "vector",
+      address: "https://demo.getgeolens.com/api/",
+      thumb: "assets/qgis-features.jpg",
+      source: "qgis/README.md",
+      docs: ["Walkthrough and project file", "https://github.com/geolens-io/geolens-examples/tree/main/qgis"],
+      datasets: [LINES, STATIONS, DEM],
+    },
   ];
 
   // ---------------------------------------------------------------------------
