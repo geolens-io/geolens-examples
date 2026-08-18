@@ -135,17 +135,17 @@
   };
 
   // STAC allows relative hrefs, and they are relative to the item document,
-  // not to this page. Resolve against the item's own rel=self link (or the
-  // search endpoint when it has none), and put the tile template's braces
-  // back, since URL parsing percent-encodes them and MapLibre needs them raw.
+  // not to this page. Resolve against the item's own rel=self link, itself
+  // resolved against the search response the item arrived in, and put the
+  // tile template's braces back, since URL parsing percent-encodes them and
+  // MapLibre needs them raw.
   const absolute = (href, item) => {
     if (typeof href !== "string") return null;
     if (/^https?:\/\//i.test(href)) return href;
-    // The self link may be relative too; every item here came through the
-    // search endpoint, so that is what it resolves against.
     try {
+      const page = item?._base ?? SEARCH;
       const self = item?.links?.find((l) => l.rel === "self")?.href;
-      const base = self ? new URL(self, SEARCH).href : SEARCH;
+      const base = self ? new URL(self, page).href : page;
       return new URL(href, base).href.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
     } catch {
       return null;
@@ -289,12 +289,12 @@
 
       // rel=self is the item document itself: the same JSON this list is
       // built from, one item at a time.
-      // The self link resolves against the search response, not against
+      // The self link resolves against the response it came in, not against
       // itself, which is what absolute(href, item) would do with it.
       let self = null;
       try {
         const href = item.links?.find((l) => l.rel === "self")?.href;
-        self = href ? new URL(href, SEARCH).href : null;
+        self = href ? new URL(href, item._base ?? SEARCH).href : null;
       } catch { self = null; }
       if (self && isHttp(self)) {
         const link = el("a", null, "item JSON");
@@ -361,6 +361,9 @@
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const page = await res.json();
+          // Relative links in an item are relative to the document it came in;
+          // remember which one, since a redirect or a next link can move it.
+          for (const f of page.features ?? []) f._base = res.url;
           const fresh = (page.features ?? []).filter((f) => !seen.has(key(f)) && seen.add(key(f)));
           const take = fresh.slice(0, MAX_ITEMS - features.length);
           features.push(...take);

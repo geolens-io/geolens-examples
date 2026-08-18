@@ -17,12 +17,13 @@ on:
 permissions:
   contents: read
 
-# One apply at a time per catalog, in push order. Two pushes to main in quick
-# succession would otherwise race, and the older run finishing last would
-# reconcile the catalog back to the older manifest. Not cancelling in progress
-# is deliberate: stopping an apply half way is worse than letting it finish,
-# and a queued newer run then applies over it. Pull-request runs only read, so
-# they queue behind nothing but their own branch.
+# One apply at a time per catalog. Two pushes to main in quick succession
+# would otherwise run their applies concurrently. Not cancelling in progress
+# is deliberate: stopping an apply half way is worse than letting it finish.
+# The group serialises runs but GitHub does not promise their order, so the
+# apply step below also checks it is still the tip of main before writing;
+# together the two mean the manifest on the catalog is the one on main.
+# Pull-request runs only read, so they queue behind nothing but their own branch.
 concurrency:
   group: geolens-catalog-${{ github.event_name == 'push' && 'main' || github.ref }}
   cancel-in-progress: false
@@ -63,9 +64,18 @@ jobs:
       # The write, and only from main, so the catalog tracks the reviewed branch
       # and no pull request can move it on its own. Applying an unchanged entry
       # is a skip, so re-running this is cheap rather than a re-import.
+      # A run that was queued behind a newer push is stale by the time it gets
+      # here; it asks the remote what main points at now and steps aside if
+      # that is no longer the commit it was started for.
       - name: Apply the manifest
         if: ${{ github.event_name == 'push' && env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
-        run: uvx --from geolens-cli==1.14.0 geolens --json apply geolens.yaml
+        run: |
+          tip=$(git ls-remote --heads origin main | cut -f1)
+          if [ "$tip" != "$GITHUB_SHA" ]; then
+            echo "main has moved on to $tip since this run started for $GITHUB_SHA; leaving the apply to the newer run."
+            exit 0
+          fi
+          uvx --from geolens-cli==1.14.0 geolens --json apply geolens.yaml
 
       # A fork holds no secrets, so both steps above skip and this job goes
       # green having proved only that the file parses. Say that out loud, or a
