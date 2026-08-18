@@ -15,7 +15,10 @@
       "vectorTile": {
         "path": "/api/tiles/data.nyc_subway_lines_mta/",
         "probe": "12/1206/1539.pbf",
-        "contentTypes": ["application/x-protobuf", "application/vnd.mapbox-vector-tile"],
+        "contentTypes": [
+          "application/x-protobuf",
+          "application/vnd.mapbox-vector-tile"
+        ],
         "grep": "nyc_subway_lines_mta"
       }
     },
@@ -26,7 +29,9 @@
       "rasterTile": {
         "path": "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/",
         "probe": "12/2135/1457.png",
-        "contentTypes": ["image/png"],
+        "contentTypes": [
+          "image/png"
+        ],
         "grep": "6f03bafa-34b3-4902-9351-40ce09a8181f"
       }
     },
@@ -45,6 +50,15 @@
         "q": "space rocks that fell to earth",
         "limit": 5,
         "recordType": "vector_dataset"
+      },
+      "vectorTile": {
+        "path": "/api/tiles/data.meteorite_landings_meteoritical_society/",
+        "probe": "4/4/6.pbf",
+        "contentTypes": [
+          "application/x-protobuf",
+          "application/vnd.mapbox-vector-tile"
+        ],
+        "grep": "meteorite_landings_meteoritical_society"
       }
     }
   }
