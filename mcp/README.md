@@ -1,7 +1,7 @@
 # Ask an MCP client about your geospatial catalog
 
 `geolens-mcp` is a read-only [MCP](https://modelcontextprotocol.io) server that puts a GeoLens
-catalog inside any MCP client's session — Claude Code, Claude Desktop, Cursor, Codex, or one you
+catalog inside any MCP client's session: Claude Code, Claude Desktop, Cursor, Codex, or one you
 wrote yourself. Once it is registered, you stop context-switching to a GIS client to answer "what
 data do we even have for this?" You ask the assistant, and it goes and looks. It gets six tools:
 `search_datasets` (free-text catalog search), `get_dataset_schema` (columns, geometry type,
@@ -30,17 +30,17 @@ instance. See [Things that will bite you](#things-that-will-bite-you) for how to
 
 Config for each client lives in [`clients/`](./clients):
 
-| Client | File |
-|---|---|
-| Claude Code | [`clients/claude-code.md`](./clients/claude-code.md) — a `claude mcp add` one-liner |
-| Claude Desktop | [`clients/claude-desktop.json`](./clients/claude-desktop.json) — merge into `claude_desktop_config.json` |
-| Cursor | [`clients/cursor.json`](./clients/cursor.json) — drop in as `.cursor/mcp.json` |
-| Codex CLI | [`clients/codex.md`](./clients/codex.md) — an `[mcp_servers.geolens]` table for `config.toml` |
-| Anything else that speaks stdio MCP | [`clients/generic.json`](./clients/generic.json) — the plain `{command, args, env}` shape |
+| Client | File | Use |
+|---|---|---|
+| Claude Code | [`clients/claude-code.md`](./clients/claude-code.md) | a `claude mcp add` one-liner |
+| Claude Desktop | [`clients/claude-desktop.json`](./clients/claude-desktop.json) | merge into `claude_desktop_config.json` |
+| Cursor | [`clients/cursor.json`](./clients/cursor.json) | drop in as `.cursor/mcp.json` |
+| Codex CLI | [`clients/codex.md`](./clients/codex.md) | an `[mcp_servers.geolens]` table for `config.toml` |
+| Anything else that speaks stdio MCP | [`clients/generic.json`](./clients/generic.json) | the plain `{command, args, env}` shape |
 
 Each one points at the public demo with no credentials. For your own instance, change
 `GEOLENS_INSTANCE` and add `GEOLENS_API_KEY` in whichever file you use; create the key under
-**Settings → API keys** in the GeoLens web UI. Keep real API keys out of a committed config file —
+**Settings → API keys** in the GeoLens web UI. Keep real API keys out of a committed config file:
 use your client's local/user scope, or reference an environment variable your shell already exports.
 
 ### The three environment variables

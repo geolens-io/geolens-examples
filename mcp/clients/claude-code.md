@@ -15,7 +15,7 @@ claude mcp add geolens \
 
 `claude mcp add` writes to your local project scope by default; pass `-s user` to make it available
 in every project. Prefer a checked-in config? A `.mcp.json` at the repo root does the same job and
-travels with the project — see [`generic.json`](./generic.json) for the shape.
+travels with the project; [`generic.json`](./generic.json) has the shape.
 
 Keep real API keys out of a committed `.mcp.json`. Use `claude mcp add` locally, or have the config
 reference an environment variable your shell already exports.
