@@ -161,7 +161,7 @@
       : "no datetime");
 
   let items = [];
-  let more = false; // the walk stopped at MAX_ITEMS with pages still to read
+  let more = false; // "yes" | "maybe" | false: did the walk stop at MAX_ITEMS with pages still to read
   let selected = null;
   // STAC item ids are unique within a collection, not across the catalog, so
   // identity here is collection plus id.
@@ -228,9 +228,11 @@
       button.setAttribute("aria-pressed", String(button.dataset.key === key(item)));
     }
     status.className = "";
-    const count = more
+    const count = more === "yes"
       ? `Showing the first ${items.length} items that intersect this view; there are more, zoom in for the rest.`
-      : `${items.length} item(s) intersect this view.`;
+      : more === "maybe"
+        ? `Showing the first ${items.length} items that intersect this view; there may be more, zoom in to be sure.`
+        : `${items.length} item(s) intersect this view.`;
     const title = item.properties.title ?? item.id;
     status.textContent = drawable
       ? `${count} Drawing ${title}.`
@@ -307,12 +309,15 @@
       // spanning both halves comes back twice and is kept once.
       const seen = new Set();
       const features = [];
-      let ranDry = true; // every walk reached its last page without hitting the cap
+      // "yes" once a page was cut or a next link went unread; "maybe" when the
+      // cap was already full before a second box got its first request, since
+      // an unqueried box may hold nothing new; false when every walk ran dry.
+      let more = false;
       for (const box of boxes) {
         const bbox = box.map((n) => n.toFixed(6)).join(",");
         let url = `${SEARCH}?bbox=${bbox}&limit=20`;
         while (url) {
-          if (features.length >= MAX_ITEMS) { ranDry = false; break; }
+          if (features.length >= MAX_ITEMS) { more = more || "maybe"; break; }
           const res = await fetch(url, { signal: controller.signal });
           if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
           const page = await res.json();
@@ -320,7 +325,8 @@
           const take = fresh.slice(0, MAX_ITEMS - features.length);
           features.push(...take);
           url = page.links?.find((l) => l.rel === "next")?.href ?? null;
-          if (take.length < fresh.length) { ranDry = false; url = null; }
+          if (take.length < fresh.length) { more = "yes"; url = null; }
+          if (features.length >= MAX_ITEMS && url) { more = "yes"; url = null; }
         }
       }
       // With every page read, the unique items are the whole result. When the
@@ -328,7 +334,7 @@
       // double-count anything that straddled the split, and a box the cap
       // skipped was never counted at all. So the page reports "more" and
       // does not put a number on it.
-      found = { features, more: !ranDry };
+      found = { features, more };
     } catch (err) {
       // A newer search already replaced this one; it is not a failure.
       if (err.name === "AbortError") return;
