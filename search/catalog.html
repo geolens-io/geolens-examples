@@ -297,14 +297,16 @@
       const seen = new Set();
       const features = pages.flatMap((p) => p.features).filter((f) => !seen.has(f.id) && seen.add(f.id));
       // A record spanning both halves is in both responses. When every page
-      // came back whole, the unique count is the exact match count; otherwise
-      // the sum is the best available figure.
+      // came back whole, the unique count is the exact match count. When a
+      // half was cut at the page limit, the two totals overlap by an unknown
+      // amount, so the page says "more" instead of putting a number on it.
       const whole = pages.every((p) => p.numberReturned === p.numberMatched);
       body = {
         features,
         numberReturned: features.length,
-        numberMatched: whole ? features.length : pages.reduce((sum, p) => sum + (p.numberMatched ?? 0), 0),
+        numberMatched: whole ? features.length : null,
       };
+      if (pages.length === 1) body.numberMatched = pages[0].numberMatched;
     } catch (err) {
       if (err.name === "AbortError") return; // a newer search superseded this one
       status.className = "err";
@@ -316,9 +318,12 @@
     status.className = "";
     // numberMatched is the size of the result set; the features array is this
     // page of it. They differ as soon as the catalog has more hits than `limit`.
-    status.textContent = body.numberMatched === body.numberReturned
-      ? `${body.numberMatched} record(s) matched${bbox ? ", inside the current view" : ""}`
-      : `${body.numberReturned} of ${body.numberMatched} matched${bbox ? ", inside the current view" : ""}`;
+    const where = bbox ? ", inside the current view" : "";
+    status.textContent = body.numberMatched === null
+      ? `${body.numberReturned} shown; more matched${where}`
+      : body.numberMatched === body.numberReturned
+        ? `${body.numberMatched} record(s) matched${where}`
+        : `${body.numberReturned} of ${body.numberMatched} matched${where}`;
 
     const cards = body.features.map((f) => card(f, query));
     results.replaceChildren(...cards);
