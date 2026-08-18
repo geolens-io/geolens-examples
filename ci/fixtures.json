@@ -48,6 +48,17 @@
       "itemType": "feature",
       "geometryType": "MultiPoint",
       "minNumberMatched": 30000,
+      "view": {
+        "name": "Oman",
+        "bbox": [
+          52.144425,
+          17.878041,
+          57.855575,
+          20.907855
+        ],
+        "minNumberMatched": 2001,
+        "why": "maplibre/features-viewport.html opens here and its manifest entry expects three pages of 1000"
+      },
       "vectorTile": {
         "path": "/api/tiles/data.meteorite_landings_meteoritical_society/",
         "probe": "4/4/6.pbf",

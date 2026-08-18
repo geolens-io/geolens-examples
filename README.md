@@ -5,7 +5,7 @@
 [![GeoLens v1.13+](https://img.shields.io/badge/GeoLens-v1.13%2B-1a66c9)](https://github.com/geolens-io/geolens)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[GeoLens](https://github.com/geolens-io/geolens) is a self-hosted spatial data hub: catalog, search, maps, analysis, and open APIs over data that stays on your own infrastructure. This repo holds copy-paste integrations for the tools your stack already uses. Every example reads the public demo anonymously, so you clone, open, and see it render. Point any of them at your own instance by changing one constant.
+[GeoLens](https://github.com/geolens-io/geolens) is a self-hosted spatial data hub: catalog, search, maps, analysis, and open APIs over data that stays on your own infrastructure. This repo holds copy-paste integrations for the tools your stack already uses. Every browser and Python example reads the public demo anonymously, so you clone, open, and see it render, and points at your own instance by changing one constant. The exception is [`cli/`](cli/), which publishes to a catalog and so runs against your own instance with a credential.
 
 - **[Live gallery](https://geolens-io.github.io/geolens-examples/)**: every browser example running, arranged by what you are trying to do. Open one before you clone anything.
 - **[Try GeoLens](https://demo.getgeolens.com/maps)**: the public demo these examples read. Its catalog and its saved maps open without an account.

@@ -144,6 +144,26 @@ async function checkCollection(name, fx, notes, problems) {
         `The examples style one geometry type, so the map draws nothing for the others.`,
     );
   }
+
+  // A collection-wide count says nothing about one view of it. An example
+  // that opens on a particular bbox and expects a number of pages there names
+  // that bbox, and the preflight asks the same question the page will.
+  if (fx.view) {
+    const bbox = fx.view.bbox.join(",");
+    const inView = await get(`/api/collections/${fx.collection}/items?bbox=${bbox}&limit=1`);
+    if (!inView.ok) {
+      problems.push(`fixture ${name}: /items?bbox=${bbox} answered ${inView.status}, so the view the example opens on could not be checked.`);
+      return;
+    }
+    const n = (await inView.json()).numberMatched;
+    notes.push(`${n} in the ${fx.view.name ?? "opening"} view`);
+    if (!(n >= fx.view.minNumberMatched)) {
+      problems.push(
+        `fixture ${name}: /items?bbox=${bbox} matches ${n} feature(s), expected at least ${fx.view.minNumberMatched} ` +
+          `(${fx.view.why ?? "the example depends on that many in its opening view"}). The data moved, not the example.`,
+      );
+    }
+  }
 }
 
 async function checkTile(name, kind, tile, notes, problems) {
