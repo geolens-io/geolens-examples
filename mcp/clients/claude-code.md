@@ -1,0 +1,21 @@
+# Claude Code
+
+```bash
+claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0
+```
+
+For your own instance, add the key:
+
+```bash
+claude mcp add geolens \
+  -e GEOLENS_INSTANCE=https://geolens.example.com \
+  -e GEOLENS_API_KEY=your-api-key \
+  -- uvx geolens-mcp@1.14.0
+```
+
+`claude mcp add` writes to your local project scope by default; pass `-s user` to make it available
+in every project. Prefer a checked-in config? A `.mcp.json` at the repo root does the same job and
+travels with the project — see [`generic.json`](./generic.json) for the shape.
+
+Keep real API keys out of a committed `.mcp.json`. Use `claude mcp add` locally, or have the config
+reference an environment variable your shell already exports.

@@ -23,7 +23,7 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 | [`embed/iframe.html`](embed/iframe.html) | No library | A saved GeoLens map in an iframe, styling and legend intact | [Live](https://geolens-io.github.io/geolens-examples/embed/iframe.html) |
 | [`python/analyze.py`](python/analyze.py) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | `uv run python/analyze.py` |
 | [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.14.0 (single-file `uv run` script) | SDK catalog search, schema semantics, server-side filter, export into GeoPandas | `uv run python/sdk-catalog.py` |
-| [`claude-mcp/`](claude-mcp/) | Claude via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0` |
+| [`mcp/`](mcp/) | Any MCP client via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0` |
 | `duckdb/` | DuckDB | SQL directly over the Features API | Planned |
 | `cli/` | geolens CLI | Catalog-as-code | Planned |
 
