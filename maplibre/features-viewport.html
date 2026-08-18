@@ -200,11 +200,12 @@
           // exactly MAX_FEATURES ends its last page at the cap with no next
           // link and nothing left over, and that is a complete result, not a
           // truncated one.
-          // A cut page or a next link means more for certain. A second
-          // dateline box that was never asked is only a maybe: it could hold
-          // nothing new.
-          const certain = take.length < fresh.length || url !== null;
-          if (features.length >= MAX_FEATURES && (certain || i < boxes.length - 1)) {
+          // Fresh rows left on a cut page mean more for certain, and so does a
+          // next link in the first box. In the second box a next link is only
+          // a maybe, since everything unread could duplicate the first box,
+          // and a second box never asked at all is a maybe for the same reason.
+          const certain = take.length < fresh.length || (url !== null && i === 0);
+          if (features.length >= MAX_FEATURES && (certain || url !== null || i < boxes.length - 1)) {
             capped = certain ? true : "maybe";
             break walk;
           }
