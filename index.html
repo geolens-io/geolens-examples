@@ -4,7 +4,17 @@
 <meta charset="utf-8" />
 <title>GeoLens Examples</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="description" content="Runnable examples for consuming a GeoLens catalog from MapLibre, Leaflet, OpenLayers, the ArcGIS SDK, Python and MCP. Every one runs against the public demo." />
+<meta name="description" content="Runnable examples for reading a GeoLens catalog from MapLibre, Leaflet, OpenLayers, the ArcGIS SDK, the TypeScript and Python SDKs, and MCP: OGC API Features, STAC, vector and raster tiles, and embedded maps. Every one runs against the public demo." />
+<link rel="canonical" href="https://geolens-io.github.io/geolens-examples/" />
+<meta property="og:title" content="GeoLens Examples" />
+<meta property="og:description" content="Copy-paste integrations against a self-hosted GeoLens spatial data hub: OGC API Features, STAC, vector and raster tiles, embedded maps, and both SDKs. Every one runs against the public demo." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://geolens-io.github.io/geolens-examples/" />
+<meta property="og:image" content="https://geolens-io.github.io/geolens-examples/assets/embed-iframe.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="GeoLens Examples" />
+<meta name="twitter:description" content="Copy-paste integrations against a self-hosted GeoLens spatial data hub: OGC API Features, STAC, vector and raster tiles, embedded maps, and both SDKs. Every one runs against the public demo." />
+<meta name="twitter:image" content="https://geolens-io.github.io/geolens-examples/assets/embed-iframe.jpg" />
 <link rel="icon" href="data:," />
 <style>
   /* ---- tokens ------------------------------------------------------------
@@ -62,6 +72,11 @@
   .masthead a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .repo { color: var(--muted); }
   .repo b { color: var(--ink); font-weight: 600; }
+  .masthead a.star {
+    color: var(--ink); padding: .22rem .7rem;
+    border: 1px solid var(--rule); border-radius: 999px;
+  }
+  .masthead a.star:hover { color: var(--vector); border-color: var(--vector); text-decoration: none; }
 
   /* ---- hero ------------------------------------------------------------- */
   .hero { padding: clamp(3rem, 9vw, 6rem) 0 clamp(2.5rem, 6vw, 4rem); }
@@ -73,7 +88,11 @@
     margin: 0;
     font-size: clamp(2.7rem, 8.2vw, 5.4rem);
     font-weight: 700; letter-spacing: -.04em; line-height: .95;
-    max-width: 15ch;
+    max-width: 17ch;
+  }
+  .hero .tagline {
+    margin: 1.5rem 0 0; max-width: 52ch;
+    font-size: clamp(1.05rem, 2vw, 1.3rem);
   }
   .hero .lede {
     margin: 1.6rem 0 0; max-width: 58ch;
@@ -106,8 +125,23 @@
   .tag.vector { color: var(--vector); }
   .tag.raster { color: var(--raster); }
 
+  /* ---- showcase strip --------------------------------------------------- */
+  .showcase { padding: 0 0 2.2rem; }
+  .showcase p { margin: 0 0 1rem; max-width: 62ch; color: var(--muted); font-size: .92rem; }
+  .showcase ul {
+    display: grid; gap: .7rem 1.6rem; padding: 0; margin: 0; list-style: none;
+    grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  }
+  .showcase li { font-size: .88rem; color: var(--muted); }
+  .showcase li a {
+    color: var(--ink); text-decoration: none;
+    border-bottom: 1px solid var(--rule); font-weight: 600;
+  }
+  .showcase li a:hover { color: var(--vector); border-color: var(--vector); }
+
   /* ---- intent nav ------------------------------------------------------- */
   .intent { padding: 0 0 1rem; }
+  .showcase h2,
   .intent h2 {
     font-family: var(--mono); font-size: .74rem; letter-spacing: .17em;
     text-transform: uppercase; color: var(--muted); font-weight: 400; margin: 0 0 .9rem;
@@ -204,16 +238,20 @@
     <nav>
       <a href="https://github.com/geolens-io/geolens-examples">Repository</a>
       <a href="https://demo.getgeolens.com/collections">Demo catalog</a>
-      <a href="https://github.com/geolens-io/geolens">GeoLens</a>
+      <a class="star" href="https://github.com/geolens-io/geolens">★ Star geolens on GitHub</a>
     </nav>
   </header>
 
   <section class="hero">
     <p class="eyebrow">Runnable examples</p>
-    <h1>The integration is a URL.</h1>
+    <h1>GeoLens is a self-hosted spatial data hub.</h1>
+    <p class="tagline">
+      One place to catalog, search, map and analyze your spatial data. It publishes all of it
+      through OGC API Features and Records, STAC, vector tiles and raster tiles.
+      The integration is a URL.
+    </p>
     <p class="lede">
-      GeoLens publishes OGC API Features and Records, STAC, vector tiles and raster tiles, so
-      the client library never has to know what GeoLens is. Every example here is
+      So the client library never has to know what GeoLens is. Every example here is
       <strong>one file</strong> that reads the public demo anonymously, with no key and no build step.
       Most need no GeoLens library at all; the two marked <em>SDK</em> use one to show what the
       catalog knows that a URL cannot.
@@ -235,6 +273,34 @@
         <span class="tag raster">Raster tiles</span>
       </div>
     </div>
+  </section>
+
+  <section class="showcase">
+    <h2>See what GeoLens itself builds</h2>
+    <p>
+      Maps composed and styled in the GeoLens map builder, then published on the
+      <a href="https://demo.getgeolens.com/maps">public demo</a>. All four open without an account.
+    </p>
+    <ul>
+      <li>
+        <a href="https://demo.getgeolens.com/m/NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU">Restless Earth</a>.
+        Seven layers: 30 days of USGS earthquakes, 6,000 years of deadly eruptions, plate
+        boundaries, ETOPO relief.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/dcae16bd-40bd-494e-bf2f-cfb378735257">Manhattan: A Century of Skyline</a>.
+        Every building extruded to its surveyed roof height, coloured by the era it was built.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/1c5e021a-8ede-4ebe-a06c-92322208de45">The Matterhorn in 3D</a>.
+        62 cloud-optimized GeoTIFFs of swisstopo 2 m lidar mosaicked into one VRT, with the
+        climbing routes from OSM.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/1c4207ab-b1c0-4309-9924-c1ea355003a3">New York From Orbit</a>.
+        Sentinel-2 scenes read by reference from the AWS open-data archive, nothing downloaded.
+      </li>
+    </ul>
   </section>
 
   <section class="intent">
