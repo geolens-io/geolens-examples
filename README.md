@@ -1,8 +1,17 @@
 # GeoLens Examples
 
-Runnable examples for consuming [GeoLens](https://github.com/geolens-io/geolens) services from the tools your stack already uses. Every example runs against the public [GeoLens demo](https://demo.getgeolens.com) anonymously — clone, open, see it render. Point any of them at your own instance by changing one constant.
+[![Live gallery](https://img.shields.io/badge/live-gallery-1a66c9)](https://geolens-io.github.io/geolens-examples/)
+[![Verify examples](https://github.com/geolens-io/geolens-examples/actions/workflows/verify.yml/badge.svg)](https://github.com/geolens-io/geolens-examples/actions/workflows/verify.yml)
+[![GeoLens v1.13+](https://img.shields.io/badge/GeoLens-v1.13%2B-1a66c9)](https://github.com/geolens-io/geolens)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Every browser example is live at [geolens-io.github.io/geolens-examples](https://geolens-io.github.io/geolens-examples/)**, arranged by what you are trying to do. Open one before you clone anything.
+[GeoLens](https://github.com/geolens-io/geolens) is a self-hosted spatial data hub: catalog, search, maps, analysis, and open APIs over data that stays on your own infrastructure. This repo holds copy-paste integrations for the tools your stack already uses. Every example reads the public demo anonymously, so you clone, open, and see it render. Point any of them at your own instance by changing one constant.
+
+- **[Live gallery](https://geolens-io.github.io/geolens-examples/)**: every browser example running, arranged by what you are trying to do. Open one before you clone anything.
+- **[Try GeoLens](https://demo.getgeolens.com/maps)**: the public demo these examples read. Its catalog and its saved maps open without an account.
+- **[Main repository](https://github.com/geolens-io/geolens)**: GeoLens itself, with the install script, the docs, and the issue tracker.
+
+If GeoLens is useful to you, [star it on GitHub](https://github.com/geolens-io/geolens). That is how most people find it.
 
 GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), and raster tiles. These examples show those surfaces from the consumer's side.
 
