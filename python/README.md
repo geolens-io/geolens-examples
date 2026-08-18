@@ -97,8 +97,8 @@ gets none: retrying a bad request only asks the same wrong question again.
 script sends `X-Api-Key`. GeoLens still accepts `?api_key=` in the query string, but
 that lane is deprecated, because a credential in a URL lands in access logs and in
 every proxy log along the way. It survives only for clients that cannot set headers,
-such as XYZ tile URLs pasted into desktop GIS. A *wrong* key returns 401 on this
-endpoint even for a public dataset, so an unset variable is safer than a stale one.
+such as XYZ tile URLs pasted into desktop GIS. A *wrong* key returns 401 even for a
+public dataset, so an unset variable is safer than a stale one.
 
 **Measurements happen in a projected CRS.** Lengths taken on EPSG:4326 are in
 degrees and mean nothing. The script reprojects to UTM 18N once, then everything
@@ -178,12 +178,13 @@ honest reads quoted literals as column names, so `fall = 'Fell'` comes back
 so the reason is `response.parsed.detail`, an attribute rather than a blob of JSON
 you decode by hand at the call site.
 
-**An unrecognised API key is ignored, not refused.** Set `GEOLENS_API_KEY` and the
-SDK sends `X-API-Key`; it has no way at all to put a key in the query string. But on
-these three endpoints a key GeoLens does not recognise falls through to anonymous
-and returns 200 with the public subset, rather than the 401 the OGC items endpoint
-answers with. Measured against the demo on 2026-08-15. If a private dataset seems to
-have vanished, suspect the key before you suspect the catalog.
+**An unrecognised API key is refused, not ignored.** Set `GEOLENS_API_KEY` and the
+SDK sends `X-API-Key`; it has no way at all to put a key in the query string. A key
+GeoLens cannot resolve answers 401 on all three of these endpoints, so a stale key
+stops the script instead of quietly handing it the public subset. Sending no key is
+anonymous and still reads public data. Measured against the demo (v1.14.0) on
+2026-08-18. Instances older than v1.14.0 discard the bad key here and answer 200, so
+there a private dataset can seem to have vanished when the key is the problem.
 
 ## ogr2ogr one-liners
 
@@ -220,8 +221,7 @@ curl -o stations.gpkg \
   "https://demo.getgeolens.com/api/datasets/724bf894-dc1a-418c-abc6-555798c44d7c/export?format=gpkg"
 ```
 
-For the other formats (`geojson`, `parquet`, `shp`, `csv`), download first and
-convert locally:
+For the other formats (`geojson`, `parquet`, `shp`, `csv`), convert locally:
 
 ```bash
 curl -o lines.geojson \
@@ -229,9 +229,17 @@ curl -o lines.geojson \
 ogr2ogr -f GPKG lines.gpkg lines.geojson -nln subway_lines   # Feature Count: 29
 ```
 
-Download first, because pointing `/vsicurl/` at the export endpoint hangs.
-`/vsicurl/` opens with a HEAD request to negotiate byte ranges, the export endpoint
-answers HEAD with 405, and GDAL sits there waiting. A plain GET of the same URL
+You can also read the export endpoint in place, from GeoLens v1.14.0 on. `/vsicurl/`
+opens with a HEAD request to negotiate byte ranges; that route used to answer HEAD
+with 405 and GDAL sat there waiting. It now answers 200 with `Accept-Ranges: bytes`
+and serves ranges as 206, so this opens in about two seconds:
+
+```bash
+ogrinfo -so "/vsicurl/https://demo.getgeolens.com/api/datasets/724bf894-dc1a-418c-abc6-555798c44d7c/export?format=gpkg"
+```
+
+GDAL warns that the URL carries no `.gpkg` extension, then opens it anyway. Against
+an instance older than v1.14.0, download first. A plain GET of the geojson URL above
 returns 10 MB in about 2.5 seconds.
 
 For a private dataset, pass the key as a header:

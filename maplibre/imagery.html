@@ -72,10 +72,12 @@
   const status = document.getElementById("status");
 
   // Only a 404 latches this, and a tile can never clear it: a tile answering
-  // is not evidence the dataset exists. MapLibre reports the 204 you get for a
-  // dataset that was never there exactly as it reports real imagery — same
-  // `data` event, same `state: "loaded"` — so "a tile came back" and "the
-  // dataset is there" are different claims. fix(#18)
+  // is not evidence the dataset exists. Before v1.14.0 a dataset that was
+  // never there answered 204, which MapLibre reports exactly as it reports
+  // real imagery — same `data` event, same `state: "loaded"`. From v1.14.0 it
+  // answers 404 (measured 2026-08-18), which arrives here as a plain tile
+  // error. Either way "a tile came back" and "the dataset is there" are
+  // different claims. fix(#18)
   let missing = false;
 
   // Whether the tiles have said anything yet. The catalog note below is the
@@ -121,10 +123,11 @@
     fail(`Could not load tiles from ${GEOLENS} — ${e.error?.message ?? "request failed"}. Instances older than v1.13.0 send no CORS header on raster tiles, which blocks them here.`, e.error ?? e);
   });
 
-  // The tile route cannot tell you the dataset is gone: it answers 204 both for
-  // a tile outside the footprint and for a dataset id that does not exist, so
-  // those two look identical from here. The catalog is the only place the
-  // difference shows, so ask it once.
+  // The tile route does not say the dataset is gone in any way this page can
+  // read. Before v1.14.0 it answered 204 both for a tile outside the footprint
+  // and for a dataset id that does not exist; from v1.14.0 the missing dataset
+  // is a 404 there (measured 2026-08-18), but MapLibre surfaces it as an
+  // ordinary tile error. The catalog names the difference, so ask it once.
   //
   // Read the status rather than just `ok`. This request is deliberately
   // anonymous — the point of a scoped tile token is that no credential reaches
