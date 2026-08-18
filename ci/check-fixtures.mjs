@@ -258,11 +258,61 @@ async function checkSearch(name, fx, notes, problems) {
 }
 
 const problems = [];
+// STAC search over the view stac/browse.html opens on. The page draws the
+// item that covers the map centre with the tightest footprint, so the probe
+// picks the same item and fetches one tile of its raster_tiles asset at the
+// centre. A reset that leaves the STAC catalog empty over New York, or an
+// item without a drawable asset, reads as a fixture change here rather than
+// as a blank map in the sweep.
+async function checkStac(name, fx, notes, problems) {
+  const { bbox, center, minItems, probe } = fx.stac;
+  const res = await get(`/api/stac/search?bbox=${bbox.join(",")}&limit=20`);
+  if (!res.ok) {
+    problems.push(`fixture ${name}: /api/stac/search answered ${res.status}, so the STAC example's opening view could not be checked.`);
+    return;
+  }
+  const items = (await res.json()).features ?? [];
+  notes.push(`${items.length} STAC item(s) over the opening view`);
+  if (items.length < minItems) {
+    problems.push(
+      `fixture ${name}: /api/stac/search?bbox=${bbox.join(",")} returned ${items.length} item(s), expected at least ${minItems} ` +
+        `(${fx.stac.why ?? "the STAC example opens here"}). The catalog moved, not the example.`,
+    );
+    return;
+  }
+  const flat = (b) => (b.length === 6 ? [b[0], b[1], b[3], b[4]] : b);
+  const covers = (b) => { const [w, s, e, n] = flat(b); return w <= center[0] && center[0] <= e && s <= center[1] && center[1] <= n; };
+  const area = (b) => { const [w, s, e, n] = flat(b); return (e - w) * (n - s); };
+  const pick = items.filter((i) => i.bbox && covers(i.bbox)).sort((a, b) => area(a.bbox) - area(b.bbox))[0];
+  if (!pick) {
+    problems.push(`fixture ${name}: no STAC item covers the map centre ${center.join(",")}, so the example has nothing to draw on load.`);
+    return;
+  }
+  const href = pick.assets?.raster_tiles?.href;
+  if (typeof href !== "string" || !/^https?:\/\//i.test(href)) {
+    problems.push(`fixture ${name}: "${pick.properties?.title ?? pick.id}" covers the centre but advertises no http raster_tiles asset, so the example draws nothing.`);
+    return;
+  }
+  const [z, x, y] = probe.split("/");
+  const tileUrl = href.replace("{z}", z).replace("{x}", x).replace("{y}", y);
+  const tile = await fetch(tileUrl, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+  const type = tile.headers.get("content-type") ?? "";
+  if (tile.status !== 200 || !type.startsWith("image/")) {
+    problems.push(
+      `fixture ${name}: tile ${probe} of "${pick.properties?.title ?? pick.id}" answered ${tile.status} ${type}, ` +
+        `so the STAC example paints nothing over its opening view.`,
+    );
+    return;
+  }
+  notes.push(`"${pick.properties?.title ?? pick.id}" tile ${probe} ${type} ${(await tile.arrayBuffer()).byteLength}B`);
+}
+
 for (const [name, fx] of Object.entries(fixtures)) {
   const notes = [];
   const before = problems.length;
   try {
     if (fx.collection) await checkCollection(name, fx, notes, problems);
+    if (fx.stac) await checkStac(name, fx, notes, problems);
     if (fx.vectorTile) await checkTile(name, "vector", fx.vectorTile, notes, problems);
     if (fx.rasterTile) await checkTile(name, "raster", fx.rasterTile, notes, problems);
     if (fx.sharedMap) await checkSharedMap(name, fx, notes, problems);

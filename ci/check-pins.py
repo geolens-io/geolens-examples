@@ -31,12 +31,17 @@ HEALTH = "https://demo.getgeolens.com/api/health"
 SUFFIXES = {".py", ".md", ".html", ".json", ".yml", ".yaml", ".mjs", ".js", ".ts"}
 SKIP = {".git", ".claude", "node_modules", "assets"}  # .claude: local agent worktrees, never in CI
 
-# One pattern per published GeoLens client, in the exact form each file uses.
+# One pattern per published GeoLens client, in the exact form each file uses,
+# plus the human-facing labels ("`geolens` 1.14.0", "geolens-cli 1.14.0" in a
+# gallery card) that name the same version without pinning anything. A bump
+# that misses one of those leaves the docs saying one thing and the installs
+# doing another, which is the drift this script exists to catch.
 PATTERNS = [
     re.compile(r"\bgeolens==(\d+\.\d+\.\d+)"),  # python/sdk-catalog.py, PEP 723
     re.compile(r"@geolens/sdk@(\d+\.\d+\.\d+)"),  # esm.sh import, npm docs
     re.compile(r"\bgeolens-mcp@(\d+\.\d+\.\d+)"),  # uvx spec
-    re.compile(r"\bgeolens-cli[@=]=?(\d+\.\d+\.\d+)"),  # planned, not here yet
+    re.compile(r"\bgeolens-cli[@=]=?(\d+\.\d+\.\d+)"),  # uvx --from spec
+    re.compile(r"(?:`geolens`|`@geolens/sdk`|\bgeolens|@geolens/sdk|\bgeolens-cli|\bgeolens-mcp) (\d+\.\d+\.\d+)"),  # display labels
 ]
 
 
