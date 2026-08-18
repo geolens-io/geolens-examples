@@ -26,6 +26,12 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
+      # First, and before the browser install: when the demo catalog is reset,
+      # every dependent example fails in the sweep below with no sign that the
+      # cause was the reset. This names the fixture that moved, and tells a
+      # demo that is down apart from an example that is broken.
+      - name: Preflight the demo fixtures
+        run: node ci/check-fixtures.mjs
       - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null

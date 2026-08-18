@@ -1,0 +1,51 @@
+{
+  "note": "The demo catalog fixtures every example hardcodes, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-18, GeoLens 1.14.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM. `grep` is the substring that finds this fixture everywhere it is written down in this repo.",
+  "fixtures": {
+    "nycSubwayStations": {
+      "title": "NYC Subway Stations (MTA)",
+      "collection": "724bf894-dc1a-418c-abc6-555798c44d7c",
+      "itemType": "feature",
+      "geometryType": "MultiPoint",
+      "minNumberMatched": 400
+    },
+    "nycSubwayLines": {
+      "title": "NYC Subway Lines (MTA)",
+      "collection": "de602fbe-8b30-4755-924f-c9e7fd9613b6",
+      "itemType": "feature",
+      "vectorTile": {
+        "path": "/api/tiles/data.nyc_subway_lines_mta/",
+        "probe": "12/1206/1539.pbf",
+        "contentTypes": ["application/x-protobuf", "application/vnd.mapbox-vector-tile"],
+        "grep": "nyc_subway_lines_mta"
+      }
+    },
+    "matterhornDem": {
+      "title": "swissALTI3D Matterhorn DEM (2m mosaic)",
+      "collection": "6f03bafa-34b3-4902-9351-40ce09a8181f",
+      "itemType": "coverage",
+      "rasterTile": {
+        "path": "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/",
+        "probe": "12/2135/1457.png",
+        "contentTypes": ["image/png"],
+        "grep": "6f03bafa-34b3-4902-9351-40ce09a8181f"
+      }
+    },
+    "restlessEarthMap": {
+      "title": "Restless Earth",
+      "sharedMap": {
+        "token": "NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU",
+        "layers": 7
+      }
+    },
+    "meteorites": {
+      "title": "Meteorite Landings (Meteoritical Society)",
+      "collection": "6030c57b-ce37-4198-aa1e-be78e0950f53",
+      "itemType": "feature",
+      "search": {
+        "q": "space rocks that fell to earth",
+        "limit": 5,
+        "recordType": "vector_dataset"
+      }
+    }
+  }
+}

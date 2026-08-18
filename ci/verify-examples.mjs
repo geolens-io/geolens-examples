@@ -302,6 +302,35 @@ function loadManifest() {
   return manifest;
 }
 
+// A needle names a demo fixture — a dataset UUID or a qualified table name —
+// and those are hardcoded across this repo. ci/fixtures.json is where they are
+// declared and ci/check-fixtures.mjs preflights them, so a needle naming one
+// that file has never heard of is a fixture nothing preflights: when the demo
+// is reset, that entry fails here with no sign that the reset is the cause.
+//
+// A note and not a failure. This is a registration reminder resting on a
+// pattern match, and a heuristic that can block a PR gets deleted the first
+// time it is wrong.
+const FIXTURE_TOKEN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|data\.[a-z0-9_]+/gi;
+
+function noteUnregisteredFixtures(manifest) {
+  let fixtures;
+  try {
+    fixtures = readFileSync(join(HERE, "fixtures.json"), "utf8");
+  } catch {
+    return; // ponytail: no fixtures.json in this checkout, nothing to compare against.
+  }
+  for (const entry of manifest) {
+    for (const token of entry.requireUrls.join(" ").match(FIXTURE_TOKEN) ?? []) {
+      if (fixtures.includes(token)) continue;
+      console.log(
+        `note: ${entry.path} requires "${token}", which ci/fixtures.json does not name, so ` +
+          `ci/check-fixtures.mjs never preflights it. Add it there, and a demo reset reads as a reset.`,
+      );
+    }
+  }
+}
+
 // The README drifting away from what CI actually verifies was the top finding
 // of the last examples audit, so both directions are now build failures.
 //
@@ -984,6 +1013,7 @@ function writeDiagnostics(entry, failures, files) {
 }
 
 const manifest = loadManifest();
+noteUnregisteredFixtures(manifest);
 checkReadmeAgainstCi(manifest);
 checkReadmeCommandsMatchGallery();
 
