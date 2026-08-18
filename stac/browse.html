@@ -141,8 +141,11 @@
   const absolute = (href, item) => {
     if (typeof href !== "string") return null;
     if (/^https?:\/\//i.test(href)) return href;
-    const base = item?.links?.find((l) => l.rel === "self")?.href ?? SEARCH;
+    // The self link may be relative too; every item here came through the
+    // search endpoint, so that is what it resolves against.
     try {
+      const self = item?.links?.find((l) => l.rel === "self")?.href;
+      const base = self ? new URL(self, SEARCH).href : SEARCH;
       return new URL(href, base).href.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
     } catch {
       return null;
