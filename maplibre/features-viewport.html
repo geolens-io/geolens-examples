@@ -198,8 +198,14 @@
           // exactly MAX_FEATURES ends its last page at the cap with no next
           // link and nothing left over, and that is a complete result, not a
           // truncated one.
-          const more = take.length < fresh.length || url !== null || i < boxes.length - 1;
-          if (features.length >= MAX_FEATURES && more) { capped = true; break walk; }
+          // A cut page or a next link means more for certain. A second
+          // dateline box that was never asked is only a maybe: it could hold
+          // nothing new.
+          const certain = take.length < fresh.length || url !== null;
+          if (features.length >= MAX_FEATURES && (certain || i < boxes.length - 1)) {
+            capped = certain ? true : "maybe";
+            break walk;
+          }
         }
       }
     } catch (err) {
@@ -227,7 +233,9 @@
       // way there.
       status.className = "capped";
       const total = split ? "more than that" : fmt(matched);
-      status.textContent = `Holding ${fmt(held)} of ${total} matched after ${pages} pages: truncated at the ${fmt(MAX_FEATURES)}-feature cap for one view. This is where vector tiles take over.`;
+      status.textContent = capped === "maybe"
+        ? `Holding ${fmt(held)} after ${pages} pages: at the ${fmt(MAX_FEATURES)}-feature cap with the far side of the antimeridian unread, so there may be more. This is where vector tiles take over.`
+        : `Holding ${fmt(held)} of ${total} matched after ${pages} pages: truncated at the ${fmt(MAX_FEATURES)}-feature cap for one view. This is where vector tiles take over.`;
       const a = document.createElement("a");
       a.href = "vector-tiles.html";
       a.textContent = "See maplibre/vector-tiles.html";
