@@ -1,18 +1,20 @@
 // Preflight for the demo fixtures every example in this repo hardcodes.
 //
-// The dataset UUIDs, the qualified table name and the shared-map token here
-// belong to the public demo's catalog, and a demo reset can change all of
-// them. When that happens the browser sweep goes red on every dependent
-// example at once, each one saying "no successful demo response matched
-// required URL ..." — true, and no help: nothing in that output separates a
-// catalog that moved from nine examples that broke on the same afternoon.
+// The dataset UUIDs, the qualified table name, the shared-map token and the
+// saved-map IDs here belong to the public demo's catalog, and a demo reset
+// can change all of them. When that happens the browser sweep goes red on
+// every dependent example at once, each one saying "no successful demo
+// response matched required URL ..." — true, and no help: nothing in that
+// output separates a catalog that moved from nine examples that broke on the
+// same afternoon.
 //
 // So this runs first and answers exactly that question. It asserts the
 // invariants ci/fixtures.json names — the collection is still there, still
 // titled what the examples say, still carries the geometry they draw, its
 // tiles still come back as tiles, the saved map still has the layers the embed
-// page describes — and when one stops holding it says which fixture, what it
-// means, and what to grep for.
+// page describes, the maps the gallery links still open under the names
+// fixtures.json records — and when one stops holding it says which fixture,
+// what it means, and what to grep for.
 //
 // A demo that cannot answer at all is reported as the demo being down and
 // explicitly not as a fact about this repo. Those two conditions need
@@ -297,6 +299,74 @@ async function checkSharedMap(name, fx, notes, problems) {
   }
 }
 
+// The gallery's "See what GeoLens itself builds" list links saved maps by
+// UUID. They are links, not examples, so nothing in the browser sweep opens
+// them, and a reset that drops or renames one leaves the gallery pointing at a
+// 404 with every check green. An anonymous GET on /api/maps/{id} is the
+// question a reader's click asks: the app's /maps/{id} page reads that route.
+// GeoLens answers 404 to an anonymous caller for a map that is gone and for
+// one that is merely not public (backend _check_map_read_access), so one
+// status covers both causes and the message names both.
+//
+// The fixture is also held against index.html itself. This loop only probes
+// the IDs fixtures.json lists, so a UUID edited in the gallery without the
+// fixture following it would stay green here, and ci/check-links.py leaves
+// the demo host alone on purpose. Both directions are fixtures.json mistakes,
+// not the demo, and are reported that way.
+async function checkMaps(name, fx, notes, problems) {
+  let gallery;
+  try {
+    gallery = readFileSync(join(HERE, "..", "index.html"), "utf8");
+  } catch (err) {
+    problems.push(`fixture ${name}: index.html could not be read (${oneLine(err)}), so its map links were not compared to ci/fixtures.json.`);
+  }
+  if (gallery !== undefined) {
+    const linked = new Set([...gallery.matchAll(/https?:\/\/[^/"'\s]+\/maps\/([0-9a-f-]{36})\b/g)].map((m) => m[1]));
+    const listed = new Set(fx.maps.map((m) => m.id));
+    for (const id of linked) {
+      if (!listed.has(id)) {
+        problems.push(
+          `fixture ${name}: index.html links map ${id}, which ci/fixtures.json does not list under ${name}.maps, so ` +
+            `it was never probed. Add it there with the name ${DEMO}/api/maps/${id} reports; this is a fixtures.json mistake, not the demo.`,
+        );
+      }
+    }
+    for (const { id, title } of fx.maps) {
+      if (!linked.has(id)) {
+        problems.push(
+          `fixture ${name}: ci/fixtures.json lists map ${id} ("${title}") that index.html no longer links. ` +
+            `Drop it from ${name}.maps or restore the link; this is a fixtures.json mistake, not the demo.`,
+        );
+      }
+    }
+  }
+  for (const { title, id } of fx.maps) {
+    const res = await get(`/api/maps/${id}`);
+    if (res.status === 404) {
+      problems.push(
+        `fixture ${name}: map ${id} ("${title}") no longer resolves anonymously (404): the demo was reset, ` +
+          `or the map stopped being public. Check ${DEMO}/maps; if it is gone, replace ${id} across the repo ` +
+          `(grep -rl ${id}); if it went private, make it public again or drop the link.`,
+      );
+      continue;
+    }
+    if (!res.ok) {
+      problems.push(`fixture ${name}: /api/maps/${id} answered ${res.status}, so "${title}" could not be checked.`);
+      continue;
+    }
+    const map = await res.json();
+    notes.push(`"${map.name}" ${map.layer_count ?? "?"} layers`);
+    // Same quiet failure as a dataset title changing under a live ID: the
+    // link works and lands on someone else's map.
+    if (map.name !== title) {
+      problems.push(
+        `fixture ${name}: map ${id} is now named "${map.name}", not "${title}". ` +
+          `The ID still resolves, but to a different map than the gallery describes (grep -rl ${id}).`,
+      );
+    }
+  }
+}
+
 async function checkSearch(name, fx, notes, problems) {
   const { q, limit, recordType } = fx.search;
   // search/catalog.html cannot use /api/search/ (no CORS header), so it asks
@@ -550,7 +620,7 @@ async function checkExport(name, fx, notes, problems) {
   notes.push(`${format} export ${ranged}, ${type}`);
 }
 
-const KNOWN = ["collection", "stac", "vectorTile", "rasterTile", "sharedMap", "search", "export"];
+const KNOWN = ["collection", "stac", "vectorTile", "rasterTile", "sharedMap", "maps", "search", "export"];
 const transport = [];
 for (const [name, fx] of Object.entries(fixtures)) {
   const notes = [];
@@ -566,6 +636,7 @@ for (const [name, fx] of Object.entries(fixtures)) {
     if (fx.vectorTile) await checkTile(name, "vector", fx.vectorTile, notes, problems);
     if (fx.rasterTile) await checkTile(name, "raster", fx.rasterTile, notes, problems);
     if (fx.sharedMap) await checkSharedMap(name, fx, notes, problems);
+    if (fx.maps) await checkMaps(name, fx, notes, problems);
     if (fx.search) await checkSearch(name, fx, notes, problems);
     if (fx.export) await checkExport(name, fx, notes, problems);
   } catch (err) {
