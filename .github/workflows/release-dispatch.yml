@@ -1,0 +1,171 @@
+name: Release dispatch
+
+# geolens-io/geolens dispatches `geolens-release` here the moment a GA release
+# publishes (geolens-io/geolens#1609). A release is work in this repo: the same
+# client version is written into a dozen files, and the public demo these
+# examples run against is redeployed from that release, so the pins go stale
+# the moment it ships.
+#
+# Before this, the only signal was `ci/check-pins.py` on the weekly schedule
+# saying the demo had moved ahead of the pins — a warning that passes, which is
+# a task disguised as a log line. The issue this opens is that task.
+on:
+  repository_dispatch:
+    types: [geolens-release]
+
+permissions:
+  contents: read
+  issues: write
+
+# Serialised rather than cancelled: two releases landing close together would
+# otherwise race and file the same issue twice. Nothing here is expensive
+# enough to be worth cancelling a run that is already deciding whether to file.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  pins:
+    name: Compare the release with this repo's pins
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Work out whether the pins are behind
+        id: compare
+        env:
+          RELEASE_VERSION: ${{ github.event.client_payload.version }}
+        # No uv and no setup step: ci/check-pins.py declares no dependencies, so
+        # the runner's own python3 imports it directly. Importing it is the
+        # point — see the comment on the import below.
+        run: |
+          python3 - <<'PY'
+          import importlib.util
+          import os
+          import re
+          from pathlib import Path
+
+
+          def append(path_env, text):
+              with open(os.environ[path_env], "a", encoding="utf-8") as handle:
+                  handle.write(text)
+
+
+          def summary(line):
+              append("GITHUB_STEP_SUMMARY", f"### Release dispatch\n- {line}\n")
+
+
+          released = os.environ["RELEASE_VERSION"].strip().removeprefix("v")
+          if re.fullmatch(r"\d+\.\d+\.\d+", released) is None:
+              print(
+                  "::warning title=Unusable release version::The dispatch carried version "
+                  f"{released!r}, which is not X.Y.Z. Pins not compared."
+              )
+              summary(f"ignored a dispatch carrying version `{released}`")
+              raise SystemExit(0)
+
+          # The pin is whatever ci/check-pins.py says it is. Importing that module
+          # rather than grepping the repo again here keeps ONE definition of "what
+          # this repo pins": a pin form added to its PATTERNS list is picked up
+          # here for free, and the two can never disagree. Its module level does no
+          # work and reaches no network — only main() does, behind the usual
+          # __main__ guard.
+          spec = importlib.util.spec_from_file_location("check_pins", Path("ci/check-pins.py"))
+          check_pins = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(check_pins)
+
+          found = check_pins.pins()
+          versions = sorted({version for _, _, version in found})
+          if len(versions) != 1:
+              print(
+                  f"::warning title=Pins do not agree::This repo pins {versions or 'nothing'}, "
+                  f"so there is no single version to compare {released} against. "
+                  "`uv run ci/check-pins.py` is already red; fix that first. No issue opened."
+              )
+              summary(f"could not compare {released}: the pins here disagree ({versions})")
+              raise SystemExit(0)
+          pinned = versions[0]
+
+
+          def parts(version):
+              return tuple(int(number) for number in version.split("."))
+
+
+          if parts(pinned) >= parts(released):
+              print(
+                  f"::notice title=Pins are current::geolens {released} released; this repo "
+                  f"pins {pinned}. Nothing to bump."
+              )
+              summary(f"geolens {released} released, pins are at {pinned} — nothing to bump")
+              raise SystemExit(0)
+
+          files = sorted({location.split(":")[0] for location, _, _ in found})
+          title = f"Bump client pins to {released} and re-sweep"
+
+          lines = [
+              f"`geolens` {released} has been released. This repo pins {pinned}.",
+              "",
+              "The public demo is redeployed from the release, so every live example here",
+              f"is already running against {released} while the docs and install lines on",
+              f"these pages still say {pinned}. That gap is what `ci/check-pins.py` warns",
+              "about on the weekly run without failing.",
+              "",
+              "## Bump the pins",
+              "",
+              "Every file below carries the pinned version. The list is generated from",
+              "`ci/check-pins.py`, so it is the set that actually matched rather than a",
+              "remembered one:",
+              "",
+          ]
+          lines += [f"- `{name}`" for name in files]
+          lines += [
+              "",
+              "`.github/dependabot.yml` is on that list because its comment block spells",
+              "out which pins are manual, and those versions go stale the same way the",
+              "pins do. Run `uv run ci/check-pins.py` when you are done: it fails if any",
+              "of them disagree.",
+              "",
+              "## Re-sweep",
+              "",
+              "Then let **Verify examples** run on the bump PR. The browser job replays",
+              "every page in `ci/manifest.json` against the demo, and the Python, MCP and",
+              "CLI jobs install the newly pinned clients for real. A pin bump that no",
+              "sweep followed is a claim rather than a check.",
+              "",
+              "Opened from geolens-io/geolens's release dispatch (geolens-io/geolens#1609).",
+              "",
+          ]
+
+          body_file = Path(os.environ["RUNNER_TEMP"]) / "pin-bump-issue.md"
+          body_file.write_text("\n".join(lines), encoding="utf-8")
+
+          append("GITHUB_OUTPUT", f"behind=true\ntitle={title}\nbody-file={body_file}\n")
+          summary(f"geolens {released} is ahead of the pinned {pinned}")
+          PY
+
+      - name: Open or refresh the pin-bump issue
+        if: steps.compare.outputs.behind == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: ${{ steps.compare.outputs.title }}
+          BODY_FILE: ${{ steps.compare.outputs.body-file }}
+        run: |
+          # The search narrows the page; the jq comparison decides. `--search` is a
+          # full-text query and will rank a near-miss first given the chance, so
+          # matching on it alone could edit the wrong issue. Comparing through
+          # `env.TITLE` rather than interpolating the title into the jq program
+          # keeps a title containing a quote from breaking the filter.
+          existing="$(gh issue list --state open --limit 100 \
+            --search "$TITLE in:title" \
+            --json number,title \
+            --jq 'map(select(.title == env.TITLE)) | .[0].number // empty')"
+
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file "$BODY_FILE" >/dev/null
+            echo "::notice title=Pin-bump issue refreshed::Updated #${existing} — ${TITLE}"
+            echo "- refreshed the open pin-bump issue #${existing}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            url="$(gh issue create --title "$TITLE" --body-file "$BODY_FILE")"
+            echo "::notice title=Pin-bump issue opened::${url}"
+            echo "- opened ${url}" >> "$GITHUB_STEP_SUMMARY"
+          fi

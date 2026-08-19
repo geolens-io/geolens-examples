@@ -28,6 +28,8 @@ This repo holds runnable examples for consuming GeoLens: one static file per exa
 
 `.github/workflows/qgis.yml` runs on the first day of each month and on demand. No hosted runner has QGIS, so it runs `qgis/verify.py` inside the upstream `qgis/qgis` image (the 3.44 LTR, pinned by digest) with `QT_QPA_PLATFORM=offscreen`: the two subway collections over OGC API - Features and the DEM as XYZ tiles have to load, count right and draw. It runs monthly because the providers it exercises change with QGIS releases rather than with commits to this repo.
 
+`.github/workflows/release-dispatch.yml` runs on nothing you push. It listens for a `geolens-release` repository dispatch from `geolens-io/geolens`, sent when a GA release publishes there. It reads the released version, compares it against what `ci/check-pins.py` says this repo pins, and when the pins are behind it opens — or refreshes, if one is already open for that version — an issue listing every file carrying the version and the sweep to re-run afterwards. When the pins already match, it logs a notice and stops. A release is a task here rather than a notification: the demo these examples run against is redeployed from it, so the pins are stale the moment it ships, and the weekly `check-pins` warning is easy to read past.
+
 If your PR adds or changes a browser example, add or update its entry in `ci/manifest.json` and the status row in the README table. Otherwise CI isn't actually checking what you changed — and a README row claiming a directory is verified with nothing backing it fails the build on its own. An entry is four keys, five when the page draws more than one layer of its own:
 
 ```json
