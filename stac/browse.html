@@ -226,12 +226,15 @@
   };
   const inPolygon = (rings, lng, lat) =>
     rings.length > 0 && inRing(rings[0], lng, lat) && !rings.slice(1).some((hole) => inRing(hole, lng, lat));
-  const covers = (item, middle) => {
-    const g = item.geometry;
+  // Only areas can cover a point: lines and points do not, a collection does
+  // if any member does, and the bbox stands in only for a null geometry.
+  const geometryCovers = (g, middle) => {
     if (g?.type === "Polygon") return inPolygon(g.coordinates ?? [], middle.lng, middle.lat);
     if (g?.type === "MultiPolygon") return (g.coordinates ?? []).some((poly) => inPolygon(poly, middle.lng, middle.lat));
-    return coversBbox(item.bbox, middle);
+    if (g?.type === "GeometryCollection") return (g.geometries ?? []).some((child) => geometryCovers(child, middle));
+    return false;
   };
+  const covers = (item, middle) => (item.geometry ? geometryCovers(item.geometry, middle) : coversBbox(item.bbox, middle));
 
   const when = (props) =>
     props.datetime ??

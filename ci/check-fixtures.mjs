@@ -360,7 +360,8 @@ async function checkStac(name, fx, notes, problems) {
   const planar = (ring, lng, lat) => { let inside = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside; } return inside; };
   const inRing = (ring) => { const r = unwrap(ring); return [center[0], center[0] + 360, center[0] - 360].some((x) => planar(r, x, center[1])); };
   const inPolygon = (rings) => rings.length > 0 && inRing(rings[0]) && !rings.slice(1).some(inRing);
-  const covers = (i) => i.geometry?.type === "Polygon" ? inPolygon(i.geometry.coordinates ?? []) : i.geometry?.type === "MultiPolygon" ? (i.geometry.coordinates ?? []).some(inPolygon) : coversBbox(i.bbox);
+  const geometryCovers = (g) => g?.type === "Polygon" ? inPolygon(g.coordinates ?? []) : g?.type === "MultiPolygon" ? (g.coordinates ?? []).some(inPolygon) : g?.type === "GeometryCollection" ? (g.geometries ?? []).some(geometryCovers) : false;
+  const covers = (i) => (i.geometry ? geometryCovers(i.geometry) : coversBbox(i.bbox));
   const area = (b) => { const f = flat(b); if (!f) return Infinity; const [w, s, e, n] = f; return width(w, e) * (n - s); };
   // Covering items first, tightest first, then the rest by area: the page's
   // sort, so the fixture probes the item the page will draw even when
