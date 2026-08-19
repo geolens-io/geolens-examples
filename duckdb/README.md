@@ -92,4 +92,11 @@ custom headers and does not read `GDAL_HTTP_HEADERS`, so for private
 collections use the parquet route, or run `ogr2ogr` outside DuckDB.
 
 Versions: DuckDB 1.5.5, with `spatial` and `httpfs` installed from the
-extension repository on first run.
+extension repository on first run. On Debian and Ubuntu the `spatial`
+extension's GDAL looks for certificates at the Red Hat path and every https
+`ST_Read` fails with "error adding trust anchors"; `run.py` points it at the
+system bundle, and the CLI needs the same thing done by hand:
+
+```bash
+CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt duckdb < features.sql
+```

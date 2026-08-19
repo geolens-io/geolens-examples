@@ -13,10 +13,18 @@ non-zero if any SELECT comes back empty, which is how CI notices the demo
 changed under the example.
 """
 
+import os
 import sys
 from pathlib import Path
 
 import duckdb
+
+# The spatial extension's GDAL is built against the Red Hat certificate bundle
+# path. On Debian and Ubuntu (GitHub's runners included) every https read via
+# ST_Read fails with "error adding trust anchors" until GDAL is pointed at the
+# bundle those systems ship. The DuckDB CLI needs the same variable exported.
+if not Path("/etc/pki/tls/certs/ca-bundle.crt").exists() and Path("/etc/ssl/certs/ca-certificates.crt").exists():
+    os.environ.setdefault("CURL_CA_BUNDLE", "/etc/ssl/certs/ca-certificates.crt")
 
 path = Path(sys.argv[1] if len(sys.argv) > 1 else Path(__file__).with_name("features.sql"))
 con = duckdb.connect()
