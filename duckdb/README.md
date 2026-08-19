@@ -5,7 +5,7 @@ spatial join at the end.
 
 ```bash
 duckdb < features.sql      # the DuckDB CLI
-uv run run.py              # no CLI: a 20-line uv script runs the same file
+uv run run.py              # no CLI: a short uv script runs the same file
 ```
 
 [`features.sql`](features.sql) is the example. [`run.py`](run.py) exists so it
