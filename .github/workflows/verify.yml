@@ -100,6 +100,12 @@ jobs:
       # its own is drift nobody sees until an example stops matching the docs.
       - name: Check version pins
         run: uv run ci/check-pins.py
+      # The examples link docs routes and geolens source paths by absolute URL,
+      # and nothing on the other side knows they do. A docs page or heading
+      # renamed, or a file moved upstream, fails here rather than in a
+      # reader's browser.
+      - name: Check outbound links
+        run: uv run ci/check-links.py
       - name: Run the OGC analysis
         working-directory: python
         run: |
