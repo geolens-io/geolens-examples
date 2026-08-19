@@ -76,8 +76,12 @@ uvx --from geolens-cli==1.14.0 geolens --json apply cli/geolens.yaml
 
 Same request without `dry_run`. Applying an unchanged entry skips rather than re-importing, so this
 is safe to run on every push. It reconciles *declared configuration*, though, not data: if a source
-URL serves new contents while the manifest is byte-identical, apply still skips it. `geolens refresh
-<dataset-id>` is the command for re-pulling data that changed underneath a declaration.
+URL serves new contents while the manifest is byte-identical, apply still skips it.
+
+`geolens refresh <dataset-id>` re-pulls datasets that keep an upstream binding (a WFS/ArcGIS/OGC API
+Features service, a registered PostGIS table, a STAC item). A manifest source the server downloaded
+is an ordinary upload once ingested, so refresh refuses it; change the entry or its URI so apply sees
+an update.
 
 ## Authenticating non-interactively
 
