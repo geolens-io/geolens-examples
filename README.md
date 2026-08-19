@@ -5,15 +5,35 @@
 [![GeoLens v1.13+](https://img.shields.io/badge/GeoLens-v1.13%2B-1a66c9)](https://github.com/geolens-io/geolens)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[GeoLens](https://github.com/geolens-io/geolens) is a self-hosted spatial data hub: catalog, search, maps, analysis, and open APIs over data that stays on your own infrastructure. This repo holds copy-paste integrations for the tools your stack already uses. Every browser and Python example reads the public demo anonymously, so you clone, open, and see it render; one constant at the top points it at your own instance. The exception is [`cli/`](cli/), which publishes to a catalog and so runs against your own instance with a credential.
+[GeoLens](https://github.com/geolens-io/geolens) is a self-hosted spatial data hub: catalog, search, maps, analysis, and open APIs over data that stays on your own infrastructure. This repo holds copy-paste integrations for the tools your stack already uses. Every browser, Python and DuckDB example reads the public demo anonymously, so you clone, open, and see it render; one constant at the top points it at your own instance. The exception is [`cli/`](cli/), which publishes to a catalog and so runs against your own instance with a credential.
+
+<p align="center">
+  <a href="https://geolens-io.github.io/geolens-examples/search/catalog.html"><img src="assets/search-catalog.jpg" width="32%" alt="Semantic catalog search: the phrase 'space rocks that fell to earth' matches the meteorite landings dataset, drawn on the map beside the result card" /></a>
+  <a href="qgis/"><img src="assets/qgis-window.jpg" width="32%" alt="QGIS with the demo's subway stations, subway lines and Matterhorn DEM added through one OGC API Features connection" /></a>
+  <a href="https://geolens-io.github.io/geolens-examples/embed/iframe.html"><img src="assets/embed-iframe.jpg" width="32%" alt="A saved GeoLens map, Restless Earth, embedded in an iframe on a plain page with its legend and styling intact" /></a>
+</p>
+<p align="center"><em>Search the catalog by meaning, connect from desktop GIS, or embed a map, with the same self-hosted catalog and open APIs underneath.</em></p>
 
 - **[Live gallery](https://geolens-io.github.io/geolens-examples/)**: every browser example running, arranged by what you are trying to do. Open one before you clone anything.
 - **[Try GeoLens](https://demo.getgeolens.com/maps)**: the public demo these examples read. Its catalog and its saved maps open without an account.
 - **[Main repository](https://github.com/geolens-io/geolens)**: GeoLens itself, with the install script, the docs, and the issue tracker.
 
 If GeoLens is useful to you, [star it on GitHub](https://github.com/geolens-io/geolens). That is how most people find it.
+If these examples save you an afternoon, star or watch [this repo](https://github.com/geolens-io/geolens-examples) too.
 
 GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), and raster tiles. These examples show those surfaces from the consumer's side.
+
+## GeoLens in 10 minutes
+
+The table below is arranged by tool. Read in this order, the same examples trace the platform from an empty instance to a map someone else can use.
+
+1. **Install.** `curl -fsSL https://getgeolens.com/install.sh | sh` starts the stack with Docker Compose; open `http://localhost:8080` about a minute later ([install guide](https://docs.getgeolens.com/guides/quickstart/install/)). The [public demo](https://demo.getgeolens.com) covers the read steps below without an install.
+2. **Publish two sources.** Declare them in a manifest and run `geolens apply`. [`cli/`](cli/) holds a `geolens.yaml` with two Natural Earth layers and the GitHub Actions workflow that applies it ([CLI guide](https://docs.getgeolens.com/guides/cli/)).
+3. **Find them by meaning.** [`search/catalog.html`](search/catalog.html) asks the catalog for a phrase rather than a title. On your own instance semantic search is off until an admin adds an embedding provider, turns it on under Admin > Settings > AI, and runs the embedding backfill ([search guide](https://docs.getgeolens.com/guides/user/search/)).
+4. **Build a map.** Add layers from the catalog, style each one, set the viewport, save ([map builder guide](https://docs.getgeolens.com/guides/user/map-builder/)). The [showcase maps](https://demo.getgeolens.com/maps) on the demo were made this way.
+5. **Analyze on the server.** The builder's Analysis panel runs buffer, intersect, dissolve and five more operations in PostGIS and writes the result back to the catalog as a new dataset; all but dissolve preview on the map first ([analysis guide](https://docs.getgeolens.com/guides/user/analysis/)). The demo answers anonymous analysis calls with 401, so there is no live example here; [`python/analyze.py`](python/analyze.py) does the same join client-side.
+6. **Publish or embed it.** A share link gives the map a stable `/m/<token>` URL, and `?embed=true` puts it in an iframe on a page that is not GeoLens: [`embed/iframe.html`](embed/iframe.html).
+7. **Read it back from anywhere.** The same catalog answers QGIS over OGC API Features ([`qgis/`](qgis/)), the Python SDK ([`python/sdk-catalog.py`](python/sdk-catalog.py)), the TypeScript SDK ([`typescript/catalog-map.html`](typescript/catalog-map.html)), and plain SQL in DuckDB ([`duckdb/features.sql`](duckdb/features.sql)).
 
 ## Examples
 
@@ -37,10 +57,10 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 | [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.14.0 (single-file `uv run` script) | SDK catalog search, schema semantics, server-side filter, export into GeoPandas | `uv run python/sdk-catalog.py` |
 | [`mcp/`](mcp/) | Any MCP client via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0` |
 | [`qgis/`](qgis/) | QGIS 4.2 | OGC API Features + Records with CQL2, XYZ raster, tile-token auth | `https://demo.getgeolens.com/api/` |
-| `duckdb/` | DuckDB | SQL directly over the Features API | Planned |
+| [`duckdb/features.sql`](duckdb/features.sql) | DuckDB 1.5.5 (`spatial` + `httpfs`) | GeoParquet export read in place, OGC API Features through GDAL's OAPIF driver, spatial join in SQL | `uv run duckdb/run.py` |
 | [`cli/`](cli/) | `geolens-cli` 1.14.0 | Catalog-as-code: offline `validate`, then `apply --dry-run` and `apply` against your instance | `uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml` |
 
-Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted, not just that the requests returned 200. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The embedded map is the exception: it renders seven layers GeoLens styles server-side, so CI proves the frame loaded and its tiles flowed, not that every layer is present. Both Python examples run green with one command.
+Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted, not just that the requests returned 200. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The embedded map is the exception: it renders seven layers GeoLens styles server-side, so CI proves the frame loaded and its tiles flowed, not that every layer is present. The two Python examples and the DuckDB example each run green with one command.
 
 MapLibre examples also work with Mapbox GL JS with minimal changes (both consume the same MVT and raster sources).
 

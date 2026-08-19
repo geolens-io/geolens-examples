@@ -4,18 +4,21 @@
 <meta charset="utf-8" />
 <title>GeoLens Examples</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="description" content="Runnable examples for reading a GeoLens catalog from MapLibre, Leaflet, OpenLayers, the ArcGIS SDK, the TypeScript and Python SDKs, and MCP: OGC API Features, STAC, vector and raster tiles, and embedded maps. Every one runs against the public demo." />
+<meta name="description" content="Runnable examples for reading a GeoLens catalog from MapLibre, Leaflet, OpenLayers, the ArcGIS SDK, the TypeScript and Python SDKs, and MCP: OGC API Features, STAC, vector and raster tiles, and embedded maps. Every live example runs against the public demo." />
 <link rel="canonical" href="https://geolens-io.github.io/geolens-examples/" />
 <meta property="og:title" content="GeoLens Examples" />
-<meta property="og:description" content="Copy-paste integrations against a self-hosted GeoLens spatial data hub: OGC API Features, STAC, vector and raster tiles, embedded maps, and both SDKs. Every one runs against the public demo." />
+<meta property="og:description" content="Copy-paste integrations against a self-hosted GeoLens spatial data hub: OGC API Features, STAC, vector and raster tiles, embedded maps, and both SDKs. Every live example runs against the public demo." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://geolens-io.github.io/geolens-examples/" />
-<meta property="og:image" content="https://geolens-io.github.io/geolens-examples/assets/embed-iframe.jpg" />
+<meta property="og:image" content="https://geolens-io.github.io/geolens-examples/assets/social-card.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="GeoLens Examples" />
-<meta name="twitter:description" content="Copy-paste integrations against a self-hosted GeoLens spatial data hub: OGC API Features, STAC, vector and raster tiles, embedded maps, and both SDKs. Every one runs against the public demo." />
-<meta name="twitter:image" content="https://geolens-io.github.io/geolens-examples/assets/embed-iframe.jpg" />
-<link rel="icon" href="data:," />
+<meta name="twitter:description" content="Copy-paste integrations against a self-hosted GeoLens spatial data hub: OGC API Features, STAC, vector and raster tiles, embedded maps, and both SDKs. Every live example runs against the public demo." />
+<meta name="twitter:image" content="https://geolens-io.github.io/geolens-examples/assets/social-card.jpg" />
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+<link rel="icon" href="assets/favicon-32.png" type="image/png" sizes="32x32" />
 <style>
   /* ---- tokens ------------------------------------------------------------
      The palette is the examples' own data styling: #4da3ff is the colour every
@@ -67,16 +70,23 @@
     padding: 1.1rem 0; border-bottom: 1px solid var(--rule);
     font-family: var(--mono); font-size: .78rem; letter-spacing: .02em;
   }
-  .masthead nav { display: flex; gap: 1.25rem; }
+  .masthead nav { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; align-items: baseline; }
   .masthead a { color: var(--muted); text-decoration: none; }
   .masthead a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .repo { color: var(--muted); }
   .repo b { color: var(--ink); font-weight: 600; }
   .masthead a.star {
-    color: var(--ink); padding: .22rem .7rem;
+    color: var(--ink); padding: .22rem .7rem; white-space: nowrap;
     border: 1px solid var(--rule); border-radius: 999px;
   }
   .masthead a.star:hover { color: var(--vector); border-color: var(--vector); text-decoration: none; }
+  /* The second ask, one step quieter: muted text and a fainter border on the
+     same pill. */
+  .masthead a.star.quiet {
+    color: var(--muted);
+    border-color: color-mix(in oklab, var(--rule) 55%, transparent);
+  }
+  .masthead a.star.quiet:hover { color: var(--vector); border-color: var(--vector); }
 
   /* ---- hero ------------------------------------------------------------- */
   .hero { padding: clamp(3rem, 9vw, 6rem) 0 clamp(2.5rem, 6vw, 4rem); }
@@ -239,6 +249,7 @@
       <a href="https://github.com/geolens-io/geolens-examples">Repository</a>
       <a href="https://demo.getgeolens.com/collections">Demo catalog</a>
       <a class="star" href="https://github.com/geolens-io/geolens">★ Star geolens on GitHub</a>
+      <a class="star quiet" href="https://github.com/geolens-io/geolens-examples">☆ Save these examples</a>
     </nav>
   </header>
 
@@ -309,12 +320,18 @@
     <ul class="chips" id="chips"></ul>
   </section>
 
-  <main id="bands"></main>
+  <main id="bands">
+    <noscript>
+      <p>The gallery is built by a script, so it needs JavaScript;
+        <a href="https://github.com/geolens-io/geolens-examples#examples">the same table in the README</a>
+        lists every example with a link to run it.</p>
+    </noscript>
+  </main>
 
   <footer class="page">
     <p>
-      Not here yet: ArcGIS Pro, DuckDB over the Features API, and the workflows the public demo
-      cannot host at all (server-side analysis, private embeds).
+      Not here yet: ArcGIS Pro, and the workflows the public demo cannot host at all
+      (server-side analysis, private embeds).
       <a href="https://github.com/geolens-io/geolens-examples/issues">Open an issue</a> if you want one sooner.
     </p>
     <p class="fine">
@@ -330,8 +347,8 @@
   // section; naming an audience that has no cards yet creates its section.
   //   live      relative path in this repo, omit for anything that is not a page
   //   address   the call the example makes — the line every card carries.
-  //             For python/ and mcp/ this is a command a reader will
-  //             paste, and the same string is in README.md's Examples table.
+  //             For python/, duckdb/, mcp/ and cli/ this is a command a reader
+  //             will paste, and the same string is in README.md's Examples table.
   //             Still two copies, now with a guard: ci/verify-examples.mjs
   //             fails the build if a command here matches no README row, or a
   //             README row's command matches no card here (#16).
@@ -348,7 +365,7 @@
     ["ai-developer", "AI developer",
      "Put catalog context inside an assistant session: what data exists, what shape it is in, and what it says."],
     ["data-scientist", "Data scientist",
-     "Pull features into Python and analyze them next to everything else you work with."],
+     "Pull features into Python or SQL and analyze them next to everything else you work with."],
   ];
 
   const REPO = "https://github.com/geolens-io/geolens-examples/blob/main/";
@@ -510,6 +527,17 @@
       source: "python/sdk-catalog.py",
       docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/python"],
       datasets: [],
+    },
+    {
+      audience: "data-scientist", tool: "DuckDB 1.5.5 · spatial + httpfs",
+      title: "SQL over the catalog, no client library",
+      blurb: "Reads the GeoParquet export in place over HTTPS, with the filter run in PostGIS before a byte leaves the server, then walks two collections through GDAL's OGC API Features driver and repeats the GeoPandas stations-per-service join in SQL. It needs no GeoLens client library, and the numbers match python/analyze.py to the decimal.",
+      tag: "DuckDB", kind: "vector",
+      address: "uv run duckdb/run.py",
+      snippet: "<b>$</b> uv run duckdb/run.py\n  service  name                     km  stops\n  A        8 Avenue Express       56.5     74\n  SIR      Staten Island Railway  54.0     21\n  F        6 Avenue Local         44.0     59\n\n  rows_written  29   GEOMETRY('OGC:CRS84')",
+      source: "duckdb/features.sql",
+      docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/duckdb"],
+      datasets: [LINES, STATIONS, METEORITES],
     },
     {
       audience: "data-engineer", tool: "geolens-cli 1.14.0",
