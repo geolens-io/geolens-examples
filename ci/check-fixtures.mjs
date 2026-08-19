@@ -75,15 +75,40 @@ const ATTEMPTS = knob("FIXTURE_ATTEMPTS", 3, 1);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 class TransportError extends Error {}
 const transient = (status) => status >= 500 || status === 429 || status === 408;
-async function get(path) {
+// `options` is merged into the fetch init, so a probe that needs a header (the
+// export probe sends a Range) still gets the retries, the shared deadline and
+// the transport-error classification above. A probe calling fetch directly
+// gets none of that, and records the demo's one flaky minute as a fixture that
+// moved.  The signal is set here and not overridable: the deadline is the
+// whole point.
+//
+// `consume` is for a probe that has to read the body to reach its verdict.
+// Headers arriving is not the same event as bytes arriving: a connection that
+// resets after the status line fails inside the body read, which is a
+// transport failure in every sense but happens after this function has already
+// returned. Running it here puts it inside the attempt, so a reset body is
+// retried and a body that never arrives ends up classified as transport rather
+// than as a fixture that moved. Its return value is what get() hands back.
+//
+// A probe with no `consume` gets the Response, exactly as before, and reads the
+// body afterwards at its own risk.
+async function get(path, options = {}, consume = null) {
   const url = /^https?:\/\//i.test(path) ? path : `${DEMO}${path}`;
   let last;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     const left = DEADLINE - Date.now();
     if (left <= 0) throw new TransportError(`the preflight's ${knobText("FIXTURE_DEADLINE_MS")} deadline passed before ${url} could be read`);
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, left)) });
-      if (!transient(res.status)) return res;
+      const res = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, left)),
+      });
+      // Status classification is unchanged and happens first, so a 401 or a
+      // 404 still returns on the first attempt for the caller to judge, and
+      // only a transient status is retried. `consume` runs for the responses
+      // that get past that, which are exactly the ones a caller would have
+      // read the body of anyway.
+      if (!transient(res.status)) return consume ? await consume(res) : res;
       last = new TransportError(`${url} answered ${res.status}`);
       // A Retry-After in seconds is the server naming its own gap.
       const after = Number(res.headers.get("retry-after"));
@@ -416,7 +441,116 @@ async function checkStac(name, fx, notes, problems) {
   notes.push(`"${pick.properties?.title ?? pick.id}" tile ${probe} ${type} ${bytes}B`);
 }
 
-const KNOWN = ["collection", "stac", "vectorTile", "rasterTile", "sharedMap", "search"];
+// duckdb/query.py does not fetch this export, it ranges into it: DuckDB reads
+// the Parquet footer and then only the columns a query names. That needs three
+// things the items probe above says nothing about: the route answering an
+// anonymous caller, a Content-Length to range into, and 206 on a Range header.
+//
+// Two of those are invariants and the third is not, which is the whole design
+// of this probe. Anonymous access and the file actually being Parquet decide
+// whether the example can work at all. Ranges only decide what a read costs.
+//
+// Ranges are reported and never asserted because GeoLens is entitled to
+// decline one. A leading bare Range is honoured even on an export it has never
+// built (geolens#1585), so a 200 here is not "the artifact is cold": it is
+// GeoLens serving the whole file rather than the range, which it may do for an
+// artifact being rebuilt or contended for. Failing the build on that would
+// make green depend on which minute the job ran.
+//
+// Worth keeping separate from the reason duckdb/query.py sometimes streams the
+// whole file, which is a different mechanism: DuckDB needs a Content-Length
+// off HEAD before it will address ranges at all, and a cold artifact answers
+// HEAD without one. Same symptom, two unrelated causes.
+//
+// The request costs four bytes either way: ask for the first four, and read
+// only four off the body when the answer is a 200 that ignored the Range
+// header. A Parquet file opens and closes with the same magic, so the head is
+// as good as the footer here and needs no length to address.
+async function checkExport(name, fx, notes, problems) {
+  const { format, contentType, magic } = fx.export;
+  const path = `/api/datasets/${fx.collection}/export?format=${format}`;
+  // Through get(), so a 502 on the demo's one bad minute is retried and then
+  // filed as "demo unavailable" rather than as this fixture having moved. The
+  // callback runs inside the attempt, so a body that resets before four bytes
+  // arrive is retried too, rather than being reported as the export having
+  // changed format.
+  const res = await get(
+    path,
+    { headers: { Range: `bytes=0-${magic.length - 1}` } },
+    async (response) => {
+      const seen = {
+        status: response.status,
+        type: (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase(),
+        opening: null,
+      };
+      // Only the responses that carry the bytes this probe is here to read.
+      // A 401 or a 404 is the caller's to classify and has no body worth
+      // reading, and reading one would be an error this loop would retry.
+      if (response.status !== 206 && response.status !== 200) return seen;
+
+      // Four bytes off the stream, then hang up. On a 206 that is the whole
+      // body; on a 200 it stops a 3.3 MB download that nothing here needs.
+      // Anything thrown in here counts as a transient and is retried.
+      const reader = response.body.getReader();
+      const head = new Uint8Array(magic.length);
+      let filled = 0;
+      try {
+        while (filled < magic.length) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const take = Math.min(value.length, magic.length - filled);
+          head.set(value.subarray(0, take), filled);
+          filled += take;
+        }
+      } finally {
+        await reader.cancel().catch(() => {});
+      }
+      // A body that ended early is not a verdict about the file, it is a read
+      // that did not finish. Throwing sends it back through the retry.
+      if (filled < magic.length) {
+        throw new TransportError(
+          `${DEMO}${path} sent ${filled} of the first ${magic.length} bytes before the body ended`,
+        );
+      }
+      seen.opening = new TextDecoder().decode(head);
+      return seen;
+    },
+  );
+  if (res.status === 401 || res.status === 403) {
+    problems.push(
+      `fixture ${name}: the ${format} export answered ${res.status} to an anonymous caller ` +
+        `(${fx.export.why ?? "an example reads this export anonymously"}). The dataset stopped ` +
+        `being public, or the export route stopped serving anonymous callers. DuckDB reports ` +
+        `this one as "HTTP 0 Internal Server Error" and GDAL as "Could not open GDAL dataset", ` +
+        `so it is worth catching here instead.`,
+    );
+    return;
+  }
+  if (res.status !== 206 && res.status !== 200) {
+    problems.push(`fixture ${name}: the ${format} export answered ${res.status}, so duckdb/query.py has nothing to read.`);
+    return;
+  }
+
+  // Normalized both sides, the way checkTile does it: media types are
+  // case-insensitive per RFC 9110, and an intermediary is free to hand back
+  // "Application/Vnd.Apache.Parquet; charset=binary".
+  const { type, opening } = res;
+  if (type !== contentType.toLowerCase()) {
+    problems.push(`fixture ${name}: the ${format} export is served as "${type}", not "${contentType}".`);
+  }
+  if (opening !== magic) {
+    problems.push(
+      `fixture ${name}: the ${format} export opens with ${JSON.stringify(opening)}, not ` +
+        `${JSON.stringify(magic)}, so it is not the file format the route claims. ` +
+        `The examples asking for it are the ones that write ${fx.export.grep} ` +
+        `(grep -rl "${fx.export.grep}").`,
+    );
+  }
+  const ranged = res.status === 206 ? "ranged" : "range declined, whole file offered";
+  notes.push(`${format} export ${ranged}, ${type}`);
+}
+
+const KNOWN = ["collection", "stac", "vectorTile", "rasterTile", "sharedMap", "search", "export"];
 const transport = [];
 for (const [name, fx] of Object.entries(fixtures)) {
   const notes = [];
@@ -433,6 +567,7 @@ for (const [name, fx] of Object.entries(fixtures)) {
     if (fx.rasterTile) await checkTile(name, "raster", fx.rasterTile, notes, problems);
     if (fx.sharedMap) await checkSharedMap(name, fx, notes, problems);
     if (fx.search) await checkSearch(name, fx, notes, problems);
+    if (fx.export) await checkExport(name, fx, notes, problems);
   } catch (err) {
     // A response that never came, kept failing, or was not JSON is the demo
     // (or the path to it) misbehaving, not the catalog moving. It goes on the

@@ -14,6 +14,13 @@
       "itemType": "feature",
       "geometryType": "MultiLineString",
       "minNumberMatched": 20,
+      "export": {
+        "format": "parquet",
+        "contentType": "application/vnd.apache.parquet",
+        "magic": "PAR1",
+        "grep": "format=parquet",
+        "why": "duckdb/query.py reads this export with DuckDB's read_parquet over HTTP, which needs the route to answer anonymously and to serve byte ranges"
+      },
       "vectorTile": {
         "path": "/api/tiles/data.nyc_subway_lines_mta/",
         "probe": "12/1206/1539.pbf",
