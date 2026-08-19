@@ -93,8 +93,8 @@ https://demo.getgeolens.com/api/collections/datasets/items?filter=title LIKE '%S
 
 QGIS passes a URL to GDAL as it would a path, GDAL reads the GeoJSON, and the layer arrives
 with only the two matching records. CQL2 works only on the catalog; see
-[OGC API - Features](https://docs.getgeolens.com/guides/api/ogc/#ogc-api---features) for why a
-feature collection answers `filter=` with a 400. Feature collections take `bbox` and plain
+[OGC API - Features](https://docs.getgeolens.com/guides/api/ogc/#ogc-api---features) for the
+endpoint rule. Feature collections take `bbox` and plain
 `property=value` parameters instead (`items?borough=M` on the stations returns 153), which is
 what step 1's view-extent option uses.
 

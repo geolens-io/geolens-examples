@@ -80,9 +80,9 @@ curl -sS -X POST "https://your-geolens/api/maps/<mapId>/share/" \
 Put the returned `token` in `SHARE_TOKEN` and your host in `GEOLENS`.
 
 On a map with no share token yet, an empty body creates one that never expires.
-Pass `{"expires_in_days": <days>}` for one that does; see
-[Sharing & embedding](https://docs.getgeolens.com/guides/user/map-builder/#sharing--embedding)
-for the valid values and the builder's Share dialog equivalent.
+Pass `{"expires_in_days": 30}` if you want one that does, using 1, 7, 30 or 90;
+other values are rejected. The builder's Share dialog offers the same choices; see
+[Sharing & embedding](https://docs.getgeolens.com/guides/user/map-builder/#sharing--embedding).
 
 Against a map that already has an active token, the endpoint reuses the existing
 row, and two things change. The raw token is not returned again, only an

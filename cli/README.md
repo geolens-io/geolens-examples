@@ -1,5 +1,7 @@
 # Catalog as code with the GeoLens CLI
 
+See the [CLI guide](https://docs.getgeolens.com/guides/cli/) for install and command reference.
+
 A GeoLens catalog can be a thing people click together, or it can be a file in Git that a machine
 reconciles. [`geolens.yaml`](geolens.yaml) is the second one: it declares what datasets exist, where
 their data comes from, what metadata rides along, and whether each is published. `geolens apply`

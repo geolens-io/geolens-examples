@@ -1,7 +1,7 @@
 # TypeScript: drive a map from the catalog with `@geolens/sdk`
 
 See the [TypeScript SDK guide](https://docs.getgeolens.com/guides/sdk/typescript/)
-for the full client API; this page covers what running it in a browser adds.
+for install, auth and the first call; this page covers what running it in a browser adds.
 
 `catalog-map.html` asks a GeoLens instance what it holds, shows what the catalog
 knows about the dataset you picked, and draws it. The picker re-runs the whole
@@ -118,10 +118,10 @@ column-level schema this page infers from a sample feature instead.
 
 ## Authentication
 
-The SDK sends credentials as headers, one mode or the other. See the typescript
-guide's [Authenticate](https://docs.getgeolens.com/guides/sdk/typescript/#authenticate)
-section for `apiKey` vs `bearerToken`, and
-[Authentication](https://docs.getgeolens.com/guides/api/auth/) for how to get either:
+The SDK sends credentials as headers: `apiKey` becomes `X-Api-Key` and `bearerToken`
+becomes `Authorization: Bearer`, one mode or the other. See the typescript guide's
+[Authenticate](https://docs.getgeolens.com/guides/sdk/typescript/#authenticate) section for
+both, and [Authentication](https://docs.getgeolens.com/guides/api/auth/) for how to get either.
 
 ```js
 createGeolensClient({ baseUrl: `${GEOLENS}/api`, apiKey: "<key>" });

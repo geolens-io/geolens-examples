@@ -1,7 +1,7 @@
 # Ask an MCP client about your geospatial catalog
 
-See the [MCP SDK guide](https://docs.getgeolens.com/guides/sdk/mcp/) for the tool
-reference; this page covers setup, client configs, and what the tools actually return.
+See the [MCP server guide](https://docs.getgeolens.com/guides/sdk/mcp/) for the tool
+reference; this page covers setup, client configs, and real transcripts.
 
 `geolens-mcp` is a read-only [MCP](https://modelcontextprotocol.io) server that puts a GeoLens
 catalog inside any MCP client's session: Claude Code, Claude Desktop, Cursor, Codex, or one you
@@ -107,17 +107,16 @@ once it knows which dataset and column it needs.
 If your instance has AI chat enabled and you supply an API key for a user who holds that permission,
 add a sixth: **"Use the query tool to count rows per category in that dataset."** (This one cannot
 run against the demo anonymously; see the transcript below for what happens if you try.)
-`query` runs a single read-only `SELECT` under a server-side sandbox; see
-[Using query](https://docs.getgeolens.com/guides/sdk/mcp/#using-query) for the function
-allowlist, the mandatory `restrict_tables` scope, and the row and self-join limits.
+The function allowlist, the mandatory `restrict_tables` scope, and the row and self-join
+limits are in [Using query](https://docs.getgeolens.com/guides/sdk/mcp/#using-query).
 
 ## How it actually behaves
 
 Captured on 2026-08-14 by driving the wheel `geolens-mcp` published as version 1.13.0 over stdio
 with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported
 itself healthy at 1.13.0; the tool set is unchanged in 1.14.0). Output is real and trimmed for width.
-The dataset ids, titles, and counts below are whatever the demo held at capture time, not pinned
-fixtures; a reseed changes them, so read this for shape, not for the literal values.
+The ids and counts below are whatever the demo held at capture time; read the transcript for
+shape, not for literal values.
 
 Tool discovery, straight after `initialize`:
 
