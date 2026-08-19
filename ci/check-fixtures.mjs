@@ -29,9 +29,11 @@
 //
 // Usage: node ci/check-fixtures.mjs
 //   GEOLENS=https://demo.getgeolens.com    instance to probe
-//   FIXTURE_TIMEOUT_MS=15000               per-request bound, so a hung demo
-//                                          fails the step instead of holding
-//                                          the job until its own timeout
+//   FIXTURE_TIMEOUT_MS=15000               per-request bound
+//   FIXTURE_ATTEMPTS=3                     tries per request for transient failures
+//   FIXTURE_DEADLINE_MS=180000             bound on the whole preflight, under the
+//                                          step's timeout in verify.yml, so a hung
+//                                          demo ends in this script's own verdict
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,6 +43,7 @@ const DEMO = (process.env.GEOLENS ?? "https://demo.getgeolens.com").replace(/\/+
 const DEMO_HOST = new URL(DEMO).host;
 // Both knobs are validated the way verify-examples.mjs validates its manifest
 // numbers: a typo becomes an error, not a zero timeout that aborts everything.
+const knobText = (name) => `${name}=${process.env[name] ?? "default"}`;
 const knob = (name, fallback, min) => {
   const raw = process.env[name];
   const value = raw === undefined ? fallback : Number(raw);
@@ -51,6 +54,11 @@ const knob = (name, fallback, min) => {
   return value;
 };
 const TIMEOUT_MS = knob("FIXTURE_TIMEOUT_MS", 15000, 1000);
+// The whole preflight also has one deadline, under the step's own timeout in
+// verify.yml, so several probes that accept a connection and then hang still
+// end in this script's "demo unavailable" verdict rather than in the runner
+// killing the process with a generic timeout.
+const DEADLINE = Date.now() + knob("FIXTURE_DEADLINE_MS", 180000, 10000);
 
 const { fixtures } = JSON.parse(readFileSync(join(HERE, "fixtures.json"), "utf8"));
 
@@ -71,8 +79,10 @@ async function get(path) {
   const url = /^https?:\/\//i.test(path) ? path : `${DEMO}${path}`;
   let last;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
+    const left = DEADLINE - Date.now();
+    if (left <= 0) throw new TransportError(`the preflight's ${knobText("FIXTURE_DEADLINE_MS")} deadline passed before ${url} could be read`);
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, left)) });
       if (!transient(res.status)) return res;
       last = new TransportError(`${url} answered ${res.status}`);
       // A Retry-After in seconds is the server naming its own gap.
@@ -81,9 +91,9 @@ async function get(path) {
     } catch (err) {
       last = err instanceof TransportError ? err : new TransportError(`${url} could not be read (${oneLine(err)})`);
     }
-    if (attempt < ATTEMPTS) {
+    if (attempt < ATTEMPTS && Date.now() < DEADLINE) {
       console.log(`  retrying ${path} after ${oneLine(last)} (attempt ${attempt} of ${ATTEMPTS})`);
-      await sleep(1000 * attempt);
+      await sleep(Math.min(1000 * attempt, Math.max(0, DEADLINE - Date.now())));
     }
   }
   throw last;
