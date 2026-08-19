@@ -139,14 +139,17 @@
   // resolved against the search response the item arrived in, and put the
   // tile template's braces back, since URL parsing percent-encodes them and
   // MapLibre needs them raw.
+  const braces = (u) => u.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
   const absolute = (href, item) => {
     if (typeof href !== "string") return null;
-    if (/^https?:\/\//i.test(href)) return href;
+    // An absolute template can arrive with its braces already encoded; MapLibre
+    // needs them literal either way.
+    if (/^https?:\/\//i.test(href)) return braces(href);
     try {
       const page = item?._base ?? SEARCH;
       const self = item?.links?.find((l) => l.rel === "self")?.href;
       const base = self ? new URL(self, page).href : page;
-      return new URL(href, base).href.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
+      return braces(new URL(href, base).href);
     } catch {
       return null;
     }

@@ -373,6 +373,7 @@ async function checkStac(name, fx, notes, problems) {
   // Same resolution rules as the page: a relative asset href is relative to
   // the item's self link, itself relative to the response the item came in.
   let href = pick.assets?.raster_tiles?.href;
+  if (typeof href === "string" && /^https?:\/\//i.test(href)) href = href.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
   if (typeof href === "string" && !/^https?:\/\//i.test(href)) {
     try {
       const self = pick.links?.find((l) => l.rel === "self")?.href;

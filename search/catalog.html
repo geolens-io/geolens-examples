@@ -247,7 +247,12 @@
     }
 
     const bbox = flatten(feature.bbox);
-    if (bbox) map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 40, duration: 0 });
+    // A record spanning the antimeridian is written west > east; the east
+    // corner goes past 180 so the fit takes the short way round.
+    if (bbox) {
+      const east = bbox[0] <= bbox[2] ? bbox[2] : bbox[2] + 360;
+      map.fitBounds([[bbox[0], bbox[1]], [east, bbox[3]]], { padding: 40, duration: 0 });
+    }
   };
 
   const card = (feature, query) => {
@@ -338,6 +343,9 @@
         features,
         numberReturned: features.length,
         numberMatched: whole ? features.length : null,
+        // With two halves, everything a cut half left unread could already be
+        // on the other half's page, so the remainder is a maybe, not a fact.
+        split: pages.length > 1,
       };
       // A single page that states its total states it; one that omits it
       // keeps the whole/not-whole verdict from above.
@@ -362,7 +370,7 @@
     // page of it. They differ as soon as the catalog has more hits than `limit`.
     const where = bbox ? ", inside the current view" : "";
     summary = body.numberMatched === null
-      ? `${body.numberReturned} shown; more matched${where}`
+      ? `${body.numberReturned} shown; ${body.split ? "there may be more" : "more matched"}${where}`
       : body.numberMatched === body.numberReturned
         ? `${body.numberMatched} record(s) matched${where}`
         : `${body.numberReturned} of ${body.numberMatched} matched${where}`;
