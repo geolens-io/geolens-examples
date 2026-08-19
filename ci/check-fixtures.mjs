@@ -320,7 +320,7 @@ async function checkStac(name, fx, notes, problems) {
   // own cap, so the item chosen here is the item the page will draw.
   const items = [];
   const seen = new Set();
-  let url = `/api/stac/search?bbox=${bbox.join(",")}&limit=20`;
+  let url = `${DEMO}/api/stac/search?bbox=${bbox.join(",")}&limit=20`;
   const visited = new Set();
   while (url && items.length < 100) {
     if (visited.has(url)) { problems.push(`fixture ${name}: /api/stac/search repeats a next link (${url}).`); return; }
@@ -332,12 +332,12 @@ async function checkStac(name, fx, notes, problems) {
     }
     const page = await res.json();
     for (const f of page.features ?? []) {
-      f._base = res.url;
+      f._base = res.url || url;
       const k = `${f.collection ?? ""}/${f.id}`;
       if (!seen.has(k)) { seen.add(k); items.push(f); }
     }
     const next = page.links?.find((l) => l.rel === "next")?.href;
-    url = next ? new URL(next, res.url).href : null;
+    url = next ? new URL(next, res.url || url).href : null;
   }
   notes.push(`${items.length} STAC item(s) over the opening view`);
   if (items.length < minItems) {

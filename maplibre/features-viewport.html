@@ -26,9 +26,10 @@
 </div>
 <script>
   // Point this at your own GeoLens instance to use your data. The demo is
-  // anonymous; a private dataset takes an X-Api-Key header on the fetch()
-  // below. Keep the key out of the URL. See "Authenticating against your own
-  // instance" in the README.
+  // anonymous, so this page sends no credential. A private dataset needs an
+  // X-Api-Key header, which you would add to the fetch() below. Keep the key
+  // out of the URL and out of this file. See "Authenticating against your
+  // own instance" in the README.
   const GEOLENS = "https://demo.getgeolens.com";
 
   // Meteorite Landings: 32,186 points spread over the whole planet. The
@@ -140,7 +141,7 @@
 
     const features = [];
     let pages = 0;
-    let matched = 0;
+    let matched = null; // summed per walk when the server states it; null when it never did
     let capped = false;
     // A feature whose geometry touches both sides of the dateline comes back
     // from both walks; keep it once, by id.
@@ -179,8 +180,12 @@
 
           pages += 1;
           // numberMatched is per walk and the same on every page of it, so
-          // count it once per box.
-          if (first) { matched += page.numberMatched ?? 0; first = false; }
+          // count it once per box. It is optional in OGC API Features; a
+          // server that omits it leaves the total unknown until the walk ends.
+          if (first) {
+            if (typeof page.numberMatched === "number") matched = (matched ?? 0) + page.numberMatched;
+            first = false;
+          }
           // Take only what fits under the cap, so the page never holds more
           // than it says it does: 4,500 held plus a 1,000-row page is 5,000
           // held and 500 left on the server, not 5,500 held.
@@ -194,8 +199,10 @@
           map.getSource("meteorites").setData({ type: "FeatureCollection", features });
 
           // A relative next href is relative to the response, not this page.
+          // res.url is empty for a synthetic response (a service worker, a
+          // test double), so the request URL is the fallback base.
           const next = page.links?.find((l) => l.rel === "next")?.href;
-          url = next ? new URL(next, res.url).href : null;
+          url = next ? new URL(next, res.url || url).href : null;
           // Capped means "there was more and we stopped". A view that matches
           // exactly MAX_FEATURES ends its last page at the cap with no next
           // link and nothing left over, and that is a complete result, not a
@@ -228,13 +235,15 @@
     // so for a dateline view that ran dry the unique count is the true total,
     // and for one the cap cut short there is no exact total to give.
     const split = boxes.length > 1;
-    if (split && !capped) matched = held;
+    // A walk that ran dry held every feature the view matched, so the unique
+    // count is the exact total whether the server stated one or not.
+    if (!capped && (split || matched === null)) matched = held;
     if (capped) {
       // Truncated, and said so. Anything short of this line held every
       // feature the view matched, whatever the two counts looked like on the
       // way there.
       status.className = "capped";
-      const total = split ? "more than that" : fmt(matched);
+      const total = split || matched === null ? "more than that" : fmt(matched);
       status.textContent = capped === "maybe"
         ? `Holding ${fmt(held)} after ${pages} pages: at the ${fmt(MAX_FEATURES)}-feature cap with the far side of the antimeridian not fully read, so there may be more. This is where vector tiles take over.`
         : `Holding ${fmt(held)} of ${total} matched after ${pages} pages: truncated at the ${fmt(MAX_FEATURES)}-feature cap for one view. This is where vector tiles take over.`;

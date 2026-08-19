@@ -393,14 +393,15 @@
           const page = await res.json();
           // Relative links in an item are relative to the document it came in;
           // remember which one, since a redirect or a next link can move it.
-          for (const f of page.features ?? []) f._base = res.url;
+          const base = res.url || url; // empty for a synthetic response
+          for (const f of page.features ?? []) f._base = base;
           const fresh = (page.features ?? []).filter((f) => !seen.has(key(f)) && seen.add(key(f)));
           const take = fresh.slice(0, MAX_ITEMS - features.length);
           features.push(...take);
           // STAC allows a relative next href; it is relative to the response,
           // not to this page, so resolve it against where the page came from.
           const next = page.links?.find((l) => l.rel === "next")?.href;
-          url = next ? new URL(next, res.url).href : null;
+          url = next ? new URL(next, base).href : null;
           // Fresh items left on a cut page are more for certain. A next link
           // is certain only in the first box; in the second, everything
           // unread could still be items the first box already delivered.

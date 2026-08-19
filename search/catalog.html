@@ -64,8 +64,11 @@
 
 <script>
   // Point this at your own GeoLens instance to search your own catalog. The
-  // demo is anonymous; a private instance takes an X-Api-Key header on the
-  // fetch below, and a transformRequest on the map for the tiles.
+  // demo is anonymous, so this page sends no credential. A private instance
+  // needs an X-Api-Key header, which you would add to the fetch below and,
+  // for the tiles, through MapLibre's transformRequest option. Keep the key
+  // out of the URL and out of this file. See "Authenticating against your
+  // own instance" in the README.
   const GEOLENS = "https://demo.getgeolens.com";
 
   // `q` runs the query against embeddings the server keeps in pgvector, so it
