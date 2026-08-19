@@ -58,8 +58,9 @@ if len(ARGS) == 2 or len(ARGS) > 3:
         f"  got {len(ARGS)} arguments; pass both collection ids or neither"
     )
 
-# GEOLENS_INSTANCE is the site root; the requests below add /api.
-BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_INSTANCE", "https://demo.getgeolens.com")
+# GEOLENS_INSTANCE is the site root; the requests below add /api. An empty
+# value (an unset CI secret, usually) falls back to the demo like an unset one.
+BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_INSTANCE") or "https://demo.getgeolens.com"
 
 # Collection ids are dataset UUIDs. Find them at GET /api/collections, or in
 # the web UI under a dataset's "Share / API" panel.

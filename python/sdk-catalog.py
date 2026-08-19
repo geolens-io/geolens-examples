@@ -45,8 +45,9 @@ from geolens.api.search import search_datasets_endpoint_search_datasets_get as s
 # GeoLens connection
 # --------------------------------------------------------------------------
 
-# GEOLENS_INSTANCE is the site root; API_BASE below adds /api.
-BASE_URL = os.environ.get("GEOLENS_INSTANCE", "https://demo.getgeolens.com")
+# GEOLENS_INSTANCE is the site root; API_BASE below adds /api. An empty value
+# (an unset CI secret, usually) falls back to the demo like an unset one.
+BASE_URL = os.environ.get("GEOLENS_INSTANCE") or "https://demo.getgeolens.com"
 
 # The SDK wants the /api prefix the deployed API is served under, not the site
 # root. Everything else in the library is relative to it.
