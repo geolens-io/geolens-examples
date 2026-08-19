@@ -1,5 +1,8 @@
 # TypeScript: drive a map from the catalog with `@geolens/sdk`
 
+See the [TypeScript SDK guide](https://docs.getgeolens.com/guides/sdk/typescript/)
+for install, auth and the first call; this page covers what running it in a browser adds.
+
 `catalog-map.html` asks a GeoLens instance what it holds, shows what the catalog
 knows about the dataset you picked, and draws it. The picker re-runs the whole
 thing against a different dataset. The file contains no dataset id, no table
@@ -115,8 +118,10 @@ column-level schema this page infers from a sample feature instead.
 
 ## Authentication
 
-The SDK sends credentials as headers. `apiKey` becomes `X-API-Key` and
-`bearerToken` becomes `Authorization: Bearer`:
+The SDK sends credentials as headers: `apiKey` becomes `X-Api-Key` and `bearerToken`
+becomes `Authorization: Bearer`, one mode or the other. See the typescript guide's
+[Authenticate](https://docs.getgeolens.com/guides/sdk/typescript/#authenticate) section for
+both, and [Authentication](https://docs.getgeolens.com/guides/api/auth/) for how to get either.
 
 ```js
 createGeolensClient({ baseUrl: `${GEOLENS}/api`, apiKey: "<key>" });
@@ -130,7 +135,7 @@ keeps secrets.
 Two things change once a request carries a credential.
 
 The wildcard lane closes. The anonymous standards exemption above applies only to
-requests with no `Authorization`, `Cookie`, `X-API-Key` or `X-Embed-Token`. Add a
+requests with no `Authorization`, `Cookie`, `X-Api-Key` or `X-Embed-Token`. Add a
 key to a cross-origin request and the preflight comes back without
 `Access-Control-Allow-Origin`, so you get a CORS failure rather than a `401`. Put
 your page's origin in the instance's `CORS_ALLOWED_ORIGINS`, which you would be

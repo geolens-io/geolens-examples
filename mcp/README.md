@@ -1,5 +1,8 @@
 # Ask an MCP client about your geospatial catalog
 
+See the [MCP server guide](https://docs.getgeolens.com/guides/sdk/mcp/) for the tool
+reference; this page covers setup, client configs, and real transcripts.
+
 `geolens-mcp` is a read-only [MCP](https://modelcontextprotocol.io) server that puts a GeoLens
 catalog inside any MCP client's session: Claude Code, Claude Desktop, Cursor, Codex, or one you
 wrote yourself. Once it is registered, you stop context-switching to a GIS client to answer "what
@@ -39,9 +42,12 @@ Config for each client lives in [`clients/`](./clients):
 | Anything else that speaks stdio MCP | [`clients/generic.json`](./clients/generic.json) | the plain `{command, args, env}` shape |
 
 Each one points at the public demo with no credentials. For your own instance, change
-`GEOLENS_INSTANCE` and add `GEOLENS_API_KEY` in whichever file you use; create the key under
-**Settings → API keys** in the GeoLens web UI. Keep real API keys out of a committed config file:
-use your client's local/user scope, or reference an environment variable your shell already exports.
+`GEOLENS_INSTANCE` and add `GEOLENS_API_KEY` in whichever file you use. Create the key under
+**Settings → API keys** in the GeoLens web UI; see
+[API keys](https://docs.getgeolens.com/guides/api/auth/#api-keys) for the header vs
+query-string form and how precedence works. Keep real API keys out of a committed config
+file: use your client's local/user scope, or reference an environment variable your shell
+already exports.
 
 ### The three environment variables
 
@@ -101,15 +107,16 @@ once it knows which dataset and column it needs.
 If your instance has AI chat enabled and you supply an API key for a user who holds that permission,
 add a sixth: **"Use the query tool to count rows per category in that dataset."** (This one cannot
 run against the demo anonymously; see the transcript below for what happens if you try.)
-`query` runs a single `SELECT` over `data.*` tables against an allowlisted function set (aggregates,
-math, string, date, JSON, and common PostGIS predicates like `ST_Area` and `ST_Intersects`), with a
-mandatory `restrict_tables` scope, a statement timeout, and a row cap.
+The function allowlist, the mandatory `restrict_tables` scope, and the row and self-join
+limits are in [Using query](https://docs.getgeolens.com/guides/sdk/mcp/#using-query).
 
 ## How it actually behaves
 
 Captured on 2026-08-14 by driving the wheel `geolens-mcp` published as version 1.13.0 over stdio
 with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported
 itself healthy at 1.13.0; the tool set is unchanged in 1.14.0). Output is real and trimmed for width.
+The ids and counts below are whatever the demo held at capture time; read the transcript for
+shape, not for literal values.
 
 Tool discovery, straight after `initialize`:
 
