@@ -1,5 +1,7 @@
 # Claude Code
 
+See the [MCP SDK guide](https://docs.getgeolens.com/guides/sdk/mcp/) for the tool reference.
+
 ```bash
 claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0
 ```

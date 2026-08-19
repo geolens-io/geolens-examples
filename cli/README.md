@@ -30,8 +30,8 @@ The manifest points at pinned Natural Earth GeoJSON on `raw.githubusercontent.co
 sends the document and nothing else. The server fetches the data itself, so every source has to be
 a URI the server can already reach. A scheme-less path in a manifest is resolved against the
 *server's* staging directory, not yours, and the CLI warns when it sees one, on stderr and only outside
-`--json` mode. `geolens publish <file>`
-is the command that actually uploads a local file.
+`--json` mode. `geolens publish <file>` is the command that actually uploads a local file; see
+[Publish a single file](https://docs.getgeolens.com/guides/cli/#publish-a-single-file).
 
 ## The three commands
 
@@ -155,10 +155,11 @@ Three secrets:
 ## Editing the manifest
 
 Change titles, descriptions, tags and `publication.intent` freely; those are updates to the datasets
-their keys name. Keep `key` stable, or you get a new dataset next to the old one. Only one `sources`
-entry per dataset is allowed by the schema, and the source URI must end in something the ingest path
-recognises: `zip`, `gpkg`, `geojson`, `json`, `csv`, `xlsx` or `xls` for `vector`, and `tif` or
-`tiff` for `raster_cog`.
+their keys name. Keep `key` stable, or you get a new dataset next to the old one. See
+[Manifest schema (v1)](https://docs.getgeolens.com/guides/cli/#manifest-schema-v1) for the full
+field list. Only one `sources` entry per dataset is allowed by the schema, and the source URI must
+end in something the ingest path recognises: `zip`, `gpkg`, `geojson`, `json`, `csv`, `xlsx` or
+`xls` for `vector`, and `tif` or `tiff` for `raster_cog`.
 
 `publication.intent` is deliberately not a fixed enum. The valid values come from the workflow
 statuses your deployment defines, validated server-side when you apply. The community default runs

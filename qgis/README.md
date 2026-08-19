@@ -19,6 +19,9 @@ styled, with the map on New York. Read on for how they got there.
 
 ## 1. Connect: OGC API - Features
 
+See [OGC API - Features](https://docs.getgeolens.com/guides/api/ogc/#ogc-api---features) for the
+endpoint reference; the mechanics below are QGIS's own.
+
 Layer ▸ Add Layer ▸ Add WFS / OGC API - Features Layer… opens the Data Source Manager on the
 *WFS / OGC API - Features* page. Click **New**, and in *Create a New WFS Connection* fill in:
 
@@ -89,10 +92,11 @@ https://demo.getgeolens.com/api/collections/datasets/items?filter=title LIKE '%S
 ```
 
 QGIS passes a URL to GDAL as it would a path, GDAL reads the GeoJSON, and the layer arrives
-with only the two matching records. CQL2 is a catalog-level filter here: the feature
-collections answer `filter=` with a 400 saying to use the `datasets` collection instead. Feature
-collections take `bbox` and plain `property=value` parameters (`items?borough=M` on the stations
-returns 153), which is what step 1's view-extent option uses.
+with only the two matching records. CQL2 works only on the catalog; see
+[OGC API - Features](https://docs.getgeolens.com/guides/api/ogc/#ogc-api---features) for why a
+feature collection answers `filter=` with a 400. Feature collections take `bbox` and plain
+`property=value` parameters instead (`items?borough=M` on the stations returns 153), which is
+what step 1's view-extent option uses.
 
 ## 3. Raster and vector tiles
 
