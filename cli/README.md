@@ -1,5 +1,7 @@
 # Catalog as code with the GeoLens CLI
 
+See the [CLI guide](https://docs.getgeolens.com/guides/cli/) for install and command reference.
+
 A GeoLens catalog can be a thing people click together, or it can be a file in Git that a machine
 reconciles. [`geolens.yaml`](geolens.yaml) is the second one: it declares what datasets exist, where
 their data comes from, what metadata rides along, and whether each is published. `geolens apply`
@@ -30,8 +32,8 @@ The manifest points at pinned Natural Earth GeoJSON on `raw.githubusercontent.co
 sends the document and nothing else. The server fetches the data itself, so every source has to be
 a URI the server can already reach. A scheme-less path in a manifest is resolved against the
 *server's* staging directory, not yours, and the CLI warns when it sees one, on stderr and only outside
-`--json` mode. `geolens publish <file>`
-is the command that actually uploads a local file.
+`--json` mode. `geolens publish <file>` is the command that actually uploads a local file; see
+[Publish a single file](https://docs.getgeolens.com/guides/cli/#publish-a-single-file).
 
 ## The three commands
 
@@ -74,8 +76,12 @@ uvx --from geolens-cli==1.14.0 geolens --json apply cli/geolens.yaml
 
 Same request without `dry_run`. Applying an unchanged entry skips rather than re-importing, so this
 is safe to run on every push. It reconciles *declared configuration*, though, not data: if a source
-URL serves new contents while the manifest is byte-identical, apply still skips it. `geolens refresh
-<dataset-id>` is the command for re-pulling data that changed underneath a declaration.
+URL serves new contents while the manifest is byte-identical, apply still skips it.
+
+`geolens refresh <dataset-id>` re-pulls datasets that keep an upstream binding (a WFS/ArcGIS/OGC API
+Features service, a registered PostGIS table, a STAC item). A manifest source the server downloaded
+is an ordinary upload once ingested, so refresh refuses it; change the entry or its URI so apply sees
+an update.
 
 ## Authenticating non-interactively
 
@@ -155,10 +161,11 @@ Three secrets:
 ## Editing the manifest
 
 Change titles, descriptions, tags and `publication.intent` freely; those are updates to the datasets
-their keys name. Keep `key` stable, or you get a new dataset next to the old one. Only one `sources`
-entry per dataset is allowed by the schema, and the source URI must end in something the ingest path
-recognises: `zip`, `gpkg`, `geojson`, `json`, `csv`, `xlsx` or `xls` for `vector`, and `tif` or
-`tiff` for `raster_cog`.
+their keys name. Keep `key` stable, or you get a new dataset next to the old one. See
+[Manifest schema (v1)](https://docs.getgeolens.com/guides/cli/#manifest-schema-v1) for the full
+field list. Only one `sources` entry per dataset is allowed by the schema, and the source URI must
+end in something the ingest path recognises: `zip`, `gpkg`, `geojson`, `json`, `csv`, `xlsx` or
+`xls` for `vector`, and `tif` or `tiff` for `raster_cog`.
 
 `publication.intent` is deliberately not a fixed enum. The valid values come from the workflow
 statuses your deployment defines, validated server-side when you apply. The community default runs

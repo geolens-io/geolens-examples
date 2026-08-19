@@ -1,5 +1,8 @@
 # Embed a saved GeoLens map in your own page
 
+See [Sharing & embedding](https://docs.getgeolens.com/guides/user/map-builder/#sharing--embedding)
+for the builder's Share dialog; this page covers the API and viewer mechanics behind it.
+
 `iframe.html` puts a saved GeoLens map inside a responsive iframe on a page that
 is not GeoLens. There is no build step and no map library. The map you already
 styled in the builder renders itself, and your page just gives it a box to live
@@ -78,7 +81,8 @@ Put the returned `token` in `SHARE_TOKEN` and your host in `GEOLENS`.
 
 On a map with no share token yet, an empty body creates one that never expires.
 Pass `{"expires_in_days": 30}` if you want one that does, using 1, 7, 30 or 90;
-other values are rejected.
+other values are rejected. The builder's Share dialog offers the same choices; see
+[Sharing & embedding](https://docs.getgeolens.com/guides/user/map-builder/#sharing--embedding).
 
 Against a map that already has an active token, the endpoint reuses the existing
 row, and two things change. The raw token is not returned again, only an
@@ -191,10 +195,9 @@ Use `sandbox="allow-scripts allow-same-origin"`, or leave `sandbox` off
 entirely. Both work.
 
 `sandbox="allow-scripts"` on its own does not, and it fails in a way worth
-recognizing. An opaque origin makes every one of the viewer's ES module fetches
-cross-origin, the static assets carry no `Access-Control-Allow-Origin` header,
-and the shell reloads when they fail. You get a blank frame and several hundred
-requests a minute.
+recognizing. The opaque origin makes the viewer's `/api/` calls cross-origin
+requests with no CORS header to answer them, so the app boots but the map
+never loads and the viewer reports it as not found.
 
 `allow-same-origin` restores the frame's own origin, which is already a
 different origin from your page. It gives the map no access to anything of
