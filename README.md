@@ -33,7 +33,7 @@ The table below is arranged by tool. Read in this order, the same examples trace
 4. **Build a map.** Add layers from the catalog, style each one, set the viewport, save ([map builder guide](https://docs.getgeolens.com/guides/user/map-builder/)). The demo's [showcase maps](https://demo.getgeolens.com/maps) came in through the same maps API, by script rather than by hand.
 5. **Analyze on the server.** The builder's Analysis panel runs buffer, intersect, dissolve and five more operations in PostGIS and writes the result back to the catalog as a new dataset; all but dissolve preview on the map first ([analysis guide](https://docs.getgeolens.com/guides/user/analysis/)). The demo answers anonymous analysis calls with 401, so there is no live example here; [`python/analyze.py`](python/analyze.py) does the same join client-side.
 6. **Publish or embed it.** A share link gives the map a stable `/m/<token>` URL, and `?embed=true` puts it in an iframe on a page that is not GeoLens: [`embed/iframe.html`](embed/iframe.html).
-7. **Read it back from anywhere.** The same catalog answers QGIS over OGC API Features ([`qgis/`](qgis/)), the Python SDK ([`python/sdk-catalog.py`](python/sdk-catalog.py)), the TypeScript SDK ([`typescript/catalog-map.html`](typescript/catalog-map.html)), and plain SQL in DuckDB ([`duckdb/features.sql`](duckdb/features.sql)).
+7. **Read it back from anywhere.** The same catalog answers QGIS over OGC API Features ([`qgis/`](qgis/)), the Python SDK ([`python/sdk-catalog.py`](python/sdk-catalog.py)), the TypeScript SDK ([`typescript/catalog-map.html`](typescript/catalog-map.html)), and plain SQL in DuckDB ([`duckdb/query.py`](duckdb/query.py)).
 
 ## Examples
 
@@ -57,10 +57,10 @@ The table below is arranged by tool. Read in this order, the same examples trace
 | [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.14.0 (single-file `uv run` script) | SDK catalog search, schema semantics, server-side filter, export into GeoPandas | `uv run python/sdk-catalog.py` |
 | [`mcp/`](mcp/) | Any MCP client via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0` |
 | [`qgis/`](qgis/) | QGIS 4.2 | OGC API Features + Records with CQL2, XYZ raster, tile-token auth | `https://demo.getgeolens.com/api/` |
-| [`duckdb/features.sql`](duckdb/features.sql) | DuckDB 1.5.5 (`spatial` + `httpfs`) | GeoParquet export read in place, OGC API Features through GDAL's OAPIF driver, spatial join in SQL | `uv run duckdb/run.py` |
+| [`duckdb/query.py`](duckdb/query.py) | DuckDB 1.5 + `spatial` (single-file `uv run` script) | One SQL join across the GeoParquet export and the Features API, with column pruning over HTTP ranges | `uv run duckdb/query.py` |
 | [`cli/`](cli/) | `geolens-cli` 1.14.0 | Catalog-as-code: offline `validate`, then `apply --dry-run` and `apply` against your instance | `uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml` |
 
-Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted, not just that the requests returned 200. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The embedded map is the exception: it renders seven layers GeoLens styles server-side, so CI proves the frame loaded and its tiles flowed, not that every layer is present. The two Python examples and the DuckDB example each run green with one command.
+Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted, not just that the requests returned 200. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The embedded map is the exception: it renders seven layers GeoLens styles server-side, so CI proves the frame loaded and its tiles flowed, not that every layer is present. The three `uv run` scripts run green with one command each, and each asserts its own answers rather than merely completing.
 
 MapLibre examples also work with Mapbox GL JS with minimal changes (both consume the same MVT and raster sources).
 

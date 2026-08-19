@@ -101,11 +101,12 @@ jobs:
       - name: Run the SDK quickstart
         working-directory: python
         run: uv run sdk-catalog.py
-      # duckdb/run.py executes duckdb/features.sql against the demo and exits
-      # non-zero if any SELECT comes back with no rows, so a query that silently
-      # stops matching reads as red here rather than as an empty table.
-      - name: Run the DuckDB example
-        run: uv run duckdb/run.py
+      # Run from the repo root, which is the command the README and the gallery
+      # both hand a reader, rather than the working-directory form above. The
+      # script asserts its own answers and exits non-zero on a wrong one, so
+      # this needs no artifact check the way analyze.py needs its PNG.
+      - name: Run the DuckDB query
+        run: uv run duckdb/query.py
       # The catalog-as-code example. `apply` is a write and needs a credential,
       # so CI checks the part that runs without one: the manifest still matches
       # the schema this CLI release packages, and that schema still prints.
