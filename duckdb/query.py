@@ -292,6 +292,19 @@ def http_cost(con: duckdb.DuckDBPyConnection) -> str:
     return f"{size}, {ranged}/{len(rows)} reads ranged"
 
 
+def furthest_note(row) -> str:
+    """How far the loneliest station sits from any line, when that is defined.
+
+    The row comes from a cross join, so an empty lines table makes it None
+    rather than a row of NULLs, and an empty stations table makes it None too.
+    Formatting it blind is what turned an empty read into a traceback instead
+    of the diagnosis the caller was assembling.
+    """
+    if row is None or row[1] is None:
+        return "no station/line pair to measure"
+    return f"furthest: {row[0]} at {row[1]:,.0f} m"
+
+
 def measured(con: duckdb.DuckDBPyConnection, *statements) -> str:
     """Run (sql, params) pairs with HTTP logging on, and describe what they moved."""
     con.execute("CALL truncate_duckdb_logs();")
@@ -501,12 +514,18 @@ def main() -> int:
     # demonstration.
     problems = []
 
-    # True of any instance: a report built from nothing is not a report. This
-    # is the only claim this script can make about a catalog it has never seen.
-    if n_lines == 0 or n_stations == 0:
+    # True of any instance: a report built from nothing is not a report. These
+    # are the only claims this script can make about a catalog it has never
+    # seen, and they come first because every diagnostic below assumes both
+    # sides have rows.
+    if n_lines == 0:
         problems.append(
-            f"read {n_lines} lines and {n_stations} stations, so at least one of the two "
-            f"sources returned nothing and the table above describes an empty join"
+            f"the lines export returned no rows, so there was nothing to join the "
+            f"{n_stations} station(s) against and every distance in this run is undefined"
+        )
+    if n_stations == 0:
+        problems.append(
+            "the stations read returned no features, so the table above describes an empty join"
         )
 
     # Everything else is a statement about the demo's catalog, and is only true
@@ -517,9 +536,10 @@ def main() -> int:
             problems.append(f"lines: read {n_lines}, expected {EXPECT_LINES}")
         if n_stations != EXPECT_STATIONS:
             problems.append(f"stations: read {n_stations}, expected {EXPECT_STATIONS}")
-        # `and n_stations` first: an empty read makes every extent aggregate
-        # NULL, and comparing None to a number raises before the report above
-        # can say what went wrong. The empty case is already reported.
+        # Both of these lead with a row count, and both need to. An empty read
+        # makes every aggregate NULL and every cross-join row vanish, so the
+        # comparisons raise before the report above can say what went wrong.
+        # The empty cases are reported already; these two have nothing to add.
         west, east, south, north = EXPECT_UTM_BOX
         if n_stations and not (west <= extent[0] and extent[1] <= east
                                and south <= extent[2] and extent[3] <= north):
@@ -529,11 +549,11 @@ def main() -> int:
                 f"Coordinates this far out mean the source CRS named the wrong axis order; "
                 f"see SOURCE_CRS."
             )
-        if on_line != n_stations:
+        if n_lines and n_stations and on_line != n_stations:
             problems.append(
                 f"only {on_line} of {n_stations} stations are within {ON_LINE_M} m of any line "
-                f"(furthest: {furthest[0]} at {furthest[1]:,.0f} m), so the two reads do not "
-                f"register against each other."
+                f"({furthest_note(furthest)}), so the two reads do not register against "
+                f"each other."
             )
         low, high = EXPECT_PAIRS_RANGE
         if not low <= pairs <= high:

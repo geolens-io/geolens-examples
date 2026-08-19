@@ -81,7 +81,18 @@ const transient = (status) => status >= 500 || status === 429 || status === 408;
 // gets none of that, and records the demo's one flaky minute as a fixture that
 // moved.  The signal is set here and not overridable: the deadline is the
 // whole point.
-async function get(path, options = {}) {
+//
+// `consume` is for a probe that has to read the body to reach its verdict.
+// Headers arriving is not the same event as bytes arriving: a connection that
+// resets after the status line fails inside the body read, which is a
+// transport failure in every sense but happens after this function has already
+// returned. Running it here puts it inside the attempt, so a reset body is
+// retried and a body that never arrives ends up classified as transport rather
+// than as a fixture that moved. Its return value is what get() hands back.
+//
+// A probe with no `consume` gets the Response, exactly as before, and reads the
+// body afterwards at its own risk.
+async function get(path, options = {}, consume = null) {
   const url = /^https?:\/\//i.test(path) ? path : `${DEMO}${path}`;
   let last;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
@@ -92,7 +103,12 @@ async function get(path, options = {}) {
         ...options,
         signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, left)),
       });
-      if (!transient(res.status)) return res;
+      // Status classification is unchanged and happens first, so a 401 or a
+      // 404 still returns on the first attempt for the caller to judge, and
+      // only a transient status is retried. `consume` runs for the responses
+      // that get past that, which are exactly the ones a caller would have
+      // read the body of anyway.
+      if (!transient(res.status)) return consume ? await consume(res) : res;
       last = new TransportError(`${url} answered ${res.status}`);
       // A Retry-After in seconds is the server naming its own gap.
       const after = Number(res.headers.get("retry-after"));
@@ -454,8 +470,52 @@ async function checkExport(name, fx, notes, problems) {
   const { format, contentType, magic } = fx.export;
   const path = `/api/datasets/${fx.collection}/export?format=${format}`;
   // Through get(), so a 502 on the demo's one bad minute is retried and then
-  // filed as "demo unavailable" rather than as this fixture having moved.
-  const res = await get(path, { headers: { Range: `bytes=0-${magic.length - 1}` } });
+  // filed as "demo unavailable" rather than as this fixture having moved. The
+  // callback runs inside the attempt, so a body that resets before four bytes
+  // arrive is retried too, rather than being reported as the export having
+  // changed format.
+  const res = await get(
+    path,
+    { headers: { Range: `bytes=0-${magic.length - 1}` } },
+    async (response) => {
+      const seen = {
+        status: response.status,
+        type: (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase(),
+        opening: null,
+      };
+      // Only the responses that carry the bytes this probe is here to read.
+      // A 401 or a 404 is the caller's to classify and has no body worth
+      // reading, and reading one would be an error this loop would retry.
+      if (response.status !== 206 && response.status !== 200) return seen;
+
+      // Four bytes off the stream, then hang up. On a 206 that is the whole
+      // body; on a 200 it stops a 3.3 MB download that nothing here needs.
+      // Anything thrown in here counts as a transient and is retried.
+      const reader = response.body.getReader();
+      const head = new Uint8Array(magic.length);
+      let filled = 0;
+      try {
+        while (filled < magic.length) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const take = Math.min(value.length, magic.length - filled);
+          head.set(value.subarray(0, take), filled);
+          filled += take;
+        }
+      } finally {
+        await reader.cancel().catch(() => {});
+      }
+      // A body that ended early is not a verdict about the file, it is a read
+      // that did not finish. Throwing sends it back through the retry.
+      if (filled < magic.length) {
+        throw new TransportError(
+          `${DEMO}${path} sent ${filled} of the first ${magic.length} bytes before the body ended`,
+        );
+      }
+      seen.opening = new TextDecoder().decode(head);
+      return seen;
+    },
+  );
   if (res.status === 401 || res.status === 403) {
     problems.push(
       `fixture ${name}: the ${format} export answered ${res.status} to an anonymous caller ` +
@@ -471,25 +531,10 @@ async function checkExport(name, fx, notes, problems) {
     return;
   }
 
-  // Four bytes off the stream, then hang up. On a 206 that is the whole body;
-  // on a 200 it stops a 3.3 MB download that nothing here needs.
-  const reader = res.body.getReader();
-  const head = new Uint8Array(magic.length);
-  let filled = 0;
-  while (filled < magic.length) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    const take = Math.min(value.length, magic.length - filled);
-    head.set(value.subarray(0, take), filled);
-    filled += take;
-  }
-  await reader.cancel();
-
   // Normalized both sides, the way checkTile does it: media types are
   // case-insensitive per RFC 9110, and an intermediary is free to hand back
   // "Application/Vnd.Apache.Parquet; charset=binary".
-  const type = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
-  const opening = new TextDecoder().decode(head.subarray(0, filled));
+  const { type, opening } = res;
   if (type !== contentType.toLowerCase()) {
     problems.push(`fixture ${name}: the ${format} export is served as "${type}", not "${contentType}".`);
   }
