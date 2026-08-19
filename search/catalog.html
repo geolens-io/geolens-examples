@@ -181,13 +181,23 @@
   // vector_tiles distribution; raster and VRT datasets carry a raster_tiles
   // asset. A record for something that is not a dataset (a collection, say)
   // has neither, and says so on the card instead of failing.
+  // Advertised URLs are record values too, so only http(s) templates reach
+  // MapLibre; anything else reads as "nothing to draw" rather than a request.
+  const isHttp = (href) => {
+    try {
+      return typeof href === "string" && /^https?:$/.test(new URL(href).protocol);
+    } catch {
+      return false;
+    }
+  };
   const drawable = (feature) => {
     const tiles = (feature.properties.distributions ?? []).find((d) => d.type === "vector_tiles");
     // An MVT source-layer is named after the tile path segment it comes from,
     // so the advertised URL already says what to put in `source-layer`.
-    if (tiles) return { kind: "vector", url: tiles.url, layer: tiles.url.split("/tiles/")[1].split("/")[0] };
+    const layer = tiles && isHttp(tiles.url) ? tiles.url.split("/tiles/")[1]?.split("/")[0] : null;
+    if (layer) return { kind: "vector", url: tiles.url, layer };
     const raster = feature.assets?.raster_tiles?.href;
-    if (raster) return { kind: "raster", url: raster };
+    if (isHttp(raster)) return { kind: "raster", url: raster };
     return null;
   };
 
@@ -295,7 +305,7 @@
         return res.json();
       }));
       const seen = new Set();
-      const features = pages.flatMap((p) => p.features).filter((f) => !seen.has(f.id) && seen.add(f.id));
+      const features = pages.flatMap((p) => p.features ?? []).filter((f) => f.id === undefined || (!seen.has(f.id) && seen.add(f.id)));
       // A record spanning both halves is in both responses. When every page
       // came back whole, the unique count is the exact match count. When a
       // half was cut at the page limit, the two totals overlap by an unknown

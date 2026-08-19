@@ -29,7 +29,8 @@ dataset, so every other example in this repo consumes it with no change at all.
 The manifest points at pinned Natural Earth GeoJSON on `raw.githubusercontent.com`, because `apply`
 sends the document and nothing else. The server fetches the data itself, so every source has to be
 a URI the server can already reach. A scheme-less path in a manifest is resolved against the
-*server's* staging directory, not yours, and the CLI warns when it sees one. `geolens publish <file>`
+*server's* staging directory, not yours, and the CLI warns when it sees one, on stderr and only outside
+`--json` mode. `geolens publish <file>`
 is the command that actually uploads a local file.
 
 ## The three commands
@@ -115,7 +116,7 @@ GEOLENS_INSTANCE=https://demo.getgeolens.com \
 
 Even `--dry-run` needs the credential, because the dry run happens on the server. So run both apply
 commands against your own instance. `validate` and `schema` have no such problem: they never contact
-a server, which is why they are the parts this repo's CI runs on every push.
+a server, which is why they are the parts this repo's CI runs on every pull request and push to `main`.
 
 ## Wiring it into your repo
 

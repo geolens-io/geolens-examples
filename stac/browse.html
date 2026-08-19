@@ -122,10 +122,10 @@
     return node;
   };
 
-  // Advertised hrefs are item values too, so only http(s) becomes clickable —
-  // and only the scheme check comes from URL(). Never hand the parsed .href to
-  // MapLibre: it percent-encodes the braces in {z}/{x}/{y} and the template
-  // stops resolving.
+  // Advertised hrefs are item values too, so only http(s) becomes clickable or
+  // gets handed to MapLibre. URL parsing percent-encodes the braces in a
+  // {z}/{x}/{y} template, so absolute() below puts them back before the string
+  // reaches the map.
   const isHttp = (href) => {
     try {
       return /^https?:$/.test(new URL(href).protocol);
@@ -153,9 +153,11 @@
   };
 
   // A STAC bbox is [west, south, east, north], or six numbers when it carries
-  // elevation. It is also exactly what the search filtered on, so drawing it
-  // shows why each item came back.
-  const flat = (bbox) => (bbox.length === 6 ? [bbox[0], bbox[1], bbox[3], bbox[4]] : bbox);
+  // elevation. An item with a null geometry may carry no bbox at all, and
+  // then there is nothing to rank or outline: flat() hands back null and the
+  // callers treat it as covering nothing and having no footprint.
+  const flat = (bbox) =>
+    !Array.isArray(bbox) || bbox.length < 4 ? null : bbox.length === 6 ? [bbox[0], bbox[1], bbox[3], bbox[4]] : bbox;
 
   const ring = (bbox) => {
     const [w, s, e, n] = flat(bbox);
@@ -167,12 +169,16 @@
   // is east of west or west of east rather than between the two.
   const width = (w, e) => (w <= e ? e - w : e + 360 - w);
   const area = (bbox) => {
-    const [w, s, e, n] = flat(bbox);
+    const f = flat(bbox);
+    if (!f) return Infinity; // no extent sorts last
+    const [w, s, e, n] = f;
     return width(w, e) * (n - s);
   };
 
   const covers = (bbox, { lng, lat }) => {
-    const [w, s, e, n] = flat(bbox);
+    const f = flat(bbox);
+    if (!f) return false;
+    const [w, s, e, n] = f;
     const inLng = w <= e ? w <= lng && lng <= e : lng >= w || lng <= e;
     return inLng && s <= lat && lat <= n;
   };
@@ -200,7 +206,7 @@
     type: "FeatureCollection",
     features: items.map((item) => ({
       type: "Feature",
-      geometry: item.geometry ?? { type: "Polygon", coordinates: ring(item.bbox) },
+      geometry: item.geometry ?? (flat(item.bbox) ? { type: "Polygon", coordinates: ring(item.bbox) } : null),
       properties: { selected: key(item) === selected },
     })),
   });
@@ -279,7 +285,7 @@
         el("span", "t", props.title ?? item.id),
         el("span", "m", item.collection),
         el("span", "m", when(props)),
-        el("span", "m", flat(item.bbox).map((n) => n.toFixed(3)).join(", ")),
+        el("span", "m", flat(item.bbox)?.map((n) => n.toFixed(3)).join(", ") ?? "no bbox"),
         el("span", "a", asset ? `raster_tiles · ${asset.type}` : "no raster_tiles asset"),
       );
       button.addEventListener("click", () => draw(item));

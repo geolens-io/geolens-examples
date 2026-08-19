@@ -107,9 +107,9 @@ mandatory `restrict_tables` scope, a statement timeout, and a row cap.
 
 ## How it actually behaves
 
-Captured on 2026-08-14 by driving the published `geolens-mcp` 1.13.0 wheel over stdio with a
-minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported itself
-healthy at version 1.13.0). Output is real and trimmed for width.
+Captured on 2026-08-14 by driving the wheel `geolens-mcp` published as version 1.13.0 over stdio
+with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported
+itself healthy at 1.13.0; the tool set is unchanged in 1.14.0). Output is real and trimmed for width.
 
 Tool discovery, straight after `initialize`:
 

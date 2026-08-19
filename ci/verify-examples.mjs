@@ -26,9 +26,13 @@
 //      way it is.
 //   6. Each documented layer painted, for entries that list `requireColors`.
 //      Check 5 only proves the page is not blank, which one surviving layer
-//      satisfies on its own. Every entry drawing more than one layer carries
-//      requireColors; a single-layer page does not need it, because there
-//      "something painted" and "that layer painted" are the same statement.
+//      satisfies on its own. Every entry drawing more than one layer in fixed
+//      colours carries requireColors; a single-layer page does not need it,
+//      because there "something painted" and "that layer painted" are the
+//      same statement. A raster layer has no fixed colour, so the one entry
+//      that pairs imagery with a thin outline (stac/browse.html) raises
+//      minInkFraction instead: the imagery fills the viewport, the outline
+//      alone could not.
 //
 // Checks 2-5 are what separate this from a smoke test. HTTP 200 on a vector
 // tile proves nothing about the map: name the source-layer wrong and every
@@ -302,16 +306,21 @@ function loadManifest() {
   return manifest;
 }
 
-// A needle names a demo fixture — a dataset UUID or a qualified table name —
-// and those are hardcoded across this repo. ci/fixtures.json is where they are
-// declared and ci/check-fixtures.mjs preflights them, so a needle naming one
-// that file has never heard of is a fixture nothing preflights: when the demo
-// is reset, that entry fails here with no sign that the reset is the cause.
+// A needle names a demo fixture, and those are hardcoded across this repo.
+// ci/fixtures.json is where they are declared and ci/check-fixtures.mjs
+// preflights them, so a needle naming one that file has never heard of is a
+// fixture nothing preflights: when the demo is reset, that entry fails here
+// with no sign that the reset is the cause.
+//
+// The needle is read by the shape of the demo path rather than by the shape
+// of the value, so a share token, a Records collection or a tile path counts
+// as much as a UUID: the segment after /api/collections/, /api/tiles/,
+// /raster-tiles/, /m/ or /api/stac/ is the thing a fixture must name.
 //
 // A note and not a failure. This is a registration reminder resting on a
 // pattern match, and a heuristic that can block a PR gets deleted the first
 // time it is wrong.
-const FIXTURE_TOKEN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|data\.[a-z0-9_]+/gi;
+const FIXTURE_PATH = /(?:\/api\/collections|\/api\/tiles|\/raster-tiles|\/m|\/api\/stac)\/([A-Za-z0-9_.-]+)/g;
 
 function noteUnregisteredFixtures(manifest) {
   let fixtures;
@@ -321,12 +330,18 @@ function noteUnregisteredFixtures(manifest) {
     return; // ponytail: no fixtures.json in this checkout, nothing to compare against.
   }
   for (const entry of manifest) {
-    for (const token of entry.requireUrls.join(" ").match(FIXTURE_TOKEN) ?? []) {
-      if (fixtures.includes(token)) continue;
-      console.log(
-        `note: ${entry.path} requires "${token}", which ci/fixtures.json does not name, so ` +
-          `ci/check-fixtures.mjs never preflights it. Add it there, and a demo reset reads as a reset.`,
-      );
+    for (const needle of entry.requireUrls) {
+      for (const [, segment] of needle.matchAll(FIXTURE_PATH)) {
+        // "data." alone is a prefix the TypeScript example matches any table
+        // with, not a fixture; a segment that is only a route word (search,
+        // items) names nothing either.
+        if (segment === "data." || ["search", "items", "collections", "conformance"].includes(segment)) continue;
+        if (fixtures.includes(segment)) continue;
+        console.log(
+          `note: ${entry.path} requires "${needle}", whose segment "${segment}" ci/fixtures.json does not name, so ` +
+            `ci/check-fixtures.mjs never preflights it. Add it there, and a demo reset reads as a reset.`,
+        );
+      }
     }
   }
 }
@@ -475,8 +490,10 @@ function checkReadmeAgainstCi(manifest) {
 //
 // and then what makes one of those a command rather than an endpoint: it opens
 // with an executable name followed by an argument. Every endpoint address on
-// either side opens with "/", including the two carrying prose after it
-// ("/api/ → collectionId"), so the two populations do not overlap.
+// either side opens with "/" or with a scheme ("https://demo..." on the QGIS
+// row), including the two carrying prose after it ("/api/ → collectionId"),
+// so the two populations do not overlap: a scheme's ":" cannot sit inside the
+// executable name the command shape requires.
 //
 // Compared PAIRWISE, by identity, never as two sets of strings. Set equality is
 // the tempting shape and it is wrong: swap the `address` of two existing cards
@@ -485,9 +502,9 @@ function checkReadmeAgainstCi(manifest) {
 // row and its card IS the thing #16 is about, so the check has to carry it.
 //
 // The identity on each side is the example path: the README row names it
-// (`python/analyze.py`, `mcp/`) and the card carries it as `source`. They
-// agree exactly for two of the three pairs. The third does not, and the rule
-// says so rather than being loosened until it passes:
+// (`python/analyze.py`, `mcp/`, `cli/`) and the card carries it as `source`.
+// They agree exactly for the file rows. The directory rows do not, and the
+// rule says so rather than being loosened until it passes:
 //
 //   a README path pairs with a card `source` when the two are equal, or when
 //   the path names a directory (trailing "/") and the source is a file under it

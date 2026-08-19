@@ -115,7 +115,8 @@
       "/api/stac/search",
       "/raster-tiles/"
     ],
-    "minDataResponses": 4
+    "minDataResponses": 4,
+    "minInkFraction": 0.3
   },
   {
     "path": "search/catalog.html",

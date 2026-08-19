@@ -7,9 +7,10 @@ private instance. Everything below runs anonymously.
 
 Verified against QGIS 4.2.1 (Belém do Pará) on macOS. The screenshots are QGIS 4.2.1 itself,
 opened on a clean profile with the project below and driven by a startup script rather than a
-mouse. The provider behaviour (which URLs QGIS requests, what it does with a filter, whether a
-header reaches the server) comes from running the bundled PyQGIS headless against the demo.
-[`verify.py`](verify.py) is that check.
+mouse. The provider behaviour below (which URLs QGIS requests, what it does with a filter, whether
+a header reaches the server) was measured in separate PyQGIS sessions against the demo.
+[`verify.py`](verify.py) is narrower: it opens the same three layers with QGIS's own providers,
+headless, and asserts they load, count right and draw.
 
 ![QGIS 4.2 with the NYC subway stations and lines from the GeoLens demo in the Layers panel and on the map](../assets/qgis-window.jpg)
 
@@ -174,7 +175,10 @@ it to paint more than a flat fill, and optionally writes the project file. It
 needs the Python that ships with QGIS:
 
 ```bash
-QT_QPA_PLATFORM=offscreen /Applications/QGIS.app/Contents/MacOS/python qgis/verify.py out.png qgis/geolens-demo.qgz
+QT_QPA_PLATFORM=offscreen /Applications/QGIS.app/Contents/MacOS/python qgis/verify.py out.png
 ```
+
+A second path writes a QGIS project of the same three layers. That is how `geolens-demo.qgz` was
+made, and passing it again overwrites it.
 
 Set `QGIS_PREFIX_PATH` if your QGIS is somewhere other than an app bundle under `/Applications`.

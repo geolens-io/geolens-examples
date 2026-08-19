@@ -29,27 +29,38 @@ REPO = Path(__file__).resolve().parent.parent
 HEALTH = "https://demo.getgeolens.com/api/health"
 
 SUFFIXES = {".py", ".md", ".html", ".json", ".yml", ".yaml", ".mjs", ".js", ".ts"}
-SKIP = {".git", ".claude", "node_modules", "assets"}  # .claude: local agent worktrees, never in CI
+# Skipped by path *relative to the repo*, so a checkout under a directory that
+# happens to be called assets or node_modules is still scanned. .claude holds
+# local agent worktrees and ci/diagnostics holds pages saved from failed local
+# sweeps; neither exists in CI and both can carry versions nobody wrote here.
+SKIP = {".git", ".claude", "node_modules", "assets", "diagnostics"}
 
 # One pattern per published GeoLens client, in the exact form each file uses,
-# plus the human-facing labels ("`geolens` 1.14.0", "geolens-cli 1.14.0" in a
-# gallery card) that name the same version without pinning anything. A bump
-# that misses one of those leaves the docs saying one thing and the installs
-# doing another, which is the drift this script exists to catch.
+# plus the human-facing labels that name the same version without pinning
+# anything: a README cell like `geolens` 1.14.0, or a gallery card's tool
+# string "geolens-cli 1.14.0". A bump that misses one of those leaves the docs
+# saying one thing and the installs doing another, which is the drift this
+# script exists to catch. The label form is anchored to a quote or backtick
+# right before the name, which is how every label here is written and how
+# ordinary prose ("used geolens 1.13.0 before the bump") is not, so history
+# and provenance notes do not read as pins.
 PATTERNS = [
     re.compile(r"\bgeolens==(\d+\.\d+\.\d+)"),  # python/sdk-catalog.py, PEP 723
     re.compile(r"@geolens/sdk@(\d+\.\d+\.\d+)"),  # esm.sh import, npm docs
     re.compile(r"\bgeolens-mcp@(\d+\.\d+\.\d+)"),  # uvx spec
     re.compile(r"\bgeolens-cli[@=]=?(\d+\.\d+\.\d+)"),  # uvx --from spec
-    re.compile(r"(?:`geolens`|`@geolens/sdk`|\bgeolens|@geolens/sdk|\bgeolens-cli|\bgeolens-mcp) (\d+\.\d+\.\d+)"),  # display labels
+    re.compile(r'(?<=["`])(?:@geolens/sdk|geolens(?:-cli|-mcp)?)`? (\d+\.\d+\.\d+)'),  # display labels
 ]
 
 
 def pins() -> list[tuple[str, str, str]]:
     """Every (location, matched text, version) pin in the repo, in path order."""
     found = []
+    me = Path(__file__).resolve()
     for path in sorted(REPO.rglob("*")):
-        if path.suffix not in SUFFIXES or SKIP & set(path.parts):
+        if path == me:
+            continue  # this file talks about versions without pinning one
+        if path.suffix not in SUFFIXES or SKIP & set(path.relative_to(REPO).parts):
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         for lineno, line in enumerate(text.splitlines(), 1):

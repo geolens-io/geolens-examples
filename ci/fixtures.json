@@ -1,5 +1,5 @@
 {
-  "note": "The demo catalog fixtures every example hardcodes, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-18, GeoLens 1.14.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM. `grep` is the substring that finds this fixture everywhere it is written down in this repo.",
+  "note": "The demo catalog fixtures every example hardcodes, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-18, GeoLens 1.14.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
   "fixtures": {
     "nycSubwayStations": {
       "title": "NYC Subway Stations (MTA)",
@@ -12,6 +12,8 @@
       "title": "NYC Subway Lines (MTA)",
       "collection": "de602fbe-8b30-4755-924f-c9e7fd9613b6",
       "itemType": "feature",
+      "geometryType": "MultiLineString",
+      "minNumberMatched": 20,
       "vectorTile": {
         "path": "/api/tiles/data.nyc_subway_lines_mta/",
         "probe": "12/1206/1539.pbf",
@@ -57,7 +59,8 @@
           20.907855
         ],
         "minNumberMatched": 2001,
-        "why": "maplibre/features-viewport.html opens here and its manifest entry expects three pages of 1000"
+        "why": "maplibre/features-viewport.html opens here and its manifest entry expects three pages of 1000",
+        "computedFrom": "maplibre/features-viewport.html at the verifier viewport (1280x720), center [55.0, 19.4], zoom 7.3"
       },
       "vectorTile": {
         "path": "/api/tiles/data.meteorite_landings_meteoritical_society/",
@@ -88,9 +91,17 @@
           40.75
         ],
         "minItems": 1,
-        "probe": "10/301/384",
-        "why": "stac/browse.html opens here, draws the item covering the centre, and its manifest entry expects tiles to paint"
+        "probe": "11/603/769",
+        "why": "stac/browse.html opens here, draws the item covering the centre, and its manifest entry expects tiles to paint",
+        "computedFrom": "stac/browse.html at the verifier viewport (1280x720): the map div is 1280 minus the 340px panel, 32px padding and 1px border, center [-73.98, 40.75], zoom 10; MapLibre fetches a 256px raster source one zoom in, so the probe is z11"
       }
+    },
+    "datasetsCatalog": {
+      "title": "GeoLens Dataset Catalog",
+      "collection": "datasets",
+      "itemType": "record",
+      "minNumberMatched": 20,
+      "why": "typescript/catalog-map.html and search/catalog.html read the catalog through this Records collection"
     }
   }
 }

@@ -30,7 +30,11 @@ jobs:
       # every dependent example fails in the sweep below with no sign that the
       # cause was the reset. This names the fixture that moved, and tells a
       # demo that is down apart from an example that is broken.
+      # Bounded on its own: fifteen probes with three attempts each against a
+      # demo that accepts connections and then hangs would otherwise eat most
+      # of the job before the sweep started.
       - name: Preflight the demo fixtures
+        timeout-minutes: 4
         run: node ci/check-fixtures.mjs
       - name: Install Playwright Chromium
         run: |
