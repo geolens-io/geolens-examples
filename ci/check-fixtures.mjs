@@ -355,7 +355,8 @@ async function checkStac(name, fx, notes, problems) {
   const flat = (b) => (!Array.isArray(b) || b.length < 4 || !b.every(Number.isFinite) ? null : b.length === 6 ? [b[0], b[1], b[3], b[4]] : b);
   const width = (w, e) => (w <= e ? e - w : e + 360 - w);
   const coversBbox = (b) => { const f = flat(b); if (!f) return false; const [w, s, e, n] = f; const inLng = w <= e ? w <= center[0] && center[0] <= e : center[0] >= w || center[0] <= e; return inLng && s <= center[1] && center[1] <= n; };
-  const inRing = (ring) => { let inside = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if (yi > center[1] !== yj > center[1] && center[0] < ((xj - xi) * (center[1] - yi)) / (yj - yi) + xi) inside = !inside; } return inside; };
+  const near = (x) => (x - center[0] > 180 ? x - 360 : x - center[0] < -180 ? x + 360 : x); // unwrap around the centre
+  const inRing = (ring) => { let inside = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const xi = near(ring[i][0]), yi = ring[i][1], xj = near(ring[j][0]), yj = ring[j][1]; if (yi > center[1] !== yj > center[1] && center[0] < ((xj - xi) * (center[1] - yi)) / (yj - yi) + xi) inside = !inside; } return inside; };
   const inPolygon = (rings) => rings.length > 0 && inRing(rings[0]) && !rings.slice(1).some(inRing);
   const covers = (i) => i.geometry?.type === "Polygon" ? inPolygon(i.geometry.coordinates ?? []) : i.geometry?.type === "MultiPolygon" ? (i.geometry.coordinates ?? []).some(inPolygon) : coversBbox(i.bbox);
   const area = (b) => { const f = flat(b); if (!f) return Infinity; const [w, s, e, n] = f; return width(w, e) * (n - s); };
