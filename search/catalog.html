@@ -193,18 +193,29 @@
       return false;
     }
   };
-  // A template can arrive with its braces URL-encoded; MapLibre needs them
-  // literal to substitute z, x and y.
+  // An advertised link may be relative to the Records response it came in,
+  // and a template can arrive with its braces URL-encoded; the link is
+  // resolved against that response, checked to be http(s), and handed to
+  // MapLibre with literal braces so it can substitute z, x and y.
   const braces = (u) => u.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
+  const template = (href, feature) => {
+    if (typeof href !== "string") return null;
+    try {
+      const abs = new URL(href, feature._base ?? `${GEOLENS}/api/collections/datasets/items`).href;
+      return isHttp(abs) ? braces(abs) : null;
+    } catch {
+      return null;
+    }
+  };
   const drawable = (feature) => {
     const tiles = (feature.properties?.distributions ?? []).find((d) => d.type === "vector_tiles");
     // An MVT source-layer is named after the tile path segment it comes from,
     // so the advertised URL already says what to put in `source-layer`.
-    const url = tiles && isHttp(tiles.url) ? braces(tiles.url) : null;
+    const url = tiles ? template(tiles.url, feature) : null;
     const layer = url ? url.split("/tiles/")[1]?.split("/")[0] : null;
     if (layer) return { kind: "vector", url, layer };
-    const raster = feature.assets?.raster_tiles?.href;
-    if (isHttp(raster)) return { kind: "raster", url: braces(raster) };
+    const raster = template(feature.assets?.raster_tiles?.href, feature);
+    if (raster) return { kind: "raster", url: raster };
     return null;
   };
 
@@ -327,9 +338,13 @@
       // Their results merge by record id; the matched counts do not simply
       // add up, see below.
       const pages = await Promise.all(boxes.map(async (box) => {
-        const res = await fetch(search(query, box), { signal: controller.signal });
+        const target = search(query, box);
+        const res = await fetch(target, { signal: controller.signal });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-        return res.json();
+        const page = await res.json();
+        // Relative links in a record are relative to the document it came in.
+        for (const f of page.features ?? []) f._base = res.url || target.href;
+        return page;
       }));
       const seen = new Set();
       const features = pages.flatMap((p) => p.features ?? []).filter((f) => f.id === undefined || (!seen.has(f.id) && seen.add(f.id)));
