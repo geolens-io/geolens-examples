@@ -58,7 +58,10 @@ if len(ARGS) == 2 or len(ARGS) > 3:
         f"  got {len(ARGS)} arguments; pass both collection ids or neither"
     )
 
-BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_URL", "https://demo.getgeolens.com")
+# GEOLENS_INSTANCE is the site root; the requests below add /api themselves.
+# The CLI and the MCP server read the same variable and take it with or
+# without the /api suffix.
+BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_INSTANCE", "https://demo.getgeolens.com")
 
 # Collection ids are dataset UUIDs. Find them at GET /api/collections, or in
 # the web UI under a dataset's "Share / API" panel.

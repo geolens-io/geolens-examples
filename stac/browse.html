@@ -71,11 +71,9 @@
   // Why STAC and not the Features API: /api/collections answers "what rows are
   // in this table", and STAC answers "what imagery covers this place, and where
   // do I get the pixels". One GET returns items — a metadata record per scene,
-  // each carrying a footprint, a time, and a set of assets. The demo's root is
-  // at /api/stac/ and advertises search, collections and conformance.
-  //
-  // The same search from pystac-client, which builds the query for you:
-  //   Client.open("https://demo.getgeolens.com/api/stac").search(bbox=[-74.2, 40.6, -73.75, 40.9]).item_collection()
+  // each carrying a footprint, a time, and a set of assets. The catalog's
+  // endpoints, and the same search from pystac-client, are in the docs:
+  // https://docs.getgeolens.com/guides/api/ogc/#stac-10
   //
   // The demo honours bbox, collections, datetime and limit on GET, and takes
   // the same query as JSON over POST. An item's time can arrive two ways: a

@@ -21,7 +21,7 @@
 If GeoLens is useful to you, [star it on GitHub](https://github.com/geolens-io/geolens). That is how most people find it.
 If these examples save you an afternoon, star or watch [this repo](https://github.com/geolens-io/geolens-examples) too.
 
-GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), and raster tiles. These examples show those surfaces from the consumer's side.
+GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), and raster tiles ([API reference](https://docs.getgeolens.com/guides/api/ogc/)). These examples show those surfaces from the consumer's side.
 
 ## GeoLens in 10 minutes
 
@@ -31,7 +31,7 @@ The table below is arranged by tool. Read in this order, the same examples trace
 2. **Publish two sources.** Declare them in a manifest and run `geolens apply`. [`cli/`](cli/) holds a `geolens.yaml` with two Natural Earth layers and the GitHub Actions workflow that applies it ([CLI guide](https://docs.getgeolens.com/guides/cli/)).
 3. **Find them by meaning.** [`search/catalog.html`](search/catalog.html) asks the catalog for a phrase rather than a title. On your own instance semantic search is off until an admin adds an embedding provider, turns it on under Admin > Settings > AI, and runs the embedding backfill ([search guide](https://docs.getgeolens.com/guides/user/search/)).
 4. **Build a map.** Add layers from the catalog, style each one, set the viewport, save ([map builder guide](https://docs.getgeolens.com/guides/user/map-builder/)). The demo's [showcase maps](https://demo.getgeolens.com/maps) came in through the same maps API, by script rather than by hand.
-5. **Analyze on the server.** The builder's Analysis panel runs buffer, intersect, dissolve and five more operations in PostGIS and writes the result back to the catalog as a new dataset; all but dissolve preview on the map first ([analysis guide](https://docs.getgeolens.com/guides/user/analysis/)). The demo answers anonymous analysis calls with 401, so there is no live example here; [`python/analyze.py`](python/analyze.py) does the same join client-side.
+5. **Analyze on the server.** The builder's Analysis panel runs buffer, intersect, dissolve and five more operations in PostGIS and writes the result back to the catalog as a new dataset; all but dissolve preview on the map first ([analysis guide](https://docs.getgeolens.com/guides/user/analysis/)). The demo answers anonymous analysis calls with 401, so there is no live example here; [`python/analyze.py`](python/analyze.py) does a comparable spatial join client-side.
 6. **Publish or embed it.** A share link gives the map a stable `/m/<token>` URL, and `?embed=true` puts it in an iframe on a page that is not GeoLens: [`embed/iframe.html`](embed/iframe.html).
 7. **Read it back from anywhere.** The same catalog answers QGIS over OGC API Features ([`qgis/`](qgis/)), the Python SDK ([`python/sdk-catalog.py`](python/sdk-catalog.py)), the TypeScript SDK ([`typescript/catalog-map.html`](typescript/catalog-map.html)), and plain SQL in DuckDB ([`duckdb/query.py`](duckdb/query.py)).
 
@@ -49,13 +49,13 @@ The table below is arranged by tool. Read in this order, the same examples trace
 | [`openlayers/imagery.html`](openlayers/imagery.html) | OpenLayers 10 | XYZ raster, and what `crossOrigin` costs you | [Live](https://geolens-io.github.io/geolens-examples/openlayers/imagery.html) |
 | [`leaflet/features.html`](leaflet/features.html) | Leaflet 1.9 | GeoJSON features straight into `L.geoJSON` | [Live](https://geolens-io.github.io/geolens-examples/leaflet/features.html) |
 | [`leaflet/imagery.html`](leaflet/imagery.html) | Leaflet 1.9 | Raster tiles as plain `<img>`, so no CORS needed | [Live](https://geolens-io.github.io/geolens-examples/leaflet/imagery.html) |
-| [`typescript/catalog-map.html`](typescript/catalog-map.html) | `@geolens/sdk` 1.14.0 + MapLibre | Catalog search, schema and freshness, then the tile link the collection advertises | [Live](https://geolens-io.github.io/geolens-examples/typescript/catalog-map.html) |
+| [`typescript/catalog-map.html`](typescript/catalog-map.html) | `@geolens/sdk` 1.14.0 + MapLibre | Catalog search, schema and freshness, then the tile link the collection advertises ([TypeScript SDK guide](https://docs.getgeolens.com/guides/sdk/typescript/)) | [Live](https://geolens-io.github.io/geolens-examples/typescript/catalog-map.html) |
 | [`search/catalog.html`](search/catalog.html) | MapLibre GL JS 5.x + `fetch` | Semantic catalog search, narrowed to the map view, then drawn | [Live](https://geolens-io.github.io/geolens-examples/search/catalog.html) |
 | [`embed/iframe.html`](embed/iframe.html) | No library | A saved GeoLens map in an iframe, styling and legend intact | [Live](https://geolens-io.github.io/geolens-examples/embed/iframe.html) |
 | [`stac/browse.html`](stac/browse.html) | MapLibre GL JS 5.x | STAC item search over the map view, then the tile asset each item advertises | [Live](https://geolens-io.github.io/geolens-examples/stac/browse.html) |
 | [`python/analyze.py`](python/analyze.py) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | `uv run python/analyze.py` |
-| [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.14.0 (single-file `uv run` script) | SDK catalog search, schema semantics, server-side filter, export into GeoPandas | `uv run python/sdk-catalog.py` |
-| [`mcp/`](mcp/) | Any MCP client via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0` |
+| [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.14.0 (single-file `uv run` script) | SDK catalog search, schema semantics, server-side filter, export into GeoPandas ([Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/)) | `uv run python/sdk-catalog.py` |
+| [`mcp/`](mcp/) | Any MCP client via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant ([MCP server guide](https://docs.getgeolens.com/guides/sdk/mcp/)) | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0` |
 | [`qgis/`](qgis/) | QGIS 4.2 | OGC API Features + Records with CQL2, XYZ raster, tile-token auth | `https://demo.getgeolens.com/api/` |
 | [`duckdb/query.py`](duckdb/query.py) | DuckDB 1.5 + `spatial` (single-file `uv run` script) | One SQL join across the GeoParquet export and the Features API, with column pruning over HTTP ranges | `uv run duckdb/query.py` |
 | [`cli/`](cli/) | `geolens-cli` 1.14.0 | Catalog-as-code: offline `validate`, then `apply --dry-run` and `apply` against your instance | `uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml` |
@@ -99,7 +99,7 @@ The demo is public, so none of these examples send a credential. On your own ins
 | A static XYZ/MVT URL template that cannot set headers | a signed tile token, scoped to one dataset and short-lived |
 | Public data, including everything in the demo | nothing |
 
-GeoLens resolves credentials in one fixed order (`_resolve_api_key` and `get_optional_user` in `backend/app/modules/auth/dependencies.py`): the `X-Api-Key` header, then an `?api_key=` query parameter, then a bearer JWT, then anonymous. The header and the query parameter carry the same key and grant the same access. Only the transport differs.
+The header and the `?api_key=` query parameter carry the same key and grant the same access. Only the transport differs. The order GeoLens checks credentials in is documented in the [authentication guide](https://docs.getgeolens.com/guides/api/auth/) and implemented by `_resolve_api_key` and `get_optional_user` in `backend/app/modules/auth/dependencies.py`.
 
 Prefer the header. A key in a URL ends up in browser history, server access logs, every proxy log along the way, analytics, screenshots, and anything anyone copy-pastes, which is why GeoLens deprecated the query lane in geolens#821 and kept it only for clients that genuinely cannot set a header. Desktop GIS consuming an XYZ template is the case it exists for.
 
@@ -107,7 +107,7 @@ Do not put a long-lived API key in a static HTML file, and do not commit one. An
 
 ### Signed tile tokens
 
-`GET /api/tiles/token/<dataset_id>/` mints a token for a single dataset. A vector dataset returns `sig`, `exp`, and `scope` to append to the tile template; a raster dataset returns the whole `tile_url` with those already in the query string.
+`GET /api/tiles/token/<dataset_id>/` mints a token for a single dataset (the [tile endpoints reference](https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints) covers what a tile token is and why it is not an API key). A vector dataset returns `sig`, `exp`, and `scope` to append to the tile template; a raster dataset returns the whole `tile_url` with those already in the query string.
 
 ```bash
 curl https://demo.getgeolens.com/api/tiles/token/6f03bafa-34b3-4902-9351-40ce09a8181f/
@@ -116,7 +116,7 @@ curl https://demo.getgeolens.com/api/tiles/token/6f03bafa-34b3-4902-9351-40ce09a
 #  "expires_in":530, ...}
 ```
 
-The signature is bound to that one dataset, and `exp` is always a 15-minute boundary, usually the next one. When that boundary is under a minute away the mint skips to the following one instead, so a fresh token carries anywhere from 60 seconds to just under 16 minutes. Read `expires_in` off the response rather than assuming a fixed TTL. Either way a leaked template is worth minutes of read access to one layer, where a leaked API key is worth everything you can reach. `POST /api/tiles/tokens/` mints up to 50 in one call for a multi-layer map.
+`exp` is always a 15-minute boundary, usually the next one. When that boundary is under a minute away the mint skips to the following one instead, so a fresh token carries anywhere from 60 seconds to just under 16 minutes. Read `expires_in` off the response rather than assuming a fixed TTL. `POST /api/tiles/tokens/` mints up to 50 in one call for a multi-layer map.
 
 Two properties decide whether this fits your page.
 
@@ -130,7 +130,7 @@ Tokens expire and clients do not renew them on their own. MapLibre keeps request
 
 The three `features.html` examples fetch every feature once with `?limit=2000` and hold the whole result in browser memory. That works for the demo's subway layers (496 stations, 29 lines). It is the wrong shape for a parcel, road, or building layer, where the same code silently renders one truncated page.
 
-Use OGC API Features when the result is small or bounded, when you need attributes on the client, when you load by viewport or filter instead of all at once, or when the page interacts with individual features.
+Use [OGC API Features](https://docs.getgeolens.com/guides/api/ogc/#ogc-api---features) when the result is small or bounded, when you need attributes on the client, when you load by viewport or filter instead of all at once, or when the page interacts with individual features.
 
 Use vector tiles when the dataset is large, when users pan and zoom across all of it, when not every feature needs to reach the browser, and when rendering performance matters more than holding the full attribute table. `maplibre/vector-tiles.html` shows that path: the server cuts MVT per tile and the client holds only what is on screen.
 

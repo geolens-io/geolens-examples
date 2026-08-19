@@ -68,9 +68,13 @@ DEMO_URL = "https://demo.getgeolens.com"
 DEMO_LINES_ID = "de602fbe-8b30-4755-924f-c9e7fd9613b6"
 DEMO_STATIONS_ID = "724bf894-dc1a-418c-abc6-555798c44d7c"
 
-# An empty GEOLENS_URL is read as unset. os.environ.get(name, default) would
-# hand back the empty string and build every request against "/api/...".
-ENV_URL = os.environ.get("GEOLENS_URL") or None
+# GEOLENS_INSTANCE is the site root; the URLs below add /api themselves. The
+# CLI and the MCP server read the same variable and take it with or without
+# the /api suffix.
+#
+# An empty GEOLENS_INSTANCE is read as unset. os.environ.get(name, default)
+# would hand back the empty string and build every request against "/api/...".
+ENV_URL = os.environ.get("GEOLENS_INSTANCE") or None
 BASE_URL = (ARGS[0] if ARGS else ENV_URL or DEMO_URL).rstrip("/")
 
 # Dataset UUIDs. Find them at GET /api/collections, or in the web UI under a
@@ -332,8 +336,8 @@ def main() -> int:
     # metadata. The join below names the geometry and pays full price, which
     # is why both numbers are printed rather than only the flattering one.
     # The URL is bound, not interpolated. It can carry an apostrophe straight
-    # from argv or GEOLENS_URL, and DuckDB would read that as the end of the
-    # string literal and fail to parse a query that is not wrong.
+    # from argv or GEOLENS_INSTANCE, and DuckDB would read that as the end of
+    # the string literal and fail to parse a query that is not wrong.
     catalog_cost = measured(
         con,
         (

@@ -19,6 +19,10 @@ both as tables in one statement:
 | `read_parquet()` | `GET /api/datasets/{id}/export?format=parquet` | columnar, so a query that names two columns fetches two columns |
 | `ST_Read()` | `GET /api/collections/{id}/items` | GeoJSON, read whole, which is what a format with no index costs |
 
+Parquet is one of five export formats the same route serves
+([Export formats](https://docs.getgeolens.com/guides/user/exports/#export-formats)
+in the docs lists the rest); it is the one DuckDB can read a column at a time.
+
 [`python/analyze.py`](../python/analyze.py) reads the same two collections into
 GeoPandas. Use that when the analysis is Python. Use this when it is SQL, when
 the data is larger than memory, or when you want to join GeoLens to the
@@ -75,7 +79,9 @@ Those closing notes matter as much as the table. The numbers are real, so they
 carry the quirks of the source data, and the script prints the evidence for its
 own caveats rather than asking you to trust a tidy figure.
 
-Point it at your own instance with arguments, or `GEOLENS_URL`:
+Point it at your own instance with arguments, or `GEOLENS_INSTANCE` (the site root;
+the script adds `/api`, and the CLI and MCP server read the same variable with or
+without that suffix):
 
 ```bash
 uv run query.py https://geolens.example.com
