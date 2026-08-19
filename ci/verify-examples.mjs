@@ -84,6 +84,15 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(",").map((s) => s.trim())
 // by a reader. Validated up front: a misspelt engine is a usage error, never a
 // sweep that quietly ran fewer browsers than it was asked for.
 const ENGINES = { chromium, firefox, webkit };
+// Headless Firefox on Linux has no WebGL: its headless mode refuses to create
+// a context ("AllowWebgl2:false restricts context creation on this system",
+// measured on the runner image), and every MapLibre page here needs WebGL2.
+// Headed Firefox under Xvfb gets Mesa's llvmpipe and draws, so on Linux with a
+// DISPLAY (verify.yml runs the sweep under xvfb-run) Firefox launches headed.
+// Chromium and WebKit render headless with their own software GL everywhere,
+// and headless Firefox on macOS has WebGL, so nothing else changes.
+const launchOptions = (name) =>
+  name === "firefox" && process.platform === "linux" && process.env.DISPLAY ? { headless: false } : {};
 const BROWSERS = [...new Set((process.env.BROWSERS ?? "chromium").split(",").map((s) => s.trim()).filter(Boolean))];
 {
   const unknown = BROWSERS.filter((name) => !Object.hasOwn(ENGINES, name));
@@ -1148,7 +1157,7 @@ try {
     // the summary below still says what happened to each.
     let browser;
     try {
-      browser = await ENGINES[browserName].launch();
+      browser = await ENGINES[browserName].launch(launchOptions(browserName));
     } catch (err) {
       const why = `could not launch ${browserName}: ${String(err).split("\n")[0]}`;
       console.log(`${label} FAIL ${why}`);
