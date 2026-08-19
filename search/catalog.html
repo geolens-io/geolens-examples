@@ -168,7 +168,7 @@
     const terms = [...new Set((query.toLowerCase().match(/[a-z0-9]+/g) ?? []))]
       .filter((t) => t.length > 2 && !STOPWORDS.has(t));
     if (terms.length === 0) return null;
-    const text = [props.title, props.description, ...(props.keywords ?? [])]
+    const text = [props.title, props.description, ...(Array.isArray(props.keywords) ? props.keywords : [])]
       .join(" ").toLowerCase();
     const hit = terms.filter((t) => text.includes(t));
     return hit.length === 0
@@ -191,7 +191,7 @@
     }
   };
   const drawable = (feature) => {
-    const tiles = (feature.properties.distributions ?? []).find((d) => d.type === "vector_tiles");
+    const tiles = (feature.properties?.distributions ?? []).find((d) => d.type === "vector_tiles");
     // An MVT source-layer is named after the tile path segment it comes from,
     // so the advertised URL already says what to put in `source-layer`.
     const layer = tiles && isHttp(tiles.url) ? tiles.url.split("/tiles/")[1]?.split("/")[0] : null;
@@ -225,6 +225,10 @@
     button.setAttribute("aria-pressed", "true");
 
     clear();
+    // A tile failure from an earlier pick wrote into the status; this pick
+    // starts clean and the search summary comes back.
+    status.className = "";
+    status.textContent = summary;
     drawnId = feature.id;
     const source = drawable(feature);
     if (source?.kind === "vector") {
@@ -244,7 +248,8 @@
   };
 
   const card = (feature, query) => {
-    const p = feature.properties;
+    // A record is data from the server, so every field is optional here.
+    const p = feature.properties ?? {};
     const button = el("button", null, "hit");
     button.type = "button";
     button.setAttribute("aria-pressed", "false");
@@ -262,16 +267,18 @@
     button.append(el("strong", p.title));
     button.append(el("span", facts));
     // Freshness is on the record itself, so no extra request is needed for it.
-    if (p.updated) button.append(el("span", `updated ${p.updated.slice(0, 10)}`));
+    if (typeof p.updated === "string") button.append(el("span", `updated ${p.updated.slice(0, 10)}`));
     if (bbox) {
       button.append(el("span",
         `extent ${round(bbox[0])}, ${round(bbox[1])} → ${round(bbox[2])}, ${round(bbox[3])}`));
     }
-    if (p.keywords?.length) button.append(el("span", p.keywords.join(", ")));
+    if (Array.isArray(p.keywords) && p.keywords.length) button.append(el("span", p.keywords.join(", ")));
     const why = overlap(query, p);
     if (why) button.append(el("span", why, "why"));
     button.append(el("span",
-      source ? `draws from its advertised ${source.kind} tiles` : "no tile link advertised; zooms to its extent only",
+      source ? `draws from its advertised ${source.kind} tiles`
+        : bbox ? "no tile link advertised; zooms to its extent only"
+        : "no tile link or extent advertised; nothing to draw or zoom to",
       source ? "draws" : null));
 
     button.addEventListener("click", () => select(feature, button));
@@ -282,11 +289,18 @@
   // and its response can land after the newer one and overwrite it. Aborting is
   // both the cheap fix for that race and one less request the server serves.
   let pending = null;
+  // A sequence stamp alongside the abort: the panel's correctness should not
+  // rest on abort() alone rejecting an in-flight body read.
+  let seq = 0;
+  let summary = ""; // the last search's status line, restored after a tile error
 
   const run = async (autoSelect) => {
     pending?.abort();
     const controller = new AbortController();
     pending = controller;
+    const mine = ++seq;
+    status.className = "";
+    status.textContent = "Searching…";
 
     const query = input.value;
     // Read the bounds at search time. Re-searching on every map move would
@@ -298,7 +312,8 @@
     let body;
     try {
       // One request per box; two only when the view crosses the antimeridian.
-      // Their results merge by record id, and the matched counts add up.
+      // Their results merge by record id; the matched counts do not simply
+      // add up, see below.
       const pages = await Promise.all(boxes.map(async (box) => {
         const res = await fetch(search(query, box), { signal: controller.signal });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -310,15 +325,18 @@
       // came back whole, the unique count is the exact match count. When a
       // half was cut at the page limit, the two totals overlap by an unknown
       // amount, so the page says "more" instead of putting a number on it.
-      const whole = pages.every((p) => p.numberReturned === p.numberMatched);
+      // numberMatched is optional in OGC API Features; a page that omits it
+      // is taken as whole, since nothing says otherwise.
+      const returned = (p) => p.numberReturned ?? (p.features ?? []).length;
+      const whole = pages.every((p) => returned(p) === (p.numberMatched ?? returned(p)));
       body = {
         features,
         numberReturned: features.length,
         numberMatched: whole ? features.length : null,
       };
-      if (pages.length === 1) body.numberMatched = pages[0].numberMatched;
+      if (pages.length === 1) body.numberMatched = pages[0].numberMatched ?? features.length;
     } catch (err) {
-      if (err.name === "AbortError") return; // a newer search superseded this one
+      if (err.name === "AbortError" || mine !== seq) return; // a newer search superseded this one
       status.className = "err";
       status.textContent = `Search failed against ${GEOLENS}: ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS.`;
       // No cards, so nothing on the map either: a failed search should not
@@ -329,17 +347,20 @@
       return;
     }
 
-    status.className = "";
+    if (mine !== seq) return; // a newer search owns the panel now
+    // Cards first, status second, so a record this page cannot describe
+    // fails before the status claims the new results are on screen.
+    const cards = body.features.map((f) => card(f, query));
     // numberMatched is the size of the result set; the features array is this
     // page of it. They differ as soon as the catalog has more hits than `limit`.
     const where = bbox ? ", inside the current view" : "";
-    status.textContent = body.numberMatched === null
+    summary = body.numberMatched === null
       ? `${body.numberReturned} shown; more matched${where}`
       : body.numberMatched === body.numberReturned
         ? `${body.numberMatched} record(s) matched${where}`
         : `${body.numberReturned} of ${body.numberMatched} matched${where}`;
-
-    const cards = body.features.map((f) => card(f, query));
+    status.className = "";
+    status.textContent = summary;
     results.replaceChildren(...cards);
     // The map shows what the list offers. If the record on the map is still a
     // hit, keep it drawn and marked; if the new results dropped it, clear the

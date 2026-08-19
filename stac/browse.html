@@ -156,11 +156,17 @@
   // elevation. An item with a null geometry may carry no bbox at all, and
   // then there is nothing to rank or outline: flat() hands back null and the
   // callers treat it as covering nothing and having no footprint.
-  const flat = (bbox) =>
-    !Array.isArray(bbox) || bbox.length < 4 ? null : bbox.length === 6 ? [bbox[0], bbox[1], bbox[3], bbox[4]] : bbox;
+  const flat = (bbox) => {
+    if (!Array.isArray(bbox) || bbox.length < 4 || !bbox.every(Number.isFinite)) return null;
+    return bbox.length === 6 ? [bbox[0], bbox[1], bbox[3], bbox[4]] : bbox;
+  };
 
+  // A west>east bbox crosses the antimeridian; drawn as-is the ring would go
+  // the short way round through the whole world, so the east edge is
+  // written past 180 and the map wraps it.
   const ring = (bbox) => {
-    const [w, s, e, n] = flat(bbox);
+    const [w, s, e0, n] = flat(bbox);
+    const e = w <= e0 ? e0 : e0 + 360;
     return [[[w, s], [e, s], [e, n], [w, n], [w, s]]];
   };
 
@@ -194,7 +200,7 @@
   let selected = null;
   // STAC item ids are unique within a collection, not across the catalog, so
   // identity here is collection plus id.
-  const key = (item) => `${item.collection ?? ""}/${item.id}`;
+  const key = (item) => JSON.stringify([item.collection ?? "", item.id]);
 
   // The footprints stay in one geojson source and get redrawn whole on every
   // search and every pick, so `selected` is a plain property rather than
@@ -241,6 +247,7 @@
   };
 
   const draw = (item) => {
+    const props = item.properties ?? {};
     const asset = item.assets?.raster_tiles;
     const href = asset ? absolute(asset.href, item) : null;
     const drawable = href && isHttp(href);
@@ -266,16 +273,24 @@
       : more === "maybe"
         ? `Showing the first ${items.length} items that intersect this view; there may be more, zoom in to be sure.`
         : `${items.length} item(s) intersect this view.`;
-    const title = item.properties.title ?? item.id;
+    const title = props.title ?? item.id;
     status.textContent = drawable
       ? `${count} Drawing ${title}.`
-      : `${count} ${title} advertises no raster_tiles asset, so there is nothing to draw for it.`;
+      : asset
+        ? `${count} ${title}'s raster_tiles href is not an http(s) URL, so it cannot be drawn here.`
+        : `${count} ${title} advertises no raster_tiles asset, so there is nothing to draw for it.`;
   };
 
   const render = () => {
     list.replaceChildren(...items.map((item) => {
-      const props = item.properties;
+      const props = item.properties ?? {};
       const asset = item.assets?.raster_tiles;
+      const href = asset ? absolute(asset.href, item) : null;
+      const assetNote = !asset
+        ? "no raster_tiles asset"
+        : !(href && isHttp(href))
+          ? "raster_tiles · not an http(s) href"
+          : `raster_tiles · ${asset.type ?? "no media type"}`;
 
       const button = el("button", "pick");
       button.type = "button";
@@ -286,7 +301,7 @@
         el("span", "m", item.collection),
         el("span", "m", when(props)),
         el("span", "m", flat(item.bbox)?.map((n) => n.toFixed(3)).join(", ") ?? "no bbox"),
-        el("span", "a", asset ? `raster_tiles · ${asset.type}` : "no raster_tiles asset"),
+        el("span", "a", assetNote),
       );
       button.addEventListener("click", () => draw(item));
 
@@ -313,11 +328,17 @@
 
   let inflight = null;
   let debounce = null;
+  // A sequence stamp alongside the abort: the list's correctness should not
+  // rest on abort() alone rejecting an in-flight body read.
+  let seq = 0;
 
   const search = async () => {
     inflight?.abort();
     const controller = new AbortController();
     inflight = controller;
+    const mine = ++seq;
+    status.className = "";
+    status.textContent = "Searching this view…";
 
     // The server holds one copy of the world; MapLibre's bounds can hold
     // several (zoomed out) or straddle the antimeridian (west 170, east 190).
@@ -351,8 +372,11 @@
       // "yes" once a page was cut or a next link went unread; "maybe" when the
       // cap was already full before a second box got its first request, since
       // an unqueried box may hold nothing new; false when every walk ran dry.
-      let more = false;
+      let remainder = false;
       for (const [i, box] of boxes.entries()) {
+        // Duplicates across boxes are only possible once an earlier box has
+        // delivered something; before that a next link is more for certain.
+        const earlier = features.length;
         const bbox = box.map((n) => n.toFixed(6)).join(",");
         let url = `${SEARCH}?bbox=${bbox}&limit=20`;
         // A next link that points back at a page already read would spin this
@@ -361,7 +385,7 @@
         // since a page the server advertised was never read.
         const visited = new Set();
         while (url) {
-          if (features.length >= MAX_ITEMS) { more = more || "maybe"; break; }
+          if (features.length >= MAX_ITEMS) { remainder = remainder || "maybe"; break; }
           if (visited.has(url)) throw new Error(`the server's next link repeats a page already read (${url}), so the result is incomplete`);
           visited.add(url);
           const res = await fetch(url, { signal: controller.signal });
@@ -380,8 +404,8 @@
           // Fresh items left on a cut page are more for certain. A next link
           // is certain only in the first box; in the second, everything
           // unread could still be items the first box already delivered.
-          if (take.length < fresh.length) { more = "yes"; url = null; }
-          if (features.length >= MAX_ITEMS && url) { more = i === 0 ? "yes" : more || "maybe"; url = null; }
+          if (take.length < fresh.length) { remainder = "yes"; url = null; }
+          if (features.length >= MAX_ITEMS && url) { remainder = i === 0 || earlier === 0 ? "yes" : remainder || "maybe"; url = null; }
         }
       }
       // With every page read, the unique items are the whole result. When the
@@ -389,10 +413,10 @@
       // double-count anything that straddled the split, and a box the cap
       // skipped was never counted at all. So the page reports "more" and
       // does not put a number on it.
-      found = { features, more };
+      found = { features, more: remainder };
     } catch (err) {
       // A newer search already replaced this one; it is not a failure.
-      if (err.name === "AbortError") return;
+      if (err.name === "AbortError" || mine !== seq) return;
       // The list, footprints and raster described the previous view. Leaving
       // them up under an error about this one would show items the map is no
       // longer looking at, so the failure clears them.
@@ -412,6 +436,7 @@
     // first, and the scene you are looking at lands above the global backdrop.
     // Panned into a world copy, the centre reads as 190° while every bbox is
     // in ±180, so wrap it the same way as the search boxes.
+    if (mine !== seq) return; // a newer search owns the list now
     const centre = map.getCenter();
     const middle = { lng: wrapLng(centre.lng), lat: centre.lat };
     items = found.features.sort(
