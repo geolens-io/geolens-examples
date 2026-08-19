@@ -20,8 +20,8 @@ both as tables in one statement:
 | `ST_Read()` | `GET /api/collections/{id}/items` | GeoJSON, read whole, which is what a format with no index costs |
 
 Parquet is one of five export formats the same route serves
-([Export formats](https://docs.getgeolens.com/guides/user/exports/#export-formats)
-in the docs lists the rest); it is the one DuckDB can read a column at a time.
+([the docs list the rest](https://docs.getgeolens.com/guides/user/exports/#export-formats));
+it is the one DuckDB can read a column at a time.
 
 [`python/analyze.py`](../python/analyze.py) reads the same two collections into
 GeoPandas. Use that when the analysis is Python. Use this when it is SQL, when

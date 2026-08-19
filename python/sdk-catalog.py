@@ -45,8 +45,7 @@ from geolens.api.search import search_datasets_endpoint_search_datasets_get as s
 # GeoLens connection
 # --------------------------------------------------------------------------
 
-# GEOLENS_INSTANCE is the site root. The CLI and the MCP server read the same
-# variable and take it with or without the /api suffix; this script adds it.
+# GEOLENS_INSTANCE is the site root; API_BASE below adds /api.
 BASE_URL = os.environ.get("GEOLENS_INSTANCE", "https://demo.getgeolens.com")
 
 # The SDK wants the /api prefix the deployed API is served under, not the site

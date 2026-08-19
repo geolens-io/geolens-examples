@@ -68,9 +68,7 @@ DEMO_URL = "https://demo.getgeolens.com"
 DEMO_LINES_ID = "de602fbe-8b30-4755-924f-c9e7fd9613b6"
 DEMO_STATIONS_ID = "724bf894-dc1a-418c-abc6-555798c44d7c"
 
-# GEOLENS_INSTANCE is the site root; the URLs below add /api themselves. The
-# CLI and the MCP server read the same variable and take it with or without
-# the /api suffix.
+# GEOLENS_INSTANCE is the site root; the URLs below add /api.
 #
 # An empty GEOLENS_INSTANCE is read as unset. os.environ.get(name, default)
 # would hand back the empty string and build every request against "/api/...".

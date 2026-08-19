@@ -45,9 +45,10 @@
     .hit .why { color: #ffd166; }
     .hit .draws { color: #6ee7a8; }
     code { font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .lede a { color: #4da3ff; }
     /* Page shell: where the gallery, the main repo and this file live. */
     .foot { margin: 12px 0 0; font-size: 12px; color: #93a1b0; }
-    .foot a, .lede a { color: #4da3ff; }
+    .foot a { color: #4da3ff; }
   </style>
 </head>
 <body>
@@ -389,7 +390,7 @@
     } catch (err) {
       if (err.name === "AbortError" || mine !== seq) return; // a newer search superseded this one
       status.className = "err";
-      status.textContent = `Search failed against ${GEOLENS}: ${err.message}. If this is your own instance the request probably carried a credential: list this page's exact origin in CORS_ALLOWED_ORIGINS, since only anonymous reads get the CORS wildcard and a literal "*" is rejected. See https://docs.getgeolens.com/guides/admin/settings/#network`;
+      status.textContent = `Search failed against ${GEOLENS}: ${err.message}. If this is your own instance the request probably carried a credential: list this page's exact origin in CORS_ALLOWED_ORIGINS, where a literal "*" is rejected. See https://docs.getgeolens.com/guides/admin/settings/#network`;
       // No cards, so nothing on the map either: a failed search should not
       // leave the previous result drawn under an error about a different one.
       results.replaceChildren();

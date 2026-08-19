@@ -1,16 +1,16 @@
 # Python: read a GeoLens catalog
 
-Two single-file scripts, two ways in. [`analyze.py`](analyze.py) speaks
-OGC API - Features over plain HTTP, for when the client has to be a standards
-client or the language is not Python; [`sdk-catalog.py`](sdk-catalog.py) uses the
-[`geolens`](https://pypi.org/project/geolens/) package
-([Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/)), for when the
-language *is* Python and you want typed models. The docs weigh those routes
-against the CLI and the MCP server under
+Two single-file scripts, two ways in. Both run with one command and nothing
+installed, because their dependencies live in a
+[PEP 723](https://peps.python.org/pep-0723/) header that uv reads:
+
+| script | route | use it when |
+| --- | --- | --- |
+| [`analyze.py`](analyze.py) | OGC API - Features over plain HTTP | the client has to be a standards client, or the language is not Python |
+| [`sdk-catalog.py`](sdk-catalog.py) | the [`geolens`](https://pypi.org/project/geolens/) package ([Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/)) | the language *is* Python and you want typed models |
+
+The docs weigh those routes against the CLI and the MCP server under
 [CLI vs SDK vs MCP vs raw API](https://docs.getgeolens.com/guides/sdk/#cli-vs-sdk-vs-mcp-vs-raw-api).
-Both scripts run with one command and nothing installed, because their
-dependencies live in a [PEP 723](https://peps.python.org/pep-0723/) header that
-uv reads:
 
 ```bash
 uv run analyze.py
