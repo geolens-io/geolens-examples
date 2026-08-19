@@ -23,7 +23,7 @@
 <div id="hud">
   <strong>Leaflet — OGC API Features</strong>
   <p id="status" role="status">Loading NYC subway lines and stations from the GeoLens demo…</p>
-  <p>MTA via data.ny.gov · datasets <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">lines</a>, <a href="https://demo.getgeolens.com/datasets/724bf894-dc1a-418c-abc6-555798c44d7c">stations</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/leaflet/features.html">source</a></p>
+  <p>MTA via data.ny.gov · datasets <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">lines</a>, <a href="https://demo.getgeolens.com/datasets/724bf894-dc1a-418c-abc6-555798c44d7c">stations</a> · bigger collections: <a href="../maplibre/features-viewport.html">viewport loader</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/leaflet/features.html">source</a></p>
 </div>
 <script>
   // Point this at your own GeoLens instance to use your data.
@@ -43,13 +43,20 @@
   // These URLs pull every feature in one request and hold it all in memory.
   // Fine for these small layers, wrong for a large one; "OGC API Features or
   // vector tiles" in the README says when to switch.
+  //
+  // `limit` is a page size, not a total, and the server clamps it to an admin
+  // ceiling (ogc_items_max_page_size, 1000 by default). Both collections here
+  // fit in one page, so nothing is cut. For a collection that does not, see
+  // ../maplibre/features-viewport.html, which pages by bbox and follows the
+  // rel=next link.
   const items = (id) => `${GEOLENS}/api/collections/${id}/items?limit=2000`;
 
   const map = L.map("map").setView([40.73, -73.98], 11); // NYC; Leaflet takes [lat, lng]
 
   // Reading the items endpoint with fetch() is a cross-origin request, so it
-  // depends on the CORS headers GeoLens sends. The demo allows all origins;
-  // on your own instance the page's origin has to be in the CORS config.
+  // depends on the CORS headers GeoLens sends. Anonymous reads of the OGC
+  // routes get the wildcard on any v1.13+ instance; only a request that carries a
+  // credential needs this page's exact origin in CORS_ALLOWED_ORIGINS.
   // fetch() fulfils on 404 and 401 as happily as on 200, and the body is then a
   // problem document rather than GeoJSON. L.geoJSON accepts an object with no
   // features without complaining, so skipping this check draws a blank map and
@@ -96,7 +103,7 @@
     })
     .catch((err) => {
       status.className = "err";
-      status.textContent = `Could not read features from ${GEOLENS} — ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`;
+      status.textContent = `Could not read features from ${GEOLENS} — ${err.message}. Public anonymous OGC and tile reads need no CORS setup. On your own instance this usually means the dataset is private: send an API key, and list this page's exact origin in CORS_ALLOWED_ORIGINS, because a request carrying a credential gets no wildcard and a literal "*" is rejected.`;
       console.error("GeoLens request failed:", err);
     });
 </script>

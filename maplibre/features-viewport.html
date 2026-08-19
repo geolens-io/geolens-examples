@@ -22,7 +22,7 @@
 <div id="hud">
   <strong>MapLibre GL JS — OGC API Features by viewport</strong>
   <p id="status" role="status">Loading meteorite landings for this view from the GeoLens demo…</p>
-  <p>Meteoritical Society via NASA Open Data · <a href="https://demo.getgeolens.com/datasets/6030c57b-ce37-4198-aa1e-be78e0950f53">dataset</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/features-viewport.html">source</a></p>
+  <p>Meteoritical Society via NASA Open Data · <a href="https://demo.getgeolens.com/datasets/6030c57b-ce37-4198-aa1e-be78e0950f53">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/features-viewport.html">source</a></p>
 </div>
 <script>
   // Point this at your own GeoLens instance to use your data. The demo is
@@ -227,7 +227,7 @@
       // not belong under an error about this one.
       map.getSource("meteorites").setData({ type: "FeatureCollection", features });
       status.className = "err";
-      status.textContent = `Could not load features from ${GEOLENS} — ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`;
+      status.textContent = `Could not load features from ${GEOLENS} — ${err.message}. Public anonymous OGC and tile reads need no CORS setup. On your own instance this usually means the dataset is private: send an API key, and list this page's exact origin in CORS_ALLOWED_ORIGINS, because a request carrying a credential gets no wildcard and a literal "*" is rejected.`;
       console.error("GeoLens request failed:", err);
       return;
     }

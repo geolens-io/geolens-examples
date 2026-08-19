@@ -20,7 +20,15 @@ jobs:
   browser:
     name: Browser examples vs live demo
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Chromium on every push and pull request; all three engines on the weekly
+    # and manual runs, where a sweep that takes three times as long costs
+    # nobody a review. Actions has no ternary, so both values below use the
+    # `cond && a || b` idiom, which is safe here because neither `a` is empty.
+    # Written once and read by the install and the sweep both, so the engines
+    # installed are the engines swept.
+    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 40 || 15 }}
+    env:
+      BROWSERS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'chromium,firefox,webkit' || 'chromium' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -36,13 +44,16 @@ jobs:
       - name: Preflight the demo fixtures
         timeout-minutes: 4
         run: node ci/check-fixtures.mjs
-      - name: Install Playwright Chromium
+      - name: Install Playwright and the engines this run sweeps
         run: |
           npm init -y >/dev/null
           # Exact version: the render assertions in ci/verify-examples.mjs are
           # calibrated against this browser build, and playwright@1 floats.
           npm install playwright@1.62.1
-          npx playwright install --with-deps chromium
+          # BROWSERS is "chromium" or "chromium,firefox,webkit"; the install
+          # wants one argument per engine.
+          IFS=, read -ra engines <<<"$BROWSERS"
+          npx playwright install --with-deps "${engines[@]}"
       - name: Serve the repo
         run: |
           nohup python3 -m http.server 8000 >/tmp/http-server.log 2>&1 &

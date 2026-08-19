@@ -146,7 +146,14 @@ stations fit one page, so this script does not page. A collection whose size you
 do not control needs the `rel="next"` link followed, which GeoJSON-over-`ST_Read`
 cannot do for you: read it with an HTTP client the way
 [`python/analyze.py`](../python/analyze.py) does, or export it as Parquet and let
-the format carry the whole dataset in one URL.
+the format carry the whole dataset in one URL. There is a third way inside
+DuckDB: GDAL's OGC API Features driver, which the same `spatial` extension
+ships, follows `rel="next"` itself.
+`ST_Read('OAPIF:https://demo.getgeolens.com/api/', layer := '<collection id>')`
+walks a whole collection (the 32,186 meteorite landings in about eight
+seconds). It uses GDAL's own HTTP stack rather than `httpfs`, which on Debian
+and Ubuntu means exporting `CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt`
+first, or every https `OAPIF:` open fails with "error adding trust anchors".
 
 **Name the source CRS `OGC:CRS84`, not `EPSG:4326`.** This is the line in the
 script most worth reading twice. Both reads hand back lon/lat, and both label

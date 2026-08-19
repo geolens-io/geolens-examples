@@ -13,6 +13,9 @@
 #   - geolens==1.14.0, a PEP 723 inline dependency in python/sdk-catalog.py
 #   - geolens-mcp@1.14.0, in mcp/clients/*.{json,md} and index.html
 #   - geolens-cli==1.14.0, in verify.yml, cli/README.md and cli/github-actions.yml
+#   - duckdb==1.5.5, a PEP 723 inline dependency in duckdb/query.py
+#   - the qgis/qgis image digest in .github/workflows/qgis.yml; the
+#     github-actions ecosystem bumps `uses:` pins, not `container.image`
 #   - the SHA-pinned actions in cli/github-actions.yml, which is a template for
 #     someone else's repo and so sits outside the directory Dependabot scans
 #
