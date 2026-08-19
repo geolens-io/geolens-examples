@@ -90,6 +90,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          # The scripts here are single files with inline dependencies and no
+          # lockfile, so the action's cache has nothing to key on and warns on
+          # every run that it "will never get invalidated". Resolving them
+          # fresh takes seconds.
+          enable-cache: false
       # The same client version is written into a dozen files, so one bumped on
       # its own is drift nobody sees until an example stops matching the docs.
       - name: Check version pins
@@ -125,5 +131,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          # The scripts here are single files with inline dependencies and no
+          # lockfile, so the action's cache has nothing to key on and warns on
+          # every run that it "will never get invalidated". Resolving them
+          # fresh takes seconds.
+          enable-cache: false
       - name: Spawn geolens-mcp against the demo and search
         run: uv run ci/check-mcp.py
