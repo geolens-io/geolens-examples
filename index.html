@@ -313,8 +313,8 @@
 
   <footer class="page">
     <p>
-      Not here yet: ArcGIS Pro, and the workflows the public demo
-      cannot host at all (server-side analysis, private embeds).
+      Not here yet: ArcGIS Pro and the workflows the public demo cannot host at all
+      (server-side analysis, private embeds).
       <a href="https://github.com/geolens-io/geolens-examples/issues">Open an issue</a> if you want one sooner.
     </p>
     <p class="fine">
@@ -483,7 +483,7 @@
     {
       audience: "data-scientist", tool: "DuckDB 1.5 · single-file uv script",
       title: "SQL across two read surfaces",
-      blurb: "One statement joining a GeoParquet export to the Features API, neither of them downloaded first. Naming only the columns you want prunes the read to byte ranges, so a question about a 3.3 MB export costs 16 KB.",
+      blurb: "One statement joining a GeoParquet export to the Features API, neither of them downloaded first. Naming only the columns you want prunes the read to byte ranges, so once the export is cached a question about a 3.3 MB export costs 16 KB.",
       tag: "DuckDB", kind: "vector",
       address: "uv run duckdb/query.py",
       snippet: "  over the wire, as DuckDB logged it\n    naming one column   16.2 KB, 2/2 reads ranged\n    naming the geometry 3,246.2 KB + 1 chunked\n\n                             past  no stop  stops here\n  Nevins St (Bk)               12        8  2 3 4 5\n  Bleecker St (M)              11       10  6",

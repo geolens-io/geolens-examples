@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import os
 import sys
+import uuid
 
 import duckdb
 
@@ -76,8 +77,24 @@ BASE_URL = (ARGS[0] if ARGS else ENV_URL or DEMO_URL).rstrip("/")
 # dataset's "Share / API" panel. The same id names a dataset on the export
 # route and a collection on the OGC route, which is what lets one dataset be
 # read either way.
-LINES_ID = ARGS[1] if len(ARGS) == 3 else DEMO_LINES_ID
-STATIONS_ID = ARGS[2] if len(ARGS) == 3 else DEMO_STATIONS_ID
+def dataset_id(value: str, label: str) -> str:
+    """A dataset id, or a usage error naming which argument was wrong.
+
+    Both ids land in a URL, so a typo would otherwise surface as a 404 from
+    somewhere inside DuckDB. uuid.UUID also accepts braced and urn: spellings
+    that GeoLens does not, hence the round-trip check.
+    """
+    try:
+        parsed = uuid.UUID(value)
+    except ValueError:
+        sys.exit(f"{label} is not a UUID: {value!r}")
+    if str(parsed) != value.lower():
+        sys.exit(f"{label} must be the plain 36-character form, not {value!r}")
+    return value
+
+
+LINES_ID = dataset_id(ARGS[1], "lines-id") if len(ARGS) == 3 else DEMO_LINES_ID
+STATIONS_ID = dataset_id(ARGS[2], "stations-id") if len(ARGS) == 3 else DEMO_STATIONS_ID
 
 # Whether this run is reading the data the expected numbers were measured
 # against. Keyed on the resolved target rather than on how it was supplied, so
@@ -96,9 +113,14 @@ ON_DEMO_DATA = (
 # for. It answers 200 with the bytes, not 202 with a job to poll, so a URL is
 # all DuckDB needs. Public datasets need no credential.
 #
-# EPSG:4326 is the only CRS this format is offered in: ask for `parquet` with
-# any other `crs` and GeoLens answers 400 rather than writing a file whose
-# GeoParquet metadata would disagree with its contents.
+# EPSG:4326 is the only CRS this format is offered in. Ask for `parquet` with
+# any other `target_crs` and GeoLens answers 400 rather than writing a file
+# whose GeoParquet metadata would disagree with its contents.
+#
+# The parameter is `target_crs`. A misremembered `?crs=EPSG:3857` is not a
+# parameter this route has, so it is ignored: 200, and a file in 4326 that you
+# believe is in 3857. Exactly the failure the 400 exists to prevent, reached by
+# spelling the parameter wrong.
 LINES_PARQUET = f"{BASE_URL}/api/datasets/{LINES_ID}/export?format=parquet"
 
 # Read two. The OGC API - Features items endpoint, as plain GeoJSON.
@@ -127,10 +149,11 @@ STATIONS_GEOJSON = (
 # GDAL through DuckDB's own filesystem, so the secret reaches both reads and
 # the GDAL variable reaches neither. Measured against the demo on 2026-08-19.
 #
-# Worth knowing before you debug one: DuckDB reports a refused credential as
-# `HTTP Error: ... (HTTP 0 Internal Server Error)`. The server said 401. If a
-# read that works signed out starts failing that way once you add a key, the
-# key is wrong, not the server.
+# Worth knowing before you debug one: neither read says "401". read_parquet
+# reports a refused credential as `HTTP Error: ... (HTTP 0 Internal Server
+# Error)`, and ST_Read as `IO Error: Could not open GDAL dataset at: <url>`.
+# Both mean the same thing. If a read that works signed out starts failing
+# either of those ways once you add a key, the key is wrong, not the server.
 API_KEY = os.environ.get("GEOLENS_API_KEY")
 
 # --------------------------------------------------------------------------
@@ -269,12 +292,12 @@ def http_cost(con: duckdb.DuckDBPyConnection) -> str:
     return f"{size}, {ranged}/{len(rows)} reads ranged"
 
 
-def measured(con: duckdb.DuckDBPyConnection, *statements: str) -> str:
-    """Run statements with HTTP logging on, and describe what they moved."""
+def measured(con: duckdb.DuckDBPyConnection, *statements) -> str:
+    """Run (sql, params) pairs with HTTP logging on, and describe what they moved."""
     con.execute("CALL truncate_duckdb_logs();")
     con.execute("CALL enable_logging('HTTP');")
-    for statement in statements:
-        con.execute(statement)
+    for sql, params in statements:
+        con.execute(sql, params)
     con.execute("CALL disable_logging();")
     return http_cost(con)
 
@@ -295,10 +318,16 @@ def main() -> int:
     # it to disk first: you can ask what is in a dataset for the price of its
     # metadata. The join below names the geometry and pays full price, which
     # is why both numbers are printed rather than only the flattering one.
+    # The URL is bound, not interpolated. It can carry an apostrophe straight
+    # from argv or GEOLENS_URL, and DuckDB would read that as the end of the
+    # string literal and fail to parse a query that is not wrong.
     catalog_cost = measured(
         con,
-        f"CREATE TABLE service_names AS "
-        f"SELECT DISTINCT service FROM read_parquet('{LINES_PARQUET}')",
+        (
+            "CREATE TABLE service_names AS "
+            "SELECT DISTINCT service FROM read_parquet($url)",
+            {"url": LINES_PARQUET},
+        ),
     )
     services = con.sql("SELECT count(*) FROM service_names").fetchone()[0]
 
@@ -312,13 +341,16 @@ def main() -> int:
     # by default whenever spatial is loaded.) Reach for ST_GeomFromWKB only
     # against a Parquet file that carries no GeoParquet metadata, where the
     # geometry really is an undifferentiated BLOB.
-    load_lines = f"""
+    load_lines = (
+        f"""
         CREATE TABLE lines AS
         SELECT service,
                service_name,
                ST_Transform(geometry, '{SOURCE_CRS}', '{METRIC_CRS}') AS geom
-        FROM read_parquet('{LINES_PARQUET}')
-    """
+        FROM read_parquet($url)
+        """,
+        {"url": LINES_PARQUET},
+    )
 
     # ST_Read hands the URL to GDAL, which reads it as GeoJSON. Pass the plain
     # https URL: GDAL's own /vsicurl/ prefix does not work here, because
@@ -329,7 +361,8 @@ def main() -> int:
     # them called "86 St" and six "Canal St", so grouping by name silently
     # merges platforms that are miles apart and reports one station served by
     # fifteen lines. It looks like an answer, which is what makes it dangerous.
-    load_stations = f"""
+    load_stations = (
+        f"""
         CREATE TABLE stations AS
         SELECT OGC_FID AS station_id,
                stop_name,
@@ -337,8 +370,10 @@ def main() -> int:
                ada,
                daytime_routes,
                ST_Transform(geom, '{SOURCE_CRS}', '{METRIC_CRS}') AS geom
-        FROM ST_Read('{STATIONS_GEOJSON}')
-    """
+        FROM ST_Read($url)
+        """,
+        {"url": STATIONS_GEOJSON},
+    )
 
     geometry_cost = measured(con, load_lines, load_stations)
 
@@ -482,9 +517,12 @@ def main() -> int:
             problems.append(f"lines: read {n_lines}, expected {EXPECT_LINES}")
         if n_stations != EXPECT_STATIONS:
             problems.append(f"stations: read {n_stations}, expected {EXPECT_STATIONS}")
+        # `and n_stations` first: an empty read makes every extent aggregate
+        # NULL, and comparing None to a number raises before the report above
+        # can say what went wrong. The empty case is already reported.
         west, east, south, north = EXPECT_UTM_BOX
-        if not (west <= extent[0] and extent[1] <= east
-                and south <= extent[2] and extent[3] <= north):
+        if n_stations and not (west <= extent[0] and extent[1] <= east
+                               and south <= extent[2] and extent[3] <= north):
             problems.append(
                 f"projected stations span easting {extent[0]:,.0f}-{extent[1]:,.0f}, northing "
                 f"{extent[2]:,.0f}-{extent[3]:,.0f}, which is not {METRIC_CRS} over New York. "

@@ -92,9 +92,14 @@ Spelling the demo out in full still gets the full checks.
 **An export is a URL, not a job.** `GET /api/datasets/{id}/export?format=parquet`
 answers 200 with the bytes. There is no job to submit and no status to poll, so
 the whole client is a string inside `read_parquet()`. Public datasets need no
-credential. Parquet is offered in EPSG:4326 only: ask for it in another `crs`
-and GeoLens answers 400 rather than writing a file whose GeoParquet metadata
-would disagree with its contents.
+credential. Parquet is offered in EPSG:4326 only: ask for it with any other
+`target_crs` and GeoLens answers 400 rather than writing a file whose
+GeoParquet metadata would disagree with its contents.
+
+Spell that parameter carefully. It is `target_crs`, and `?crs=EPSG:3857` is not
+a parameter this route has, so it is ignored rather than refused: 200, and a
+file in 4326 that you believe is in 3857. The 400 exists to prevent exactly
+that, and a misspelling walks straight around it.
 
 **GeoParquet needs no `ST_GeomFromWKB`.** GeoLens writes GeoParquet 1.1.0, which
 is WKB geometry plus a `geo` metadata key naming the primary column, and
@@ -125,6 +130,12 @@ cold artifact DuckDB streams the whole file and the pruning buys nothing. The
 script logs and prints what each run actually moved instead of quoting a number
 that is only true half the time.
 
+That limit is DuckDB's, not the server's. GeoLens honours a leading bare `Range`
+even on an export it has never built ([geolens#1585](https://github.com/geolens-io/geolens/pull/1585)),
+so a client that already knows the size can range into a cold artifact. DuckDB
+will not, because it asks `HEAD` first and declines to address ranges into a
+file whose length it was not told.
+
 **`ST_Read` takes the plain https URL.** GDAL's own `/vsicurl/` prefix fails
 here, because DuckDB's spatial extension serves the bytes to GDAL through
 DuckDB's filesystem rather than letting GDAL fetch them. That plumbing also
@@ -145,7 +156,8 @@ authorities disagree about axis order (CRS84 is lon/lat, EPSG:4326 is lat/lon),
 and `ST_Transform` believes the name you give it over the numbers you give it:
 
 ```sql
--- -73.91, 40.78 read as lon/lat. New York, in metres.
+-- Astoria-Ditmars Blvd, -73.912034 40.775036, read as lon/lat.
+-- New York, in metres.
 ST_Transform(geom, 'OGC:CRS84',  'EPSG:32618')  -->  591810, 4514353
 
 -- the same point read as lat/lon. The South Atlantic.
@@ -205,10 +217,13 @@ against a 150 m threshold and the closest pair on either side sits 0.13 m below
 it and 3.45 m above, so an equality there would be a coin flip on a PROJ upgrade
 that moves a point by a hand's width.
 
-The demo's dataset ids and row counts are declared once in
-[`ci/fixtures.json`](../ci/fixtures.json) and probed before the sweep, including
-the Parquet export route this example reads, so a demo reset shows up as a
-preflight naming what moved rather than as this script failing on a count.
+The demo's dataset ids are declared once in
+[`ci/fixtures.json`](../ci/fixtures.json) and probed before the browser sweep,
+including the Parquet export route this example reads. That preflight runs in a
+different job from this script and in parallel with it, so a demo reset turns
+both red at once: read the preflight alongside the failure here, since it is
+the one that names what moved. The exact counts live only in this script, and
+the fixture file carries lower bounds.
 
 ## Using your own instance
 
@@ -229,10 +244,12 @@ Set `GEOLENS_API_KEY` and the script creates it for you.
 variable. It does nothing here: DuckDB serves https to GDAL itself, so the
 secret reaches both reads and the GDAL variable reaches neither.
 
-Worth knowing before you spend an afternoon on it: DuckDB reports a refused
-credential as `HTTP Error: ... (HTTP 0 Internal Server Error)`. The server said
-401. If a read that works signed out starts failing that way once you add a key,
-the key is wrong, not the server.
+Worth knowing before you spend an afternoon on it: neither read says "401".
+`read_parquet` reports a refused credential as
+`HTTP Error: ... (HTTP 0 Internal Server Error)`, and `ST_Read` as
+`IO Error: Could not open GDAL dataset at: <url>`. Both mean the server said
+401. If a read that works signed out starts failing either of those ways once
+you add a key, the key is wrong, not the server.
 
 ## Versions
 

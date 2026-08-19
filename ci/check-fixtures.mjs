@@ -432,17 +432,24 @@ async function checkStac(name, fx, notes, problems) {
 //
 // Two of those are invariants and the third is not, which is the whole design
 // of this probe. Anonymous access and the file actually being Parquet decide
-// whether the example can work at all. Ranges only decide what it costs:
-// GeoLens builds an export artifact on demand, and only one it has already
-// built answers with a Content-Length to range into, so a cold artifact serves
-// 200 and DuckDB streams the file whole. That is slow, not broken, and failing
-// the build on it would turn a warm cache into a build dependency.
+// whether the example can work at all. Ranges only decide what a read costs.
 //
-// So ranges are reported and never asserted, and the request costs four bytes
-// either way: ask for the first four, and read only four off the body when the
-// answer is a 200 that ignored the Range header. A Parquet file opens and
-// closes with the same magic, so the head is as good as the footer here and
-// needs no length to address.
+// Ranges are reported and never asserted because GeoLens is entitled to
+// decline one. A leading bare Range is honoured even on an export it has never
+// built (geolens#1585), so a 200 here is not "the artifact is cold": it is
+// GeoLens serving the whole file rather than the range, which it may do for an
+// artifact being rebuilt or contended for. Failing the build on that would
+// make green depend on which minute the job ran.
+//
+// Worth keeping separate from the reason duckdb/query.py sometimes streams the
+// whole file, which is a different mechanism: DuckDB needs a Content-Length
+// off HEAD before it will address ranges at all, and a cold artifact answers
+// HEAD without one. Same symptom, two unrelated causes.
+//
+// The request costs four bytes either way: ask for the first four, and read
+// only four off the body when the answer is a 200 that ignored the Range
+// header. A Parquet file opens and closes with the same magic, so the head is
+// as good as the footer here and needs no length to address.
 async function checkExport(name, fx, notes, problems) {
   const { format, contentType, magic } = fx.export;
   const path = `/api/datasets/${fx.collection}/export?format=${format}`;
@@ -451,10 +458,11 @@ async function checkExport(name, fx, notes, problems) {
   const res = await get(path, { headers: { Range: `bytes=0-${magic.length - 1}` } });
   if (res.status === 401 || res.status === 403) {
     problems.push(
-      `fixture ${name}: the ${format} export answered ${res.status} to an anonymous caller, so ` +
-        `duckdb/query.py cannot read it signed out. The dataset stopped being public, or the ` +
-        `export route stopped serving anonymous callers. DuckDB reports this one as ` +
-        `"HTTP 0 Internal Server Error", so it is worth catching here instead.`,
+      `fixture ${name}: the ${format} export answered ${res.status} to an anonymous caller ` +
+        `(${fx.export.why ?? "an example reads this export anonymously"}). The dataset stopped ` +
+        `being public, or the export route stopped serving anonymous callers. DuckDB reports ` +
+        `this one as "HTTP 0 Internal Server Error" and GDAL as "Could not open GDAL dataset", ` +
+        `so it is worth catching here instead.`,
     );
     return;
   }
@@ -488,10 +496,12 @@ async function checkExport(name, fx, notes, problems) {
   if (opening !== magic) {
     problems.push(
       `fixture ${name}: the ${format} export opens with ${JSON.stringify(opening)}, not ` +
-        `${JSON.stringify(magic)}, so it is not the file format the route claims.`,
+        `${JSON.stringify(magic)}, so it is not the file format the route claims. ` +
+        `The examples asking for it are the ones that write ${fx.export.grep} ` +
+        `(grep -rl "${fx.export.grep}").`,
     );
   }
-  const ranged = res.status === 206 ? "ranged" : "no ranges yet (cold artifact)";
+  const ranged = res.status === 206 ? "ranged" : "range declined, whole file offered";
   notes.push(`${format} export ${ranged}, ${type}`);
 }
 
