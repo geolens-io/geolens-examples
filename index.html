@@ -362,7 +362,8 @@
   // `group` picks the subhead inside an audience that GROUPS below subdivides
   // (only web-developer today). Within a group, cards render in array order.
   // A card whose audience is subdivided but whose group is missing or unknown
-  // still renders, in a trailing grid after the named groups.
+  // still renders, in a trailing grid after the named groups, keeping an h3
+  // heading since no subhead sits above it.
   //   live      relative path in this repo, omit for anything that is not a page
   //   address   the call the example makes — the line every card carries.
   //             For python/, duckdb/, mcp/ and cli/ this is a command a reader
@@ -710,7 +711,12 @@
           grid(sub));
       }
       const stray = mine.filter((e) => !groups.some(([gid]) => gid === e.group));
-      if (stray.length > 0) section.append(grid(stray));
+      if (stray.length > 0) {
+        // No subhead above them, so they keep h3: nesting them under the last
+        // named group's h3 would misfile them for heading navigation.
+        stray.forEach((e) => { e.heading = "h3"; });
+        section.append(grid(stray));
+      }
     } else {
       section.append(grid(mine));
     }
