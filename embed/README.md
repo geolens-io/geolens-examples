@@ -195,10 +195,9 @@ Use `sandbox="allow-scripts allow-same-origin"`, or leave `sandbox` off
 entirely. Both work.
 
 `sandbox="allow-scripts"` on its own does not, and it fails in a way worth
-recognizing. An opaque origin makes every one of the viewer's ES module fetches
-cross-origin, the static assets carry no `Access-Control-Allow-Origin` header,
-and the shell reloads when they fail. You get a blank frame and several hundred
-requests a minute.
+recognizing. The opaque origin makes the viewer's `/api/` calls cross-origin
+requests with no CORS header to answer them, so the app boots but the map
+never loads and the viewer reports it as not found.
 
 `allow-same-origin` restores the frame's own origin, which is already a
 different origin from your page. It gives the map no access to anything of
