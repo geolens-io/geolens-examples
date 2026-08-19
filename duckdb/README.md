@@ -82,6 +82,11 @@ uv run query.py https://geolens.example.com
 uv run query.py https://geolens.example.com <lines-id> <stations-id>
 ```
 
+Reading anything other than those two demo datasets turns off the demo-fixture
+checks described under [What CI checks](#what-ci-checks), since 29 lines and a
+bounding box over New York are facts about the demo and not about your catalog.
+Spelling the demo out in full still gets the full checks.
+
 ## What it shows
 
 **An export is a URL, not a job.** `GET /api/datasets/{id}/export?format=parquet`
@@ -176,6 +181,19 @@ demonstration that ran:
 | projected extent | inside UTM 18N over New York | catches a wrong source CRS |
 | every station near a line | all 496 within 50 m | proves the two reads register against each other |
 | pairs within 150 m | 1250 to 1400 | proves the join produced the documented shape |
+
+Every row of that table is a fact about the demo's catalog, so the script only
+checks them when the target is the demo: that URL and those two dataset ids,
+whether you passed them yourself or left them to the defaults. Point it at your
+own instance and it says so in one line, then checks only that both reads
+returned something, which is the one claim it can make about a catalog it has
+never seen.
+
+The extent check is also the one that cannot be generalized, which is why the
+whole table is gated rather than travelling with the script. It catches the
+axis-order trap by knowing in advance which patch of the earth the right answer
+sits on. Widen the box until it fits any instance and it stops telling New York
+from the South Atlantic, which is the only distinction it exists to draw.
 
 The extent check earns its place. The obvious guard, "every station is near a
 line", does not catch an axis-order mistake at all, because both layers get

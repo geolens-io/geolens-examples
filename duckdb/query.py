@@ -61,16 +61,36 @@ if len(ARGS) == 2 or len(ARGS) > 3:
         f"  got {len(ARGS)} arguments; pass both dataset ids or neither"
     )
 
-BASE_URL = (
-    ARGS[0] if ARGS else os.environ.get("GEOLENS_URL", "https://demo.getgeolens.com")
-).rstrip("/")
+# The demo, and the two datasets on it that every number further down was
+# measured against.
+DEMO_URL = "https://demo.getgeolens.com"
+DEMO_LINES_ID = "de602fbe-8b30-4755-924f-c9e7fd9613b6"
+DEMO_STATIONS_ID = "724bf894-dc1a-418c-abc6-555798c44d7c"
+
+# An empty GEOLENS_URL is read as unset. os.environ.get(name, default) would
+# hand back the empty string and build every request against "/api/...".
+ENV_URL = os.environ.get("GEOLENS_URL") or None
+BASE_URL = (ARGS[0] if ARGS else ENV_URL or DEMO_URL).rstrip("/")
 
 # Dataset UUIDs. Find them at GET /api/collections, or in the web UI under a
 # dataset's "Share / API" panel. The same id names a dataset on the export
 # route and a collection on the OGC route, which is what lets one dataset be
 # read either way.
-LINES_ID = ARGS[1] if len(ARGS) == 3 else "de602fbe-8b30-4755-924f-c9e7fd9613b6"
-STATIONS_ID = ARGS[2] if len(ARGS) == 3 else "724bf894-dc1a-418c-abc6-555798c44d7c"
+LINES_ID = ARGS[1] if len(ARGS) == 3 else DEMO_LINES_ID
+STATIONS_ID = ARGS[2] if len(ARGS) == 3 else DEMO_STATIONS_ID
+
+# Whether this run is reading the data the expected numbers were measured
+# against. Keyed on the resolved target rather than on how it was supplied, so
+# spelling the demo out in full is checked exactly as hard as passing nothing,
+# and CI is checked either way. The comparison is literal: a target that
+# reaches the same datasets by another name (a proxy, a mirror, a UUID typed
+# in a different case) skips the checks rather than risking a false assertion
+# about data this script cannot confirm is the demo's.
+ON_DEMO_DATA = (
+    BASE_URL == DEMO_URL
+    and LINES_ID == DEMO_LINES_ID
+    and STATIONS_ID == DEMO_STATIONS_ID
+)
 
 # Read one. The export route streams the whole dataset in the format you ask
 # for. It answers 200 with the bytes, not 202 with a job to poll, so a URL is
@@ -160,9 +180,19 @@ NEAR_M = 150
 # sanity threshold with room in it, not a tuned parameter.
 ON_LINE_M = 50
 
-# What the demo catalog holds today. Asserted at the end, so a run that
-# reaches a reset demo says which number moved instead of printing a report
-# about data that is no longer there.
+# What the demo catalog holds today. Checked at the end when ON_DEMO_DATA,
+# so a run that reaches a reset demo says which number moved instead of
+# printing a report about data that is no longer there.
+#
+# None of the four expectations below can be generalized to another instance,
+# including the extent box. That one is not a formatting detail: it is the only
+# check that catches the axis-order trap described under SOURCE_CRS, and it
+# works by knowing in advance which patch of the earth the right answer sits
+# on. Point this at Zurich and the box is wrong; widen it to fit any instance
+# and it stops distinguishing New York from the South Atlantic, which is the
+# entire distinction it exists to draw. A guard against a silent error has to
+# know what the correct answer looks like, so it belongs to the data it was
+# measured against and travels no further.
 EXPECT_LINES = 29
 EXPECT_STATIONS = 496
 
@@ -435,28 +465,41 @@ def main() -> int:
     # exit non-zero, which is what makes this script a CI check rather than a
     # demonstration.
     problems = []
-    if n_lines != EXPECT_LINES:
-        problems.append(f"lines: read {n_lines}, expected {EXPECT_LINES}")
-    if n_stations != EXPECT_STATIONS:
-        problems.append(f"stations: read {n_stations}, expected {EXPECT_STATIONS}")
-    west, east, south, north = EXPECT_UTM_BOX
-    if not (west <= extent[0] and extent[1] <= east
-            and south <= extent[2] and extent[3] <= north):
+
+    # True of any instance: a report built from nothing is not a report. This
+    # is the only claim this script can make about a catalog it has never seen.
+    if n_lines == 0 or n_stations == 0:
         problems.append(
-            f"projected stations span easting {extent[0]:,.0f}-{extent[1]:,.0f}, northing "
-            f"{extent[2]:,.0f}-{extent[3]:,.0f}, which is not {METRIC_CRS} over New York. "
-            f"Coordinates this far out mean the source CRS named the wrong axis order; "
-            f"see SOURCE_CRS."
+            f"read {n_lines} lines and {n_stations} stations, so at least one of the two "
+            f"sources returned nothing and the table above describes an empty join"
         )
-    if on_line != n_stations:
-        problems.append(
-            f"only {on_line} of {n_stations} stations are within {ON_LINE_M} m of any line "
-            f"(furthest: {furthest[0]} at {furthest[1]:,.0f} m), so the two reads do not "
-            f"register against each other."
-        )
-    low, high = EXPECT_PAIRS_RANGE
-    if not low <= pairs <= high:
-        problems.append(f"pairs within {NEAR_M} m: {pairs}, expected {low}-{high}")
+
+    # Everything else is a statement about the demo's catalog, and is only true
+    # of the demo's catalog. See the note above EXPECT_LINES for why not even
+    # the extent box generalizes.
+    if ON_DEMO_DATA:
+        if n_lines != EXPECT_LINES:
+            problems.append(f"lines: read {n_lines}, expected {EXPECT_LINES}")
+        if n_stations != EXPECT_STATIONS:
+            problems.append(f"stations: read {n_stations}, expected {EXPECT_STATIONS}")
+        west, east, south, north = EXPECT_UTM_BOX
+        if not (west <= extent[0] and extent[1] <= east
+                and south <= extent[2] and extent[3] <= north):
+            problems.append(
+                f"projected stations span easting {extent[0]:,.0f}-{extent[1]:,.0f}, northing "
+                f"{extent[2]:,.0f}-{extent[3]:,.0f}, which is not {METRIC_CRS} over New York. "
+                f"Coordinates this far out mean the source CRS named the wrong axis order; "
+                f"see SOURCE_CRS."
+            )
+        if on_line != n_stations:
+            problems.append(
+                f"only {on_line} of {n_stations} stations are within {ON_LINE_M} m of any line "
+                f"(furthest: {furthest[0]} at {furthest[1]:,.0f} m), so the two reads do not "
+                f"register against each other."
+            )
+        low, high = EXPECT_PAIRS_RANGE
+        if not low <= pairs <= high:
+            problems.append(f"pairs within {NEAR_M} m: {pairs}, expected {low}-{high}")
 
     if problems:
         print()
@@ -470,7 +513,13 @@ def main() -> int:
         return 1
 
     print()
-    print(f"  OK: {n_lines} lines, {n_stations} stations, all within {ON_LINE_M} m of a line.")
+    if ON_DEMO_DATA:
+        print(f"  OK: {n_lines} lines, {n_stations} stations, all within {ON_LINE_M} m of a line.")
+    else:
+        # Naming no single culprit on purpose: the target is the URL and both
+        # ids together, and any one of the three differing lands here.
+        print(f"  OK: {n_lines} lines, {n_stations} stations. Demo-fixture checks skipped:")
+        print("  this run is not reading the demo's two subway datasets.")
     print()
     return 0
 

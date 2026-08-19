@@ -75,14 +75,23 @@ const ATTEMPTS = knob("FIXTURE_ATTEMPTS", 3, 1);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 class TransportError extends Error {}
 const transient = (status) => status >= 500 || status === 429 || status === 408;
-async function get(path) {
+// `options` is merged into the fetch init, so a probe that needs a header (the
+// export probe sends a Range) still gets the retries, the shared deadline and
+// the transport-error classification above. A probe calling fetch directly
+// gets none of that, and records the demo's one flaky minute as a fixture that
+// moved.  The signal is set here and not overridable: the deadline is the
+// whole point.
+async function get(path, options = {}) {
   const url = /^https?:\/\//i.test(path) ? path : `${DEMO}${path}`;
   let last;
   for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
     const left = DEADLINE - Date.now();
     if (left <= 0) throw new TransportError(`the preflight's ${knobText("FIXTURE_DEADLINE_MS")} deadline passed before ${url} could be read`);
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, left)) });
+      const res = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(Math.min(TIMEOUT_MS, left)),
+      });
       if (!transient(res.status)) return res;
       last = new TransportError(`${url} answered ${res.status}`);
       // A Retry-After in seconds is the server naming its own gap.
@@ -436,11 +445,10 @@ async function checkStac(name, fx, notes, problems) {
 // needs no length to address.
 async function checkExport(name, fx, notes, problems) {
   const { format, contentType, magic } = fx.export;
-  const url = `${DEMO}/api/datasets/${fx.collection}/export?format=${format}`;
-  const res = await fetch(url, {
-    headers: { Range: `bytes=0-${magic.length - 1}` },
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
+  const path = `/api/datasets/${fx.collection}/export?format=${format}`;
+  // Through get(), so a 502 on the demo's one bad minute is retried and then
+  // filed as "demo unavailable" rather than as this fixture having moved.
+  const res = await get(path, { headers: { Range: `bytes=0-${magic.length - 1}` } });
   if (res.status === 401 || res.status === 403) {
     problems.push(
       `fixture ${name}: the ${format} export answered ${res.status} to an anonymous caller, so ` +
@@ -469,9 +477,12 @@ async function checkExport(name, fx, notes, problems) {
   }
   await reader.cancel();
 
-  const type = res.headers.get("content-type") ?? "";
+  // Normalized both sides, the way checkTile does it: media types are
+  // case-insensitive per RFC 9110, and an intermediary is free to hand back
+  // "Application/Vnd.Apache.Parquet; charset=binary".
+  const type = (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
   const opening = new TextDecoder().decode(head.subarray(0, filled));
-  if (!type.startsWith(contentType)) {
+  if (type !== contentType.toLowerCase()) {
     problems.push(`fixture ${name}: the ${format} export is served as "${type}", not "${contentType}".`);
   }
   if (opening !== magic) {
