@@ -68,6 +68,11 @@ DEMO_URL = "https://demo.getgeolens.com"
 DEMO_LINES_ID = "de602fbe-8b30-4755-924f-c9e7fd9613b6"
 DEMO_STATIONS_ID = "724bf894-dc1a-418c-abc6-555798c44d7c"
 
+# The variable used to be GEOLENS_URL. A stale export would otherwise fall
+# through to the demo and report the wrong catalog without a word, so refuse.
+if os.environ.get("GEOLENS_URL") and not os.environ.get("GEOLENS_INSTANCE"):
+    sys.exit("GEOLENS_URL was renamed to GEOLENS_INSTANCE; export that instead.")
+
 # GEOLENS_INSTANCE is the site root; the URLs below add /api.
 #
 # An empty GEOLENS_INSTANCE is read as unset. os.environ.get(name, default)

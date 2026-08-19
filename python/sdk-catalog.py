@@ -45,6 +45,11 @@ from geolens.api.search import search_datasets_endpoint_search_datasets_get as s
 # GeoLens connection
 # --------------------------------------------------------------------------
 
+# The variable used to be GEOLENS_URL. A stale export would otherwise fall
+# through to the demo and report the wrong catalog without a word, so refuse.
+if os.environ.get("GEOLENS_URL") and not os.environ.get("GEOLENS_INSTANCE"):
+    sys.exit("GEOLENS_URL was renamed to GEOLENS_INSTANCE; export that instead.")
+
 # GEOLENS_INSTANCE is the site root; API_BASE below adds /api. An empty value
 # (an unset CI secret, usually) falls back to the demo like an unset one.
 BASE_URL = os.environ.get("GEOLENS_INSTANCE") or "https://demo.getgeolens.com"
