@@ -219,7 +219,9 @@
         }
       }
     } catch (err) {
-      if (err.name === "AbortError") return; // superseded on purpose, nothing to report
+      // Superseded on purpose, or superseded and then failed late: either way
+      // a newer view owns the map and this one has nothing to report.
+      if (err.name === "AbortError" || mine !== seq) return;
       // Show only what this view got before it failed: its own pages if any
       // arrived, an empty source if none did. The previous view's points do
       // not belong under an error about this one.

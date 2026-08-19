@@ -359,9 +359,12 @@ async function checkStac(name, fx, notes, problems) {
   const inPolygon = (rings) => rings.length > 0 && inRing(rings[0]) && !rings.slice(1).some(inRing);
   const covers = (i) => i.geometry?.type === "Polygon" ? inPolygon(i.geometry.coordinates ?? []) : i.geometry?.type === "MultiPolygon" ? (i.geometry.coordinates ?? []).some(inPolygon) : coversBbox(i.bbox);
   const area = (b) => { const f = flat(b); if (!f) return Infinity; const [w, s, e, n] = f; return width(w, e) * (n - s); };
-  const pick = items.filter(covers).sort((a, b) => area(a.bbox) - area(b.bbox))[0];
+  // Covering items first, tightest first, then the rest by area: the page's
+  // sort, so the fixture probes the item the page will draw even when
+  // nothing contains the exact centre.
+  const pick = [...items].sort((a, b) => covers(b) - covers(a) || area(a.bbox) - area(b.bbox))[0];
   if (!pick) {
-    problems.push(`fixture ${name}: no STAC item covers the map centre ${center.join(",")}, so the example has nothing to draw on load.`);
+    problems.push(`fixture ${name}: the search returned nothing to rank over ${center.join(",")}, so the example has nothing to draw on load.`);
     return;
   }
   // Same resolution rules as the page: a relative asset href is relative to
