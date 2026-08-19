@@ -193,14 +193,18 @@
       return false;
     }
   };
+  // A template can arrive with its braces URL-encoded; MapLibre needs them
+  // literal to substitute z, x and y.
+  const braces = (u) => u.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
   const drawable = (feature) => {
     const tiles = (feature.properties?.distributions ?? []).find((d) => d.type === "vector_tiles");
     // An MVT source-layer is named after the tile path segment it comes from,
     // so the advertised URL already says what to put in `source-layer`.
-    const layer = tiles && isHttp(tiles.url) ? tiles.url.split("/tiles/")[1]?.split("/")[0] : null;
-    if (layer) return { kind: "vector", url: tiles.url, layer };
+    const url = tiles && isHttp(tiles.url) ? braces(tiles.url) : null;
+    const layer = url ? url.split("/tiles/")[1]?.split("/")[0] : null;
+    if (layer) return { kind: "vector", url, layer };
     const raster = feature.assets?.raster_tiles?.href;
-    if (isHttp(raster)) return { kind: "raster", url: raster };
+    if (isHttp(raster)) return { kind: "raster", url: braces(raster) };
     return null;
   };
 
