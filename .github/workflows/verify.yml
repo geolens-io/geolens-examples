@@ -53,7 +53,17 @@ jobs:
           # BROWSERS is "chromium" or "chromium,firefox,webkit"; the install
           # wants one argument per engine.
           IFS=, read -ra engines <<<"$BROWSERS"
-          npx playwright install --with-deps "${engines[@]}"
+          if [ "$BROWSERS" = "chromium" ]; then
+            # Push and pull-request runs sweep Chromium only, and ubuntu-latest
+            # already carries its shared libraries (the image ships Google
+            # Chrome). --with-deps would run apt-get for nothing, and on
+            # 2026-08-19 that hung on the runners' Ubuntu mirror for the whole
+            # 15-minute job budget four times in a row. Firefox and WebKit do
+            # need their packages, so the multi-engine sweep keeps --with-deps.
+            npx playwright install chromium
+          else
+            npx playwright install --with-deps "${engines[@]}"
+          fi
       - name: Serve the repo
         run: |
           nohup python3 -m http.server 8000 >/tmp/http-server.log 2>&1 &
