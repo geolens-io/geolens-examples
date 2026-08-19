@@ -10,7 +10,7 @@ uv run run.py              # no CLI: a short uv script runs the same file
 
 [`features.sql`](features.sql) is the example. [`run.py`](run.py) exists so it
 runs where only Python is installed (CI included); it executes the statements
-one by one and fails if a SELECT comes back empty.
+one by one, each once, and fails if a SELECT comes back empty.
 
 ## What it shows
 
@@ -21,7 +21,7 @@ requests, and `spatial` gives you a typed `GEOMETRY('OGC:CRS84')` column
 instead of WKB:
 
 ```sql
-SELECT name, round(mass_kg / 1000, 1) AS tonnes, year, ST_AsText(geometry)
+SELECT name, recclass, round(mass_kg / 1000, 1) AS tonnes, year, ST_AsText(geometry) AS location
 FROM read_parquet('https://demo.getgeolens.com/api/datasets/6030c57b-ce37-4198-aa1e-be78e0950f53/export?format=parquet&where=mass_kg>1000')
 ORDER BY mass_kg DESC LIMIT 5;
 ```
@@ -76,11 +76,15 @@ About eight seconds end to end on the demo, most of it the OAPIF walk.
 
 Change the host in the three URLs. Both routes are anonymous for public
 datasets, which is what the demo serves. For a private dataset the export route
-takes an API key through an `httpfs` secret, which DuckDB then sends on every
-request:
+takes an API key through an `httpfs` secret scoped to your host, which DuckDB
+then sends on every request to it:
 
 ```sql
-CREATE SECRET geolens (TYPE http, EXTRA_HTTP_HEADERS MAP {'X-Api-Key': '…'});
+CREATE SECRET geolens (
+  TYPE http,
+  SCOPE 'https://demo.getgeolens.com/',   -- only this host sees the key
+  EXTRA_HTTP_HEADERS MAP {'X-Api-Key': '…'}
+);
 ```
 
 The OAPIF route has no equivalent inside DuckDB: its bundled GDAL sends no

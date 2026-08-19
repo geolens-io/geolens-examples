@@ -62,4 +62,5 @@ COPY (
 ) TO 'nyc_subway_lines.parquet' (FORMAT parquet);
 
 SELECT count(*) AS rows_written, any_value(typeof(geom)) AS geometry_type
-FROM read_parquet('nyc_subway_lines.parquet');
+FROM read_parquet('nyc_subway_lines.parquet')
+HAVING count(*) > 0;  -- an empty file is a failure, not a row saying 0
