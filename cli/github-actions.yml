@@ -125,6 +125,13 @@ jobs:
             exit 0
           fi
           uvx --from geolens-cli==1.14.0 geolens --json apply geolens.yaml
-      - name: Report that nothing was applied
+      # Red, not a note. The preview job above may skip, because a fork's pull
+      # request has no way to reach the instance and validate has already said
+      # what it could. A push to main is different: green there has to mean the
+      # catalog now holds this manifest, and a `catalog` environment that was
+      # never set up must not read as an apply that happened.
+      - name: Fail because nothing was applied
         if: ${{ env.GEOLENS_INSTANCE == '' || env.GEOLENS_TOKEN == '' }}
-        run: echo "GEOLENS_INSTANCE or GEOLENS_TOKEN is unset in the catalog environment, so no apply ran."
+        run: |
+          echo "GEOLENS_INSTANCE and GEOLENS_TOKEN are required for main." >&2
+          exit 1

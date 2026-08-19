@@ -123,13 +123,15 @@ a server, which is why they are the parts this repo's CI runs on every pull requ
 [`github-actions.yml`](github-actions.yml) is meant to be copied into `.github/workflows/` in the
 repo that holds your manifest. It is three jobs. `validate` runs on every event with no secrets and
 checks the manifest offline. `preview` runs on pull requests and asks the instance what applying
-would change, with `--dry-run`. `apply` runs on a push to `main`, and only there. Each networked job
-skips its step and says so when its secret is missing, so a fork's CI stays green and honest about
-what it checked. Applies to `main` run one at a time, and a run in progress is left to finish rather
-than cancelled half way. Because GitHub queues runs without promising their order, the apply step
-also checks that its commit is still the tip of `main` before writing, and steps aside if a newer
-push has landed, so the catalog ends up holding the manifest on `main` and not an older one that
-happened to run last.
+would change, with `--dry-run`. `apply` runs on a push to `main`, and only there. `preview` skips
+its dry run and says so when its secret is missing, so a fork's pull request stays green and honest
+about what it checked. `apply` does the opposite: a push to `main` with `GEOLENS_INSTANCE` or
+`GEOLENS_TOKEN` unset fails on purpose, because green on `main` has to mean the manifest was
+applied, and a `catalog` environment nobody has set up yet must not pass for one. Applies to
+`main` run one at a time, and a run in progress is left to finish rather than cancelled half way.
+Because GitHub queues runs without promising their order, the apply step also checks that its
+commit is still the tip of `main` before writing, and steps aside if a newer push has landed, so
+the catalog ends up holding the manifest on `main` and not an older one that happened to run last.
 
 Why three jobs rather than one: a pull request from a branch in the same repository receives the
 repository's secrets, and it can edit the workflow it runs. A write-capable token in a job that runs
