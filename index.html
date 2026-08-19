@@ -181,6 +181,16 @@
     grid-template-columns: repeat(auto-fill, minmax(min(310px, 100%), 1fr));
   }
 
+  /* Pattern subheads inside a band, same wayfinding style as the section
+     eyebrows above the chips. */
+  .subhead { margin: 2.4rem 0 0; }
+  .subhead h3 {
+    margin: 0; font-family: var(--mono); font-size: .74rem; letter-spacing: .17em;
+    text-transform: uppercase; color: var(--muted); font-weight: 400;
+  }
+  .subhead p { margin: .3rem 0 0; max-width: 62ch; color: var(--muted); font-size: .9rem; }
+  .subhead + .grid { margin-top: 1rem; }
+
   /* ---- cards ------------------------------------------------------------ */
   .card {
     display: flex; flex-direction: column;
@@ -202,7 +212,7 @@
 
   .card .body { display: flex; flex-direction: column; gap: .55rem; padding: 1.1rem 1.15rem 0; }
   .card .head { display: flex; gap: .75rem; align-items: baseline; justify-content: space-between; }
-  .card h3 { margin: 0; font-size: 1.04rem; font-weight: 650; letter-spacing: -.012em; }
+  .card :is(h3, h4) { margin: 0; font-size: 1.04rem; font-weight: 650; letter-spacing: -.012em; }
   .card .meta {
     margin: 0; font-family: var(--mono); font-size: .69rem; letter-spacing: .05em;
     text-transform: uppercase; color: var(--muted);
@@ -349,6 +359,10 @@
   // ---------------------------------------------------------------------------
   // Adding an example is one object in EXAMPLES below. `audience` picks the
   // section; naming an audience that has no cards yet creates its section.
+  // `group` picks the subhead inside an audience that GROUPS below subdivides
+  // (only web-developer today). Within a group, cards render in array order.
+  // A card whose audience is subdivided but whose group is missing or unknown
+  // still renders, in a trailing grid after the named groups.
   //   live      relative path in this repo, omit for anything that is not a page
   //   address   the call the example makes — the line every card carries.
   //             For python/, duckdb/, mcp/ and cli/ this is a command a reader
@@ -372,6 +386,23 @@
      "Pull features into Python or SQL and analyze them next to everything else you work with."],
   ];
 
+  // Fourteen web-developer cards are too many to scan as one grid, and the
+  // real choice there is two-dimensional: the library is decided before anyone
+  // lands here, the pattern is what they came to pick. So the subheads are the
+  // patterns and the card's meta line keeps naming the library.
+  const GROUPS = {
+    "web-developer": [
+      ["tiles", "Draw tiles",
+       "Big layers stay on the server and the browser pulls only the tiles in view: MVT for vectors, PNG for rasters."],
+      ["features", "Draw features",
+       "GeoJSON with attributes in the browser, read whole or by viewport. The right shape for small or bounded layers."],
+      ["search", "Search first",
+       "Find the data before drawing it: the catalog by meaning, STAC by footprint and time, or the SDK for what the catalog knows that a URL cannot."],
+      ["embed", "Embed a saved map",
+       "No integration at all: a map styled in the builder renders itself in an iframe."],
+    ],
+  };
+
   const REPO = "https://github.com/geolens-io/geolens-examples/blob/main/";
   const LINES = ["Subway lines", "de602fbe-8b30-4755-924f-c9e7fd9613b6"];
   const STATIONS = ["Subway stations", "724bf894-dc1a-418c-abc6-555798c44d7c"];
@@ -380,7 +411,7 @@
 
   const EXAMPLES = [
     {
-      audience: "web-developer", tool: "MapLibre GL JS 5",
+      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 5",
       title: "Vector tiles in MapLibre",
       blurb: "Point a vector source at the tile template. GeoLens cuts MVT from PostGIS per request, so the browser pulls geometry for the current view instead of the whole layer.",
       tag: "MVT", kind: "vector",
@@ -390,7 +421,7 @@
       datasets: [LINES],
     },
     {
-      audience: "web-developer", tool: "MapLibre GL JS 5",
+      audience: "web-developer", group: "features", tool: "MapLibre GL JS 5",
       title: "GeoJSON features in MapLibre",
       blurb: "Two collections read straight into geojson sources. Clicking a station reads attributes the browser already holds, so identify costs no round-trip.",
       tag: "OGC Features", kind: "vector",
@@ -400,7 +431,7 @@
       datasets: [LINES, STATIONS],
     },
     {
-      audience: "web-developer", tool: "MapLibre GL JS 5",
+      audience: "web-developer", group: "features", tool: "MapLibre GL JS 5",
       title: "Features by viewport in MapLibre",
       blurb: "Asks for the current view with bbox, follows the paging links to the end, cancels a walk the next pan made stale, and stops at a per-view cap that says on screen when vector tiles should take over.",
       tag: "OGC Features", kind: "vector",
@@ -410,7 +441,7 @@
       datasets: [METEORITES],
     },
     {
-      audience: "web-developer", tool: "MapLibre GL JS 5",
+      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 5",
       title: "Raster tiles in MapLibre",
       blurb: "A DEM served as XYZ tiles. MapLibre uploads tiles into a WebGL texture, so it needs the instance to send CORS headers — GeoLens does from v1.13.0.",
       tag: "XYZ raster", kind: "raster",
@@ -420,7 +451,7 @@
       datasets: [DEM],
     },
     {
-      audience: "web-developer", tool: "Leaflet 1.9",
+      audience: "web-developer", group: "features", tool: "Leaflet 1.9",
       title: "GeoJSON features in Leaflet",
       blurb: "L.geoJSON consumes the items response unchanged. Popups bind per feature, and circleMarker keeps stations a constant size through every zoom.",
       tag: "OGC Features", kind: "vector",
@@ -430,7 +461,7 @@
       datasets: [LINES, STATIONS],
     },
     {
-      audience: "web-developer", tool: "Leaflet 1.9",
+      audience: "web-developer", group: "tiles", tool: "Leaflet 1.9",
       title: "Raster tiles in Leaflet",
       blurb: "L.tileLayer against the XYZ template. Leaflet loads tiles as plain images, which is why it draws raster even from instances that send no CORS header.",
       tag: "XYZ raster", kind: "raster",
@@ -440,7 +471,7 @@
       datasets: [DEM],
     },
     {
-      audience: "web-developer", tool: "OpenLayers 10",
+      audience: "web-developer", group: "features", tool: "OpenLayers 10",
       title: "OGC API Features in OpenLayers",
       blurb: "A vector source with its url on the items endpoint. GeoLens answers in CRS84 and OpenLayers reprojects into the view's Web Mercator as it reads.",
       tag: "OGC Features", kind: "vector",
@@ -450,7 +481,7 @@
       datasets: [LINES, STATIONS],
     },
     {
-      audience: "web-developer", tool: "OpenLayers 10",
+      audience: "web-developer", group: "tiles", tool: "OpenLayers 10",
       title: "Raster tiles in OpenLayers",
       blurb: "ol.source.XYZ against the tile template, with the crossOrigin trade-off spelled out: set it and you can read pixels back, leave it and the tiles just draw.",
       tag: "XYZ raster", kind: "raster",
@@ -460,7 +491,7 @@
       datasets: [DEM],
     },
     {
-      audience: "web-developer", tool: "ArcGIS Maps SDK for JS 5.1",
+      audience: "web-developer", group: "features", tool: "ArcGIS Maps SDK for JS 5.1",
       title: "OGCFeatureLayer against GeoLens",
       blurb: "Hand OGCFeatureLayer the API landing page and a collection id and it discovers the rest. Esri renderers and popups work over GeoLens data unchanged.",
       tag: "OGC Features", kind: "vector",
@@ -470,7 +501,7 @@
       datasets: [LINES, STATIONS],
     },
     {
-      audience: "web-developer", tool: "ArcGIS Maps SDK for JS 5.1",
+      audience: "web-developer", group: "tiles", tool: "ArcGIS Maps SDK for JS 5.1",
       title: "WebTileLayer against GeoLens",
       blurb: "Esri spells tile coordinates {level}/{col}/{row}. Swap those three placeholders into the standard template and the raster layer loads with no other change.",
       tag: "XYZ raster", kind: "raster",
@@ -513,7 +544,27 @@
       datasets: [LINES, STATIONS],
     },
     {
-      audience: "web-developer", tool: "@geolens/sdk 1.14.0 · MapLibre",
+      audience: "web-developer", group: "search", tool: "MapLibre GL JS 5 · fetch",
+      title: "Semantic search over the catalog",
+      blurb: "Type what the data is about. The query runs against embeddings, so \"space rocks that fell to earth\" finds the meteorite dataset with none of those words in its title. Tick the box and the map's bounds filter the same query by record extent.",
+      tag: "Search", kind: "vector",
+      address: "/api/collections/datasets/items?q=...&bbox=...",
+      thumb: "assets/search-catalog.jpg",
+      live: "search/catalog.html", source: "search/catalog.html",
+      datasets: [],
+    },
+    {
+      audience: "web-developer", group: "search", tool: "MapLibre GL JS 5",
+      title: "STAC search in MapLibre",
+      blurb: "Search the STAC API for items covering the current view, list what came back with its footprint and time, and draw the tile asset the item advertises. Nothing about the imagery is hardcoded here.",
+      tag: "STAC", kind: "raster",
+      address: "/api/stac/search?bbox={w,s,e,n}",
+      thumb: "assets/stac-browse.jpg",
+      live: "stac/browse.html", source: "stac/browse.html",
+      datasets: [],
+    },
+    {
+      audience: "web-developer", group: "search", tool: "@geolens/sdk 1.14.0 · MapLibre",
       title: "Catalog to map with the SDK",
       blurb: "Searches the catalog, shows what it knows that a tile URL cannot — origin, freshness, schema — then adds the layer using the tile template the collection advertises. No dataset id or table name is written into this page.",
       tag: "TypeScript SDK", kind: "vector",
@@ -523,7 +574,7 @@
       datasets: [],
     },
     {
-      audience: "web-developer", tool: "No library",
+      audience: "web-developer", group: "embed", tool: "No library",
       title: "A saved map, embedded",
       blurb: "The map you styled in the builder, in an iframe on a page that is not GeoLens. It renders itself, so the styling, legend and popups survive. A share token makes a public map reachable without a login.",
       tag: "Embed", kind: "tooling",
@@ -552,26 +603,6 @@
       snippet: "<b>$</b> geolens validate cli/geolens.yaml\n  Manifest valid: cli/geolens.yaml\n\n<b>$</b> geolens --json apply --dry-run\n  ne-110m-countries          create\n  ne-110m-populated-places   create",
       source: "cli/README.md",
       docs: ["Manifest and CI workflow", "https://github.com/geolens-io/geolens-examples/tree/main/cli"],
-      datasets: [],
-    },
-    {
-      audience: "web-developer", tool: "MapLibre GL JS 5",
-      title: "STAC search in MapLibre",
-      blurb: "Search the STAC API for items covering the current view, list what came back with its footprint and time, and draw the tile asset the item advertises. Nothing about the imagery is hardcoded here.",
-      tag: "STAC", kind: "raster",
-      address: "/api/stac/search?bbox={w,s,e,n}",
-      thumb: "assets/stac-browse.jpg",
-      live: "stac/browse.html", source: "stac/browse.html",
-      datasets: [],
-    },
-    {
-      audience: "web-developer", tool: "MapLibre GL JS 5 · fetch",
-      title: "Semantic search over the catalog",
-      blurb: "Type what the data is about. The query runs against embeddings, so \"space rocks that fell to earth\" finds the meteorite dataset with none of those words in its title. Tick the box and the map's bounds filter the same query by record extent.",
-      tag: "Search", kind: "vector",
-      address: "/api/collections/datasets/items?q=...&bbox=...",
-      thumb: "assets/search-catalog.jpg",
-      live: "search/catalog.html", source: "search/catalog.html",
       datasets: [],
     },
     {
@@ -637,7 +668,7 @@
       shot,
       el("div", { class: "body" },
         el("div", { class: "head" },
-          el("h3", {}, ex.title),
+          el(ex.heading, {}, ex.title),
           el("span", { class: `tag ${ex.kind}` }, ex.tag)),
         el("p", { class: "meta" }, `${ex.audienceName} · ${ex.tool}`),
         el("p", { class: "blurb" }, ex.blurb),
@@ -647,22 +678,43 @@
     );
   };
 
+  const grid = (list) => {
+    const g = el("div", { class: "grid" });
+    list.forEach((e) => g.append(card(e)));
+    return g;
+  };
+
   const chips = document.getElementById("chips");
   const bands = document.getElementById("bands");
 
   for (const [id, name, lede] of AUDIENCES) {
     const mine = EXAMPLES.filter((e) => e.audience === id);
     if (mine.length === 0) continue;
-    mine.forEach((e) => { e.audienceName = name; });
 
     chips.append(el("li", {}, el("a", { href: `#${id}` },
       el("span", {}, name), el("span", { class: "n" }, String(mine.length)))));
 
-    const grid = el("div", { class: "grid" });
-    mine.forEach((e) => grid.append(card(e)));
-    bands.append(el("section", { class: "band", id },
-      el("header", {}, el("h2", {}, name), el("p", {}, lede)),
-      grid));
+    const section = el("section", { class: "band", id },
+      el("header", {}, el("h2", {}, name), el("p", {}, lede)));
+
+    // A subdivided band nests subheads, so its card titles sit one level down.
+    const groups = GROUPS[id];
+    mine.forEach((e) => { e.audienceName = name; e.heading = groups ? "h4" : "h3"; });
+
+    if (groups) {
+      for (const [gid, gname, glede] of groups) {
+        const sub = mine.filter((e) => e.group === gid);
+        if (sub.length === 0) continue;
+        section.append(
+          el("div", { class: "subhead" }, el("h3", {}, gname), el("p", {}, glede)),
+          grid(sub));
+      }
+      const stray = mine.filter((e) => !groups.some(([gid]) => gid === e.group));
+      if (stray.length > 0) section.append(grid(stray));
+    } else {
+      section.append(grid(mine));
+    }
+    bands.append(section);
   }
 </script>
 </body>
