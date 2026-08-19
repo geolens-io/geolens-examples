@@ -194,17 +194,32 @@
   // question goes to the geometry when there is one (ray casting over each
   // polygon ring, holes subtracting) and to the bbox only for an item that
   // has none.
-  // Ring longitudes are unwrapped to within 180° of the centre first, so an
-  // edge written from 170 to -170 is a short hop across the dateline and not
-  // a sweep through 0°.
-  const near = (x, lng) => (x - lng > 180 ? x - 360 : x - lng < -180 ? x + 360 : x);
-  const inRing = (ring, lng, lat) => {
+  // An edge written from 170 to -170 is a short hop across the dateline, not
+  // a sweep through 0°, so the ring is unwrapped vertex by vertex (each edge
+  // takes the short arc, longitudes may run past ±180) and the centre is then
+  // tested in every copy of the world it could sit in.
+  const unwrap = (ring) => {
+    const out = [];
+    let prev = null;
+    for (const [x0, y] of ring) {
+      let x = x0;
+      if (prev !== null) { while (x - prev > 180) x -= 360; while (x - prev < -180) x += 360; }
+      out.push([x, y]);
+      prev = x;
+    }
+    return out;
+  };
+  const inRingPlanar = (ring, lng, lat) => {
     let inside = false;
     for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const xi = near(ring[i][0], lng), yi = ring[i][1], xj = near(ring[j][0], lng), yj = ring[j][1];
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
       if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
     }
     return inside;
+  };
+  const inRing = (ring, lng, lat) => {
+    const r = unwrap(ring);
+    return [lng, lng + 360, lng - 360].some((x) => inRingPlanar(r, x, lat));
   };
   const inPolygon = (rings, lng, lat) =>
     rings.length > 0 && inRing(rings[0], lng, lat) && !rings.slice(1).some((hole) => inRing(hole, lng, lat));
