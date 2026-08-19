@@ -181,12 +181,34 @@
     return width(w, e) * (n - s);
   };
 
-  const covers = (bbox, { lng, lat }) => {
+  const coversBbox = (bbox, { lng, lat }) => {
     const f = flat(bbox);
     if (!f) return false;
     const [w, s, e, n] = f;
     const inLng = w <= e ? w <= lng && lng <= e : lng >= w || lng <= e;
     return inLng && s <= lat && lat <= n;
+  };
+
+  // The ranking asks whether the item's pixels are under the map centre. A
+  // scene is a rotated quadrilateral whose bbox is bigger than it, so the
+  // question goes to the geometry when there is one (ray casting over each
+  // polygon ring, holes subtracting) and to the bbox only for an item that
+  // has none.
+  const inRing = (ring, lng, lat) => {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  const inPolygon = (rings, lng, lat) =>
+    rings.length > 0 && inRing(rings[0], lng, lat) && !rings.slice(1).some((hole) => inRing(hole, lng, lat));
+  const covers = (item, middle) => {
+    const g = item.geometry;
+    if (g?.type === "Polygon") return inPolygon(g.coordinates ?? [], middle.lng, middle.lat);
+    if (g?.type === "MultiPolygon") return (g.coordinates ?? []).some((poly) => inPolygon(poly, middle.lng, middle.lat));
+    return coversBbox(item.bbox, middle);
   };
 
   const when = (props) =>
@@ -441,7 +463,7 @@
     const centre = map.getCenter();
     const middle = { lng: wrapLng(centre.lng), lat: centre.lat };
     items = found.features.sort(
-      (a, b) => covers(b.bbox, middle) - covers(a.bbox, middle) || area(a.bbox) - area(b.bbox),
+      (a, b) => covers(b, middle) - covers(a, middle) || area(a.bbox) - area(b.bbox),
     );
     more = found.more;
     selected = null;

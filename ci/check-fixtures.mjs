@@ -331,9 +331,12 @@ async function checkStac(name, fx, notes, problems) {
       return;
     }
     const page = await res.json();
+    // Same budget as the page: fresh items are sliced to what still fits,
+    // so a page that crosses the cap ranks the same items the browser holds.
     for (const f of page.features ?? []) {
+      if (items.length >= 100) break;
       f._base = res.url || url;
-      const k = `${f.collection ?? ""}/${f.id}`;
+      const k = JSON.stringify([f.collection ?? "", f.id]);
       if (!seen.has(k)) { seen.add(k); items.push(f); }
     }
     const next = page.links?.find((l) => l.rel === "next")?.href;
@@ -347,11 +350,16 @@ async function checkStac(name, fx, notes, problems) {
     );
     return;
   }
-  const flat = (b) => (b.length === 6 ? [b[0], b[1], b[3], b[4]] : b);
+  // The same ranking as stac/browse.html: does the item's geometry (bbox
+  // when it has none) cover the map centre, tightest footprint first.
+  const flat = (b) => (!Array.isArray(b) || b.length < 4 || !b.every(Number.isFinite) ? null : b.length === 6 ? [b[0], b[1], b[3], b[4]] : b);
   const width = (w, e) => (w <= e ? e - w : e + 360 - w);
-  const covers = (b) => { const [w, s, e, n] = flat(b); const inLng = w <= e ? w <= center[0] && center[0] <= e : center[0] >= w || center[0] <= e; return inLng && s <= center[1] && center[1] <= n; };
-  const area = (b) => { const [w, s, e, n] = flat(b); return width(w, e) * (n - s); };
-  const pick = items.filter((i) => Array.isArray(i.bbox) && covers(i.bbox)).sort((a, b) => area(a.bbox) - area(b.bbox))[0];
+  const coversBbox = (b) => { const f = flat(b); if (!f) return false; const [w, s, e, n] = f; const inLng = w <= e ? w <= center[0] && center[0] <= e : center[0] >= w || center[0] <= e; return inLng && s <= center[1] && center[1] <= n; };
+  const inRing = (ring) => { let inside = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if (yi > center[1] !== yj > center[1] && center[0] < ((xj - xi) * (center[1] - yi)) / (yj - yi) + xi) inside = !inside; } return inside; };
+  const inPolygon = (rings) => rings.length > 0 && inRing(rings[0]) && !rings.slice(1).some(inRing);
+  const covers = (i) => i.geometry?.type === "Polygon" ? inPolygon(i.geometry.coordinates ?? []) : i.geometry?.type === "MultiPolygon" ? (i.geometry.coordinates ?? []).some(inPolygon) : coversBbox(i.bbox);
+  const area = (b) => { const f = flat(b); if (!f) return Infinity; const [w, s, e, n] = f; return width(w, e) * (n - s); };
+  const pick = items.filter(covers).sort((a, b) => area(a.bbox) - area(b.bbox))[0];
   if (!pick) {
     problems.push(`fixture ${name}: no STAC item covers the map centre ${center.join(",")}, so the example has nothing to draw on load.`);
     return;
