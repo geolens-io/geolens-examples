@@ -187,10 +187,12 @@ function hostOf(url) {
 // demo.getgeolens.com itself on a page that renders perfectly, so the host
 // predicate above would not save it.
 //
-// Each engine words a cancellation its own way, and these three are exactly
-// the texts Playwright itself reads as "cancelled" when it decides whether a
-// failed request was aborted: Chromium says net::ERR_ABORTED, Firefox says
-// NS_BINDING_ABORTED, WebKit's error text contains "cancelled".
+// Each engine words a cancellation its own way, measured by aborting a fetch
+// with an AbortController in each: Chromium says net::ERR_ABORTED, Firefox
+// says NS_BINDING_ABORTED, WebKit's error text contains "cancelled". Real
+// failures seen in the same engines (net::ERR_FAILED, "<unknown error>",
+// "Origin ... is not allowed", WebKit's capital-C "Cancelled load to ..." for
+// a CORP block) do not match; the pattern is case-sensitive on purpose.
 const IGNORED_REQUEST_FAILURE = /net::ERR_ABORTED|NS_BINDING_ABORTED|cancelled/;
 
 const REQUIRED_KEYS = ["path", "wait", "requireUrls", "minDataResponses"];
@@ -827,30 +829,35 @@ async function runOnce(page, scratch, entry) {
   page.on("console", (msg) => {
     consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
     if (msg.type() !== "error") return;
-    // Measured attribution: a page-context console.error() reports an EMPTY
-    // location, a failed subresource reports the resource URL, and a CORS
-    // rejection reports the URL of whatever initiated the fetch. So an
-    // unattributable error is the page's own and counts against it.
+    // Attribution, measured in all three engines with Playwright 1.62.1:
+    // a page-context console.error() carries the page URL as its location; a
+    // failed subresource carries the resource URL; Chromium reports a CORS
+    // rejection against whatever initiated the fetch. So a located error is
+    // attributed by its location, and one attributed to this page or the demo
+    // counts against the example.
     //
-    // Firefox is the exception, measured against all three engines: its own
+    // Two measured kinds arrive without a usable location. Firefox's own
     // resource errors ("Cross-Origin Request Blocked: ... the remote resource
-    // at https://...") arrive with an empty location and name the resource in
-    // the text instead, while a page-context console.error() there carries the
-    // page URL like the other two engines. So a location-less message that
-    // names a URL is attributed to that URL, which is the attribution Chromium
-    // and WebKit already give the same failure. One that names nothing stays
-    // the page's own.
+    // at https://...") have an empty location and name the resource in the
+    // text; a subresource-integrity failure is reported against the document
+    // (Firefox: "None of the sha512 hashes in the integrity attribute match
+    // the content of the subresource at https://..."; Chromium: "Failed to
+    // find a valid digest in the 'integrity' attribute for resource
+    // 'https://...'"; WebKit, location-less: "Failed integrity metadata
+    // check") while the resource that failed is the one named in the text. In
+    // both, the host named in the text is the one at fault: the demo's
+    // analytics beacon failing to arrive is the beacon host's problem and is
+    // reported only, while a demo-hosted script failing its own hash still
+    // names the demo and counts. A message that names nothing stays the
+    // page's own.
     //
-    // A subresource-integrity failure is the other measured case: Firefox
-    // reports it against the document ("None of the sha512 hashes in the
-    // integrity attribute match the content of the subresource at https://..."),
-    // so its location is the demo's page while the resource that failed is the
-    // one named in the text. When the demo's analytics beacon host cannot be
-    // reached, that is the beacon host's failure and is attributed to it; a
-    // demo-hosted script failing its own hash still names the demo and counts.
-    const namedInText = msg.text().match(/https?:\/\/[^\s"'“”)\]]+/)?.[0] ?? "";
+    // Accepted divergence: a CORS block on a fetch the page itself makes to a
+    // third-party host counts in Chromium (location is the initiator) and is
+    // reported only in Firefox (location-less, names the third-party URL). No
+    // example page fetches anything but the demo, so it does not arise here.
+    const namedInText = (msg.text().match(/https?:\/\/[^\s"'“”)\]]+/)?.[0] ?? "").replace(/[.,;:]+$/, "");
     const location = msg.location()?.url ?? "";
-    const sri = /integrity attribute/.test(msg.text());
+    const sri = /integrity attribute|'integrity' attribute|Failed integrity metadata check/.test(msg.text());
     const named = (location && !sri) ? location : (namedInText || location);
     const host = hostOf(named);
     if (host === null || isOurs(host)) consoleErrors.push(msg.text());
@@ -1097,97 +1104,22 @@ rmSync(DIAGNOSTICS, { recursive: true, force: true });
 
 // A GitHub table cell ends at the next pipe, so a failure message quoting a
 // URL with one in it would otherwise spill into the next column.
-const cell = (text) => String(text).replace(/\|/g, "\\|");
+const cell = (text) => String(text).replace(/\s*\n\s*/g, " ").replace(/\|/g, "\\|");
 
 const failed = [];
 const flaky = [];
 const totals = [];
 let pagesRun = 0;
 
-for (const browserName of BROWSERS) {
-  const browser = await ENGINES[browserName].launch();
-  const scratch = await browser.newPage();
-  await scratch.setContent("<!doctype html><title>pixel scratch</title>");
-  const label = `[${browserName}]`;
-  let passedHere = 0;
-  let flakyHere = 0;
-  let failedHere = 0;
-
-  for (const entry of entries) {
-    let last;
-    let firstFailure = null;
-    // These pages talk to a live demo over the public internet, so a single
-    // network hiccup is not a broken example. Retry, loudly: an example that is
-    // genuinely broken fails every attempt, and one that only passed on a retry
-    // is called out below in the log and in the job summary. A silently retried
-    // flake is how a degrading demo goes unnoticed.
-    for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-      if (pagesRun > 0) await sleep(PAGE_GAP_MS);
-      pagesRun += 1;
-      const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
-      last = await runOnce(page, scratch, entry).catch((err) => ({
-        failures: [`the page run threw: ${String(err).split("\n")[0]}`],
-        notes: [],
-        summary: "(threw before it could be measured)",
-        collect: async () => ({ "error.txt": String(err.stack ?? err) }),
-      }));
-
-      const passed = last.failures.length === 0;
-      console.log(`${label} ${entry.path}: ${passed ? "OK" : "FAIL"} ${last.summary}${attempt > 1 ? ` (attempt ${attempt})` : ""}`);
-      for (const n of last.notes ?? []) console.log(`${label}     ${n}`);
-      for (const f of last.failures) console.log(`${label}     ${f}`);
-
-      if (!passed && firstFailure === null) firstFailure = last.failures[0];
-      if (passed && attempt > 1) {
-        console.log(`${label}     FLAKE: ${entry.path} passed only on attempt ${attempt}. Attempt 1 said: ${firstFailure}`);
-        flaky.push({ browser: browserName, path: entry.path, attempt, firstFailure });
-        flakyHere += 1;
-      }
-
-      if (!passed && attempt === ATTEMPTS) {
-        // Losing the evidence must not also lose the verdict: the failure is
-        // already recorded and printed, so a broken screenshot or an unreadable
-        // page here degrades to a note rather than crashing the run and
-        // truncating the summary of everything else.
-        try {
-          const dir = writeDiagnostics(browserName, entry, last.failures, await last.collect());
-          console.log(`${label}     diagnostics written to ${dir}`);
-        } catch (err) {
-          console.log(`${label}     could not write diagnostics: ${String(err).split("\n")[0]}`);
-        }
-      }
-      await page.close();
-
-      if (passed) break;
-      if (attempt < ATTEMPTS) console.log(`${label}     retrying ${entry.path} (attempt ${attempt + 1} of ${ATTEMPTS})`);
-    }
-
-    if (last.failures.length > 0) {
-      failed.push({ browser: browserName, path: entry.path, failures: last.failures });
-      failedHere += 1;
-    } else {
-      passedHere += 1;
-    }
-  }
-
-  await browser.close();
-  totals.push({ browser: browserName, passed: passedHere, flaky: flakyHere, failed: failedHere });
-  console.log(
-    `${label} ${passedHere} of ${entries.length} example${entries.length === 1 ? "" : "s"} rendered live data` +
-      (failedHere > 0 ? `, ${failedHere} failed` : "") +
-      (flakyHere > 0 ? `, ${flakyHere} passed only on retry` : "") +
-      ".",
-  );
-}
-
 // GitHub renders this above the job log, so a retry that would otherwise be
 // buried in 100 lines of passing output is the first thing a reader sees, and
 // a sweep over three engines says per engine how it went instead of leaving
 // the reader to grep the log for the one that went red.
-if (process.env.GITHUB_STEP_SUMMARY) {
+const writeSummary = () => {
+  if (!process.env.GITHUB_STEP_SUMMARY) return;
   appendFileSync(
     process.env.GITHUB_STEP_SUMMARY,
-    `### Browser sweep\n\n| Browser | Examples | Passed | Passed on retry | Failed |\n| --- | --- | --- | --- | --- |\n` +
+    `### Browser sweep\n\n| Browser | Examples | Passed (retries included) | Of which on retry | Failed |\n| --- | --- | --- | --- | --- |\n` +
       totals.map((t) => `| ${t.browser} | ${entries.length} | ${t.passed} | ${t.flaky} | ${t.failed} |`).join("\n") +
       "\n\n",
   );
@@ -1201,6 +1133,100 @@ if (process.env.GITHUB_STEP_SUMMARY) {
         "\n\n",
     );
   }
+};
+
+// Written in a finally so an engine that dies mid-sweep still leaves the
+// rows for the engines that finished.
+try {
+  for (const browserName of BROWSERS) {
+    const label = `[${browserName}]`;
+    let passedHere = 0;
+    let flakyHere = 0;
+    let failedHere = 0;
+    // An engine that will not launch (not installed, crashed on this runner) is
+    // that engine's failure, not the end of the sweep: the others still run and
+    // the summary below still says what happened to each.
+    let browser;
+    try {
+      browser = await ENGINES[browserName].launch();
+    } catch (err) {
+      const why = `could not launch ${browserName}: ${String(err).split("\n")[0]}`;
+      console.log(`${label} FAIL ${why}`);
+      failed.push({ browser: browserName, path: "(launch)", failures: [why] });
+      totals.push({ browser: browserName, passed: 0, flaky: 0, failed: entries.length });
+      continue;
+    }
+    const scratch = await browser.newPage();
+    await scratch.setContent("<!doctype html><title>pixel scratch</title>");
+
+    for (const entry of entries) {
+      let last;
+      let firstFailure = null;
+      // These pages talk to a live demo over the public internet, so a single
+      // network hiccup is not a broken example. Retry, loudly: an example that is
+      // genuinely broken fails every attempt, and one that only passed on a retry
+      // is called out below in the log and in the job summary. A silently retried
+      // flake is how a degrading demo goes unnoticed.
+      for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+        if (pagesRun > 0) await sleep(PAGE_GAP_MS);
+        pagesRun += 1;
+        const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+        last = await runOnce(page, scratch, entry).catch((err) => ({
+          failures: [`the page run threw: ${String(err).split("\n")[0]}`],
+          notes: [],
+          summary: "(threw before it could be measured)",
+          collect: async () => ({ "error.txt": String(err.stack ?? err) }),
+        }));
+
+        const passed = last.failures.length === 0;
+        console.log(`${label} ${entry.path}: ${passed ? "OK" : "FAIL"} ${last.summary}${attempt > 1 ? ` (attempt ${attempt})` : ""}`);
+        for (const n of last.notes ?? []) console.log(`${label}     ${n}`);
+        for (const f of last.failures) console.log(`${label}     ${f}`);
+
+        if (!passed && firstFailure === null) firstFailure = last.failures[0];
+        if (passed && attempt > 1) {
+          console.log(`${label}     FLAKE: ${entry.path} passed only on attempt ${attempt}. Attempt 1 said: ${firstFailure}`);
+          flaky.push({ browser: browserName, path: entry.path, attempt, firstFailure });
+          flakyHere += 1;
+        }
+
+        if (!passed && attempt === ATTEMPTS) {
+          // Losing the evidence must not also lose the verdict: the failure is
+          // already recorded and printed, so a broken screenshot or an unreadable
+          // page here degrades to a note rather than crashing the run and
+          // truncating the summary of everything else.
+          try {
+            const dir = writeDiagnostics(browserName, entry, last.failures, await last.collect());
+            console.log(`${label}     diagnostics written to ${dir}`);
+          } catch (err) {
+            console.log(`${label}     could not write diagnostics: ${String(err).split("\n")[0]}`);
+          }
+        }
+        await page.close();
+
+        if (passed) break;
+        if (attempt < ATTEMPTS) console.log(`${label}     retrying ${entry.path} (attempt ${attempt + 1} of ${ATTEMPTS})`);
+      }
+
+      if (last.failures.length > 0) {
+        failed.push({ browser: browserName, path: entry.path, failures: last.failures });
+        failedHere += 1;
+      } else {
+        passedHere += 1;
+      }
+    }
+
+    await browser.close();
+    totals.push({ browser: browserName, passed: passedHere, flaky: flakyHere, failed: failedHere });
+    console.log(
+      `${label} ${passedHere} of ${entries.length} example${entries.length === 1 ? "" : "s"} rendered live data` +
+        (failedHere > 0 ? `, ${failedHere} failed` : "") +
+        (flakyHere > 0 ? `, ${flakyHere} passed only on retry` : "") +
+        ".",
+    );
+  }
+} finally {
+  writeSummary();
 }
 
 if (failed.length > 0) {
