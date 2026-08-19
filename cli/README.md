@@ -121,22 +121,34 @@ a server, which is why they are the parts this repo's CI runs on every pull requ
 ## Wiring it into your repo
 
 [`github-actions.yml`](github-actions.yml) is meant to be copied into `.github/workflows/` in the
-repo that holds your manifest. It validates on every event, previews with `--dry-run` on pull
-requests, applies on a push to `main`, and skips both networked steps when the secrets are missing so
-a fork's CI stays green and honest about what it checked. Applies to `main` run one at a time, and a
-run in progress is left to finish rather than cancelled half way. Because GitHub queues runs without
-promising their order, the apply step also checks that its commit is still the tip of `main` before
-writing, and steps aside if a newer push has landed, so the catalog ends up holding the manifest on
-`main` and not an older one that happened to run last.
+repo that holds your manifest. It is three jobs. `validate` runs on every event with no secrets and
+checks the manifest offline. `preview` runs on pull requests and asks the instance what applying
+would change, with `--dry-run`. `apply` runs on a push to `main`, and only there. Each networked job
+skips its step and says so when its secret is missing, so a fork's CI stays green and honest about
+what it checked. Applies to `main` run one at a time, and a run in progress is left to finish rather
+than cancelled half way. Because GitHub queues runs without promising their order, the apply step
+also checks that its commit is still the tip of `main` before writing, and steps aside if a newer
+push has landed, so the catalog ends up holding the manifest on `main` and not an older one that
+happened to run last.
+
+Why three jobs rather than one: a pull request from a branch in the same repository receives the
+repository's secrets, and it can edit the workflow it runs. A write-capable token in a job that runs
+on pull requests is therefore a token any contributor can read out or use for a real apply. So the
+write token is never in the pull-request path. `preview` uses a separate, low-privilege credential,
+and `apply` runs behind a GitHub environment named `catalog`, whose secrets GitHub hands only to
+runs that target the branch you restrict it to.
 
 One GitHub Actions detail worth copying rather than rediscovering: the `secrets` context cannot be
 read from an `if:` condition. The secrets go into job-level `env`, and the steps guard on
 `env.GEOLENS_TOKEN != ''`. Writing `if: ${{ secrets.GEOLENS_TOKEN != '' }}` does not work.
 
-Two secrets, matching the two variables above:
+Three secrets:
 
-- `GEOLENS_INSTANCE`, for example `https://geolens.example.com`
-- `GEOLENS_TOKEN`, a bearer token for a user allowed to write to the catalog
+- `GEOLENS_INSTANCE`, a repository secret, for example `https://geolens.example.com`
+- `GEOLENS_PREVIEW_TOKEN`, a repository secret: a bearer token for a user or key allowed to read the
+  catalog and ask for a dry run, and nothing more, since whatever it can do a pull request can do
+- `GEOLENS_TOKEN`, an *environment* secret in an environment named `catalog` restricted to `main`: a
+  bearer token for a user allowed to write to the catalog
 
 ## Editing the manifest
 

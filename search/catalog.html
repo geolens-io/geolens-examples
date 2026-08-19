@@ -336,7 +336,9 @@
         numberReturned: features.length,
         numberMatched: whole ? features.length : null,
       };
-      if (pages.length === 1) body.numberMatched = pages[0].numberMatched ?? features.length;
+      // A single page that states its total states it; one that omits it
+      // keeps the whole/not-whole verdict from above.
+      if (pages.length === 1 && pages[0].numberMatched !== undefined) body.numberMatched = pages[0].numberMatched;
     } catch (err) {
       if (err.name === "AbortError" || mine !== seq) return; // a newer search superseded this one
       status.className = "err";

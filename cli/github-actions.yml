@@ -17,58 +17,100 @@ on:
 permissions:
   contents: read
 
+# Three jobs, because the write credential must never reach a pull-request
+# run: a PR from a branch in the same repo receives repository secrets and
+# can edit this very workflow, so a bearer token at job scope in a job that
+# runs on pull_request is a token any contributor can read out. So:
+#
+#   validate  every event, no secrets, offline
+#   preview   pull requests only, with a separate low-privilege token you are
+#             willing to expose to PR runs (a read-only key, or a dedicated
+#             user whose only right is to ask "what would this change?")
+#   apply     pushes to main only, behind a GitHub environment, which is where
+#             the write token lives as an environment secret; a run that is
+#             not on main never sees it, whatever the workflow file says
+#
 # One apply at a time per catalog. Two pushes to main in quick succession
 # would otherwise run their applies concurrently. Not cancelling in progress
 # is deliberate: stopping an apply half way is worse than letting it finish.
 # The group serialises runs but GitHub does not promise their order, so the
-# apply step below also checks it is still the tip of main before writing;
-# together the two mean the manifest on the catalog is the one on main.
-# Pull-request runs only read, so they queue behind nothing but their own branch.
+# apply step also checks it is still the tip of main before writing; together
+# the two mean the manifest on the catalog is the one on main.
 concurrency:
   group: geolens-catalog-${{ github.event_name == 'push' && 'main' || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  catalog:
+  # Offline, and unconditional. A missing `publication.intent` or a key that
+  # breaks the identity pattern should fail review whether or not this run can
+  # reach an instance, including on a fork, which holds no secrets at all.
+  validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    # The `secrets` context cannot be read from an `if:`, so the two secrets
-    # land in job-level env and the steps below test `env` instead. That is also
-    # exactly how the CLI wants them: GEOLENS_INSTANCE and GEOLENS_TOKEN are the
-    # only two variables it reads, and setting them replaces `geolens login`
-    # entirely, so no credential is ever written to the runner's disk.
-    env:
-      GEOLENS_INSTANCE: ${{ secrets.GEOLENS_INSTANCE }}
-      GEOLENS_TOKEN: ${{ secrets.GEOLENS_TOKEN }}
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # uvx runs the pinned CLI straight from PyPI, so the repo holding your
       # manifest needs no Python project, no lockfile and no virtualenv for it.
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-
-      # Offline, and unconditional. A missing `publication.intent` or a key that
-      # breaks the identity pattern should fail review whether or not this run
-      # can reach an instance, including on a fork, which holds no secrets.
       - name: Validate the manifest
         run: uvx --from geolens-cli==1.14.0 geolens validate geolens.yaml
 
-      # The plan step. --dry-run reaches the instance, matches every entry by
-      # key and reports create/update/skip without writing anything, which is
-      # the answer a reviewer wants to "what does merging this do?".
+  # The plan step. --dry-run reaches the instance, matches every entry by key
+  # and reports create/update/skip without writing anything, which is the
+  # answer a reviewer wants to "what does merging this do?". It runs with
+  # GEOLENS_PREVIEW_TOKEN, not the write token: whatever this credential can
+  # do, a pull request can do.
+  # The `secrets` context cannot be read from an `if:`, so the secrets land in
+  # job-level env and the steps test `env` instead. That is also exactly how
+  # the CLI wants them: GEOLENS_INSTANCE and GEOLENS_TOKEN are the only two
+  # variables it reads, and setting them replaces `geolens login` entirely, so
+  # no credential is ever written to the runner's disk.
+  preview:
+    if: ${{ github.event_name == 'pull_request' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GEOLENS_INSTANCE: ${{ secrets.GEOLENS_INSTANCE }}
+      GEOLENS_TOKEN: ${{ secrets.GEOLENS_PREVIEW_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       # --json goes BEFORE the subcommand. It is a global option, and
       # `geolens apply --json` is an error.
       - name: Preview the apply
-        if: ${{ github.event_name == 'pull_request' && env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
+        if: ${{ env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
         run: uvx --from geolens-cli==1.14.0 geolens --json apply --dry-run geolens.yaml
+      # A fork holds no secrets, so the step above skips and this job goes
+      # green having previewed nothing. Say that out loud, or a green check
+      # reads as "the instance agreed" when nobody asked it.
+      - name: Report that nothing was previewed
+        if: ${{ env.GEOLENS_INSTANCE == '' || env.GEOLENS_TOKEN == '' }}
+        run: echo "GEOLENS_INSTANCE or GEOLENS_PREVIEW_TOKEN is unset, so no dry run happened; only offline validation ran."
 
-      # The write, and only from main, so the catalog tracks the reviewed branch
-      # and no pull request can move it on its own. Applying an unchanged entry
-      # is a skip, so re-running this is cheap rather than a re-import.
+  # The write, and only from main, so the catalog tracks the reviewed branch
+  # and no pull request can move it on its own. Applying an unchanged entry is
+  # a skip, so re-running this is cheap rather than a re-import.
+  # `environment: catalog` is what keeps GEOLENS_TOKEN out of every other run:
+  # create the environment in the repo settings, put the token there rather
+  # than in repository secrets, and restrict it to the main branch.
+  apply:
+    if: ${{ github.event_name == 'push' }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: catalog
+    env:
+      GEOLENS_INSTANCE: ${{ secrets.GEOLENS_INSTANCE }}
+      GEOLENS_TOKEN: ${{ secrets.GEOLENS_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       # A run that was queued behind a newer push is stale by the time it gets
       # here; it asks the remote what main points at now and steps aside if
       # that is no longer the commit it was started for.
       - name: Apply the manifest
-        if: ${{ github.event_name == 'push' && env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
+        if: ${{ env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
         shell: bash
         run: |
           # `$(a | b)` takes b's exit status, so an ls-remote failure would
@@ -83,12 +125,6 @@ jobs:
             exit 0
           fi
           uvx --from geolens-cli==1.14.0 geolens --json apply geolens.yaml
-
-      # A fork holds no secrets, so both steps above skip and this job goes
-      # green having proved only that the file parses. Say that out loud, or a
-      # green check reads as "the instance agreed" when nobody asked it.
       - name: Report that nothing was applied
         if: ${{ env.GEOLENS_INSTANCE == '' || env.GEOLENS_TOKEN == '' }}
-        run: |
-          echo "GEOLENS_INSTANCE or GEOLENS_TOKEN is unset, so no apply ran."
-          echo "Offline schema validation is all this run checked."
+        run: echo "GEOLENS_INSTANCE or GEOLENS_TOKEN is unset in the catalog environment, so no apply ran."
