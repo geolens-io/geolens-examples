@@ -6,3 +6,4 @@ subway.png
 node_modules
 package.json
 package-lock.json
+nyc_subway_lines.parquet
