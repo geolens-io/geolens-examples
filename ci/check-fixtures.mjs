@@ -416,7 +416,75 @@ async function checkStac(name, fx, notes, problems) {
   notes.push(`"${pick.properties?.title ?? pick.id}" tile ${probe} ${type} ${bytes}B`);
 }
 
-const KNOWN = ["collection", "stac", "vectorTile", "rasterTile", "sharedMap", "search"];
+// duckdb/query.py does not fetch this export, it ranges into it: DuckDB reads
+// the Parquet footer and then only the columns a query names. That needs three
+// things the items probe above says nothing about: the route answering an
+// anonymous caller, a Content-Length to range into, and 206 on a Range header.
+//
+// Two of those are invariants and the third is not, which is the whole design
+// of this probe. Anonymous access and the file actually being Parquet decide
+// whether the example can work at all. Ranges only decide what it costs:
+// GeoLens builds an export artifact on demand, and only one it has already
+// built answers with a Content-Length to range into, so a cold artifact serves
+// 200 and DuckDB streams the file whole. That is slow, not broken, and failing
+// the build on it would turn a warm cache into a build dependency.
+//
+// So ranges are reported and never asserted, and the request costs four bytes
+// either way: ask for the first four, and read only four off the body when the
+// answer is a 200 that ignored the Range header. A Parquet file opens and
+// closes with the same magic, so the head is as good as the footer here and
+// needs no length to address.
+async function checkExport(name, fx, notes, problems) {
+  const { format, contentType, magic } = fx.export;
+  const url = `${DEMO}/api/datasets/${fx.collection}/export?format=${format}`;
+  const res = await fetch(url, {
+    headers: { Range: `bytes=0-${magic.length - 1}` },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  });
+  if (res.status === 401 || res.status === 403) {
+    problems.push(
+      `fixture ${name}: the ${format} export answered ${res.status} to an anonymous caller, so ` +
+        `duckdb/query.py cannot read it signed out. The dataset stopped being public, or the ` +
+        `export route stopped serving anonymous callers. DuckDB reports this one as ` +
+        `"HTTP 0 Internal Server Error", so it is worth catching here instead.`,
+    );
+    return;
+  }
+  if (res.status !== 206 && res.status !== 200) {
+    problems.push(`fixture ${name}: the ${format} export answered ${res.status}, so duckdb/query.py has nothing to read.`);
+    return;
+  }
+
+  // Four bytes off the stream, then hang up. On a 206 that is the whole body;
+  // on a 200 it stops a 3.3 MB download that nothing here needs.
+  const reader = res.body.getReader();
+  const head = new Uint8Array(magic.length);
+  let filled = 0;
+  while (filled < magic.length) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    const take = Math.min(value.length, magic.length - filled);
+    head.set(value.subarray(0, take), filled);
+    filled += take;
+  }
+  await reader.cancel();
+
+  const type = res.headers.get("content-type") ?? "";
+  const opening = new TextDecoder().decode(head.subarray(0, filled));
+  if (!type.startsWith(contentType)) {
+    problems.push(`fixture ${name}: the ${format} export is served as "${type}", not "${contentType}".`);
+  }
+  if (opening !== magic) {
+    problems.push(
+      `fixture ${name}: the ${format} export opens with ${JSON.stringify(opening)}, not ` +
+        `${JSON.stringify(magic)}, so it is not the file format the route claims.`,
+    );
+  }
+  const ranged = res.status === 206 ? "ranged" : "no ranges yet (cold artifact)";
+  notes.push(`${format} export ${ranged}, ${type}`);
+}
+
+const KNOWN = ["collection", "stac", "vectorTile", "rasterTile", "sharedMap", "search", "export"];
 const transport = [];
 for (const [name, fx] of Object.entries(fixtures)) {
   const notes = [];
@@ -433,6 +501,7 @@ for (const [name, fx] of Object.entries(fixtures)) {
     if (fx.rasterTile) await checkTile(name, "raster", fx.rasterTile, notes, problems);
     if (fx.sharedMap) await checkSharedMap(name, fx, notes, problems);
     if (fx.search) await checkSearch(name, fx, notes, problems);
+    if (fx.export) await checkExport(name, fx, notes, problems);
   } catch (err) {
     // A response that never came, kept failing, or was not JSON is the demo
     // (or the path to it) misbehaving, not the catalog moving. It goes on the

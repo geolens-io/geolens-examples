@@ -21,7 +21,7 @@ This repo holds runnable examples for consuming GeoLens: one static file per exa
 
 - **Demo fixtures**: `ci/check-fixtures.mjs` runs first and probes the demo datasets, tile paths and share token named in `ci/fixtures.json`, which is where the IDs hardcoded across the examples are declared. Red there means the demo changed under the examples, not that an example broke.
 - **Browser examples**: `ci/verify-examples.mjs` loads every entry in `ci/manifest.json` with Playwright against the real demo. A page passes only if it reaches the demo, loads the specific data its manifest entry names, gets features back rather than an empty collection, keeps the console free of errors from the demo or the page itself, and actually paints — the middle of the viewport is screenshotted and must not be a flat fill. HTTP status alone is not the check: a vector tile answers 200 with its source-layer named wrong while the map stays blank. Failures from third-party hosts (a CDN, an analytics beacon) and cancelled requests are reported but never fail the build, and a page that fails is retried once before it counts as red.
-- **Python examples**: runs `python/analyze.py` with `uv run` and checks it produces `subway.png`, then runs `python/sdk-catalog.py` the same way. Separate steps, so a failure names the script rather than the job.
+- **Python examples**: runs `python/analyze.py` with `uv run` and checks it produces `subway.png`, then `python/sdk-catalog.py` and `duckdb/query.py` the same way. Separate steps, so a failure names the script rather than the job. `duckdb/query.py` needs no artifact check: it asserts its own row counts, the extent its coordinates project into, and the shape of its spatial join, and exits non-zero when one is wrong.
 - **Version pins**: `ci/check-pins.py` reads every GeoLens client pin in the repo (`geolens`, `@geolens/sdk`, `geolens-mcp`, `geolens-cli`) and fails if they disagree. It also asks the demo what version it runs and warns, without failing, when the demo has moved ahead of the pins.
 - **MCP example**: `ci/check-mcp.py` spawns the exact `geolens-mcp` version pinned in `mcp/clients/generic.json`, then the latest release. The pin gates the build, since that is what the docs tell people to install; the float only warns.
 - **CLI manifest**: `geolens validate cli/geolens.yaml` and `geolens schema` against the pinned `geolens-cli`. Both are offline, so they check that the manifest still matches the schema that release packages without needing an instance or a credential. The `apply` steps `cli/README.md` documents are not run here and cannot be.
@@ -61,4 +61,6 @@ For the Python examples:
 cd python
 uv run analyze.py
 uv run sdk-catalog.py
+cd ..
+uv run duckdb/query.py
 ```
