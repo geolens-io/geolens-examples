@@ -48,6 +48,9 @@
     .m, .a { display: block; color: #93a1b0; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
     .a { color: #ffd166; }
     a { color: #4da3ff; font-size: 11px; }
+    /* Page shell: where the gallery, the main repo and this file live. */
+    .foot { margin: 12px 0 0; font-size: 12px; color: #93a1b0; }
+    .foot a { font-size: inherit; }
   </style>
 </head>
 <body>
@@ -57,6 +60,7 @@
     <code>/api/stac/search</code>. Pick one to draw its tiles.</p>
   <p id="status" role="status">Searching…</p>
   <ol id="items"></ol>
+  <p class="foot"><a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/stac/browse.html">source</a></p>
 </div>
 <div id="map"></div>
 
