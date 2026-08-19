@@ -4,7 +4,17 @@
 <meta charset="utf-8" />
 <title>GeoLens Examples</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="description" content="Runnable examples for consuming a GeoLens catalog from MapLibre, Leaflet, OpenLayers, the ArcGIS SDK, Python and MCP. Every one runs against the public demo." />
+<meta name="description" content="Runnable examples for reading a GeoLens catalog from MapLibre, Leaflet, OpenLayers, the ArcGIS SDK, the TypeScript and Python SDKs, and MCP: OGC API Features, STAC, vector and raster tiles, and embedded maps. Every one runs against the public demo." />
+<link rel="canonical" href="https://geolens-io.github.io/geolens-examples/" />
+<meta property="og:title" content="GeoLens Examples" />
+<meta property="og:description" content="Copy-paste integrations against a self-hosted GeoLens spatial data hub: OGC API Features, STAC, vector and raster tiles, embedded maps, and both SDKs. Every one runs against the public demo." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://geolens-io.github.io/geolens-examples/" />
+<meta property="og:image" content="https://geolens-io.github.io/geolens-examples/assets/embed-iframe.jpg" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="GeoLens Examples" />
+<meta name="twitter:description" content="Copy-paste integrations against a self-hosted GeoLens spatial data hub: OGC API Features, STAC, vector and raster tiles, embedded maps, and both SDKs. Every one runs against the public demo." />
+<meta name="twitter:image" content="https://geolens-io.github.io/geolens-examples/assets/embed-iframe.jpg" />
 <link rel="icon" href="data:," />
 <style>
   /* ---- tokens ------------------------------------------------------------
@@ -62,6 +72,11 @@
   .masthead a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
   .repo { color: var(--muted); }
   .repo b { color: var(--ink); font-weight: 600; }
+  .masthead a.star {
+    color: var(--ink); padding: .22rem .7rem;
+    border: 1px solid var(--rule); border-radius: 999px;
+  }
+  .masthead a.star:hover { color: var(--vector); border-color: var(--vector); text-decoration: none; }
 
   /* ---- hero ------------------------------------------------------------- */
   .hero { padding: clamp(3rem, 9vw, 6rem) 0 clamp(2.5rem, 6vw, 4rem); }
@@ -73,7 +88,11 @@
     margin: 0;
     font-size: clamp(2.7rem, 8.2vw, 5.4rem);
     font-weight: 700; letter-spacing: -.04em; line-height: .95;
-    max-width: 15ch;
+    max-width: 17ch;
+  }
+  .hero .tagline {
+    margin: 1.5rem 0 0; max-width: 52ch;
+    font-size: clamp(1.05rem, 2vw, 1.3rem);
   }
   .hero .lede {
     margin: 1.6rem 0 0; max-width: 58ch;
@@ -106,8 +125,23 @@
   .tag.vector { color: var(--vector); }
   .tag.raster { color: var(--raster); }
 
+  /* ---- showcase strip --------------------------------------------------- */
+  .showcase { padding: 0 0 2.2rem; }
+  .showcase p { margin: 0 0 1rem; max-width: 62ch; color: var(--muted); font-size: .92rem; }
+  .showcase ul {
+    display: grid; gap: .7rem 1.6rem; padding: 0; margin: 0; list-style: none;
+    grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  }
+  .showcase li { font-size: .88rem; color: var(--muted); }
+  .showcase li a {
+    color: var(--ink); text-decoration: none;
+    border-bottom: 1px solid var(--rule); font-weight: 600;
+  }
+  .showcase li a:hover { color: var(--vector); border-color: var(--vector); }
+
   /* ---- intent nav ------------------------------------------------------- */
   .intent { padding: 0 0 1rem; }
+  .showcase h2,
   .intent h2 {
     font-family: var(--mono); font-size: .74rem; letter-spacing: .17em;
     text-transform: uppercase; color: var(--muted); font-weight: 400; margin: 0 0 .9rem;
@@ -204,19 +238,24 @@
     <nav>
       <a href="https://github.com/geolens-io/geolens-examples">Repository</a>
       <a href="https://demo.getgeolens.com/collections">Demo catalog</a>
-      <a href="https://github.com/geolens-io/geolens">GeoLens</a>
+      <a class="star" href="https://github.com/geolens-io/geolens">★ Star geolens on GitHub</a>
     </nav>
   </header>
 
   <section class="hero">
     <p class="eyebrow">Runnable examples</p>
-    <h1>The integration is a URL.</h1>
+    <h1>GeoLens is a self-hosted spatial data hub.</h1>
+    <p class="tagline">
+      One place to catalog, search, map and analyze your spatial data. It publishes all of it
+      through OGC API Features and Records, STAC, vector tiles and raster tiles.
+      The integration is a URL.
+    </p>
     <p class="lede">
-      GeoLens publishes OGC API Features and Records, STAC, vector tiles and raster tiles, so
-      the client library never has to know what GeoLens is. Every example here is
-      <strong>one file</strong> that reads the public demo anonymously, with no key and no build step.
-      Most need no GeoLens library at all; the two marked <em>SDK</em> use one to show what the
-      catalog knows that a URL cannot.
+      So the client library never has to know what GeoLens is. Every browser and Python example
+      here is <strong>one file</strong> that reads the public demo anonymously, with no key and no
+      build step. Most need no GeoLens library at all; the two marked <em>SDK</em> use one to show
+      what the catalog knows that a URL cannot. The <em>CLI</em> card is the exception: publishing
+      writes to a catalog, so it runs against your own instance with a credential.
     </p>
     <div class="surfaces">
       <div>
@@ -237,6 +276,34 @@
     </div>
   </section>
 
+  <section class="showcase">
+    <h2>See what GeoLens itself builds</h2>
+    <p>
+      Maps composed and styled in the GeoLens map builder, then published on the
+      <a href="https://demo.getgeolens.com/maps">public demo</a>. All four open without an account.
+    </p>
+    <ul>
+      <li>
+        <a href="https://demo.getgeolens.com/m/NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU">Restless Earth</a>.
+        Seven layers: 30 days of USGS earthquakes, 6,000 years of deadly eruptions, plate
+        boundaries, ETOPO relief.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/dcae16bd-40bd-494e-bf2f-cfb378735257">Manhattan - A Century of Skyline</a>.
+        Every building extruded to its surveyed roof height, coloured by the era it was built.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/1c5e021a-8ede-4ebe-a06c-92322208de45">The Matterhorn in 3D</a>.
+        62 cloud-optimized GeoTIFFs of swisstopo 2 m lidar mosaicked into one VRT, with the
+        climbing routes from OSM.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/1c4207ab-b1c0-4309-9924-c1ea355003a3">New York From Orbit</a>.
+        Sentinel-2 scenes read by reference from the AWS open-data archive, nothing downloaded.
+      </li>
+    </ul>
+  </section>
+
   <section class="intent">
     <h2>Start where you work</h2>
     <ul class="chips" id="chips"></ul>
@@ -246,9 +313,9 @@
 
   <footer class="page">
     <p>
-      Two audiences have no example yet: <strong>GIS analysts</strong> connecting QGIS or ArcGIS Pro,
-      and <strong>data engineers</strong> managing a catalog as code with the CLI. Both are planned —
-      <a href="https://github.com/geolens-io/geolens-examples/issues">open an issue</a> if you want one sooner.
+      Not here yet: ArcGIS Pro, DuckDB over the Features API, and the workflows the public demo
+      cannot host at all (server-side analysis, private embeds).
+      <a href="https://github.com/geolens-io/geolens-examples/issues">Open an issue</a> if you want one sooner.
     </p>
     <p class="fine">
       MIT licensed · data from the public demo, which resets from time to time ·
@@ -263,7 +330,7 @@
   // section; naming an audience that has no cards yet creates its section.
   //   live      relative path in this repo, omit for anything that is not a page
   //   address   the call the example makes — the line every card carries.
-  //             For python/ and claude-mcp/ this is a command a reader will
+  //             For python/ and mcp/ this is a command a reader will
   //             paste, and the same string is in README.md's Examples table.
   //             Still two copies, now with a guard: ci/verify-examples.mjs
   //             fails the build if a command here matches no README row, or a
@@ -288,6 +355,7 @@
   const LINES = ["Subway lines", "de602fbe-8b30-4755-924f-c9e7fd9613b6"];
   const STATIONS = ["Subway stations", "724bf894-dc1a-418c-abc6-555798c44d7c"];
   const DEM = ["Matterhorn DEM", "6f03bafa-34b3-4902-9351-40ce09a8181f"];
+  const METEORITES = ["Meteorite landings", "6030c57b-ce37-4198-aa1e-be78e0950f53"];
 
   const EXAMPLES = [
     {
@@ -309,6 +377,16 @@
       thumb: "assets/maplibre-features.jpg",
       live: "maplibre/features.html", source: "maplibre/features.html",
       datasets: [LINES, STATIONS],
+    },
+    {
+      audience: "web-developer", tool: "MapLibre GL JS 5",
+      title: "Features by viewport in MapLibre",
+      blurb: "Asks for the current view with bbox, follows the paging links to the end, cancels a walk the next pan made stale, and stops at a per-view cap that says on screen when vector tiles should take over.",
+      tag: "OGC Features", kind: "vector",
+      address: "/api/collections/{id}/items?bbox=...&limit=...",
+      thumb: "assets/maplibre-features-viewport.jpg",
+      live: "maplibre/features-viewport.html", source: "maplibre/features-viewport.html",
+      datasets: [METEORITES],
     },
     {
       audience: "web-developer", tool: "MapLibre GL JS 5",
@@ -382,13 +460,13 @@
     },
     {
       audience: "ai-developer", tool: "geolens-mcp",
-      title: "Catalog tools in a Claude session",
-      blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. The discovery tools need no credential.",
+      title: "Catalog tools in an MCP client",
+      blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. Works with Claude Code, Claude Desktop, Cursor, Codex, or any MCP client. The discovery tools need no credential.",
       tag: "MCP", kind: "tooling",
       address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0",
       snippet: "<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 5 matched, 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
-      source: "claude-mcp/README.md",
-      docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/claude-mcp"],
+      source: "mcp/README.md",
+      docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/mcp"],
       datasets: [], catalog: true,
     },
     {
@@ -432,6 +510,48 @@
       source: "python/sdk-catalog.py",
       docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/python"],
       datasets: [],
+    },
+    {
+      audience: "data-engineer", tool: "geolens-cli 1.14.0",
+      title: "A catalog declared in Git",
+      blurb: "A geolens.yaml naming datasets, their sources and their metadata, reconciled onto an instance by geolens apply. Each entry has a stable key, so re-applying an unchanged one skips instead of importing a second copy.",
+      tag: "CLI", kind: "tooling",
+      address: "uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml",
+      snippet: "<b>$</b> geolens validate cli/geolens.yaml\n  Manifest valid: cli/geolens.yaml\n\n<b>$</b> geolens --json apply --dry-run\n  ne-110m-countries          create\n  ne-110m-populated-places   create",
+      source: "cli/README.md",
+      docs: ["Manifest and CI workflow", "https://github.com/geolens-io/geolens-examples/tree/main/cli"],
+      datasets: [],
+    },
+    {
+      audience: "web-developer", tool: "MapLibre GL JS 5",
+      title: "STAC search in MapLibre",
+      blurb: "Search the STAC API for items covering the current view, list what came back with its footprint and time, and draw the tile asset the item advertises. Nothing about the imagery is hardcoded here.",
+      tag: "STAC", kind: "raster",
+      address: "/api/stac/search?bbox={w,s,e,n}",
+      thumb: "assets/stac-browse.jpg",
+      live: "stac/browse.html", source: "stac/browse.html",
+      datasets: [],
+    },
+    {
+      audience: "web-developer", tool: "MapLibre GL JS 5 · fetch",
+      title: "Semantic search over the catalog",
+      blurb: "Type what the data is about. The query runs against embeddings, so \"space rocks that fell to earth\" finds the meteorite dataset with none of those words in its title. Tick the box and the map's bounds filter the same query by record extent.",
+      tag: "Search", kind: "vector",
+      address: "/api/collections/datasets/items?q=...&bbox=...",
+      thumb: "assets/search-catalog.jpg",
+      live: "search/catalog.html", source: "search/catalog.html",
+      datasets: [],
+    },
+    {
+      audience: "gis-analyst", tool: "QGIS 4.2",
+      title: "GeoLens in QGIS",
+      blurb: "One OGC API - Features connection lists every collection, the catalog included, so you browse records and add layers without leaving the Data Source Manager. The DEM comes in as XYZ tiles, and an API Header configuration carries the key for a private instance.",
+      tag: "OGC Features", kind: "vector",
+      address: "https://demo.getgeolens.com/api/",
+      thumb: "assets/qgis-features.jpg",
+      source: "qgis/README.md",
+      docs: ["Walkthrough and project file", "https://github.com/geolens-io/geolens-examples/tree/main/qgis"],
+      datasets: [LINES, STATIONS, DEM],
     },
   ];
 

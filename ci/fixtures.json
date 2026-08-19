@@ -1,0 +1,107 @@
+{
+  "note": "The demo catalog fixtures every example hardcodes, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-18, GeoLens 1.14.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
+  "fixtures": {
+    "nycSubwayStations": {
+      "title": "NYC Subway Stations (MTA)",
+      "collection": "724bf894-dc1a-418c-abc6-555798c44d7c",
+      "itemType": "feature",
+      "geometryType": "MultiPoint",
+      "minNumberMatched": 400
+    },
+    "nycSubwayLines": {
+      "title": "NYC Subway Lines (MTA)",
+      "collection": "de602fbe-8b30-4755-924f-c9e7fd9613b6",
+      "itemType": "feature",
+      "geometryType": "MultiLineString",
+      "minNumberMatched": 20,
+      "vectorTile": {
+        "path": "/api/tiles/data.nyc_subway_lines_mta/",
+        "probe": "12/1206/1539.pbf",
+        "contentTypes": [
+          "application/x-protobuf",
+          "application/vnd.mapbox-vector-tile"
+        ],
+        "grep": "nyc_subway_lines_mta"
+      }
+    },
+    "matterhornDem": {
+      "title": "swissALTI3D Matterhorn DEM (2m mosaic)",
+      "collection": "6f03bafa-34b3-4902-9351-40ce09a8181f",
+      "itemType": "coverage",
+      "rasterTile": {
+        "path": "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/",
+        "probe": "12/2135/1457.png",
+        "contentTypes": [
+          "image/png"
+        ],
+        "grep": "6f03bafa-34b3-4902-9351-40ce09a8181f"
+      }
+    },
+    "restlessEarthMap": {
+      "title": "Restless Earth",
+      "sharedMap": {
+        "token": "NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU",
+        "layers": 7
+      }
+    },
+    "meteorites": {
+      "title": "Meteorite Landings (Meteoritical Society)",
+      "collection": "6030c57b-ce37-4198-aa1e-be78e0950f53",
+      "itemType": "feature",
+      "geometryType": "MultiPoint",
+      "minNumberMatched": 30000,
+      "view": {
+        "name": "Oman",
+        "bbox": [
+          52.144425,
+          17.878041,
+          57.855575,
+          20.907855
+        ],
+        "minNumberMatched": 2001,
+        "why": "maplibre/features-viewport.html opens here and its manifest entry expects three pages of 1000",
+        "computedFrom": "maplibre/features-viewport.html at the verifier viewport (1280x720), center [55.0, 19.4], zoom 7.3"
+      },
+      "vectorTile": {
+        "path": "/api/tiles/data.meteorite_landings_meteoritical_society/",
+        "probe": "4/4/6.pbf",
+        "contentTypes": [
+          "application/x-protobuf",
+          "application/vnd.mapbox-vector-tile"
+        ],
+        "grep": "meteorite_landings_meteoritical_society"
+      },
+      "search": {
+        "q": "space rocks that fell to earth",
+        "limit": 5,
+        "recordType": "vector_dataset"
+      }
+    },
+    "stacOverNewYork": {
+      "title": "STAC items over the STAC example's opening view",
+      "stac": {
+        "bbox": [
+          -74.291394,
+          40.562472,
+          -73.668606,
+          40.937001
+        ],
+        "center": [
+          -73.98,
+          40.75
+        ],
+        "minItems": 1,
+        "probe": "11/603/769",
+        "why": "stac/browse.html opens here, draws the item covering the centre, and its manifest entry expects tiles to paint",
+        "computedFrom": "stac/browse.html at the verifier viewport (1280x720): the map div is 1280 minus the 340px panel, 32px padding and 1px border, center [-73.98, 40.75], zoom 10; MapLibre fetches a 256px raster source one zoom in, so the probe is z11"
+      }
+    },
+    "datasetsCatalog": {
+      "title": "GeoLens Dataset Catalog",
+      "collection": "datasets",
+      "itemType": "record",
+      "minNumberMatched": 20,
+      "why": "typescript/catalog-map.html and search/catalog.html read the catalog through this Records collection"
+    }
+  }
+}

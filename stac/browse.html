@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + MapLibre: STAC item search</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: flex;
+      background: #101418;
+      color: #e6edf3;
+      font: 13px/1.5 ui-sans-serif, system-ui, sans-serif;
+    }
+    #panel {
+      width: 340px;
+      flex: none;
+      overflow-y: auto;
+      padding: 16px;
+      border-right: 1px solid #2b3440;
+      background: #1b2129;
+    }
+    #map { flex: 1; }
+    h1 { margin: 0 0 4px; font-size: 15px; }
+    p.lede { margin: 0 0 12px; color: #93a1b0; }
+    #status { margin: 0 0 12px; color: #93a1b0; }
+    #status.err { color: #ff8b7e; }
+    ol { margin: 0; padding: 0; list-style: none; }
+    li { margin-bottom: 8px; }
+    button.pick {
+      display: block;
+      width: 100%;
+      padding: 8px 10px;
+      text-align: left;
+      border: 1px solid #2b3440;
+      border-radius: 4px;
+      background: #101418;
+      color: #e6edf3;
+      font: inherit;
+      cursor: pointer;
+    }
+    button.pick:hover { border-color: #4da3ff; }
+    button.pick[aria-pressed="true"] { border-color: #ffd166; }
+    .t { display: block; margin-bottom: 3px; }
+    .m, .a { display: block; color: #93a1b0; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .a { color: #ffd166; }
+    a { color: #4da3ff; font-size: 11px; }
+  </style>
+</head>
+<body>
+<div id="panel">
+  <h1>STAC search &rarr; imagery</h1>
+  <p class="lede">Items covering the current view, straight from
+    <code>/api/stac/search</code>. Pick one to draw its tiles.</p>
+  <p id="status" role="status">Searching…</p>
+  <ol id="items"></ol>
+</div>
+<div id="map"></div>
+
+<script>
+  // Point this at your own GeoLens instance to use your data.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // Why STAC and not the Features API: /api/collections answers "what rows are
+  // in this table", and STAC answers "what imagery covers this place, and where
+  // do I get the pixels". One GET returns items — a metadata record per scene,
+  // each carrying a footprint, a time, and a set of assets. The demo's root is
+  // at /api/stac/ and advertises search, collections and conformance.
+  //
+  // The same search from pystac-client, which builds the query for you:
+  //   Client.open("https://demo.getgeolens.com/api/stac").search(bbox=[-74.2, 40.6, -73.75, 40.9]).item_collection()
+  //
+  // The demo honours bbox, collections, datetime and limit on GET, and takes
+  // the same query as JSON over POST. An item's time can arrive two ways: a
+  // single `datetime`, or a null one plus start_datetime/end_datetime, which is
+  // what the Sentinel-2 scenes here use. Search matches either against a
+  // datetime range, so a reader has to handle both. See when() below.
+  const SEARCH = `${GEOLENS}/api/stac/search`;
+  // Enough for a screenful of footprints. Past this the honest move is a
+  // tighter view, and the status line says there is more than it shows.
+  const MAX_ITEMS = 100;
+
+  // Manhattan and the harbour, inside the Sentinel-2 scenes the demo publishes.
+  const map = new maplibregl.Map({
+    container: "map",
+    center: [-73.98, 40.75],
+    zoom: 10,
+    style: {
+      version: 8,
+      sources: {},
+      // No basemap: everything on this map came out of the search below.
+      layers: [{ id: "bg", type: "background", paint: { "background-color": "#101418" } }],
+    },
+  });
+  map.addControl(new maplibregl.NavigationControl());
+
+  const status = document.getElementById("status");
+  const list = document.getElementById("items");
+
+  const fail = (message, err) => {
+    status.className = "err";
+    status.textContent = message;
+    console.error(err ?? message);
+  };
+
+  // Attaching any error listener replaces MapLibre's own console logging, so
+  // this has to forward or a failed tile disappears from both places.
+  map.on("error", (e) => {
+    fail(`Tiles from ${GEOLENS} failed: ${e.error?.message ?? "request failed"}`, e.error ?? e);
+  });
+
+  // Item values are data, not markup. A title or a collection id containing
+  // HTML renders as characters here rather than executing. The demo catalog is
+  // curated; your own instance's is written by whoever can publish a dataset.
+  const el = (tag, cls, text) => {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = String(text);
+    return node;
+  };
+
+  // Advertised hrefs are item values too, so only http(s) becomes clickable or
+  // gets handed to MapLibre. URL parsing percent-encodes the braces in a
+  // {z}/{x}/{y} template, so absolute() below puts them back before the string
+  // reaches the map.
+  const isHttp = (href) => {
+    try {
+      return /^https?:$/.test(new URL(href).protocol);
+    } catch {
+      return false;
+    }
+  };
+
+  // STAC allows relative hrefs, and they are relative to the item document,
+  // not to this page. Resolve against the item's own rel=self link, itself
+  // resolved against the search response the item arrived in, and put the
+  // tile template's braces back, since URL parsing percent-encodes them and
+  // MapLibre needs them raw.
+  const braces = (u) => u.replace(/%7B/gi, "{").replace(/%7D/gi, "}");
+  const absolute = (href, item) => {
+    if (typeof href !== "string") return null;
+    // An absolute template can arrive with its braces already encoded; MapLibre
+    // needs them literal either way.
+    if (/^https?:\/\//i.test(href)) return braces(href);
+    try {
+      const page = item?._base ?? SEARCH;
+      const self = item?.links?.find((l) => l.rel === "self")?.href;
+      const base = self ? new URL(self, page).href : page;
+      return braces(new URL(href, base).href);
+    } catch {
+      return null;
+    }
+  };
+
+  // A STAC bbox is [west, south, east, north], or six numbers when it carries
+  // elevation. An item with a null geometry may carry no bbox at all, and
+  // then there is nothing to rank or outline: flat() hands back null and the
+  // callers treat it as covering nothing and having no footprint.
+  const flat = (bbox) => {
+    if (!Array.isArray(bbox) || bbox.length < 4 || !bbox.every(Number.isFinite)) return null;
+    return bbox.length === 6 ? [bbox[0], bbox[1], bbox[3], bbox[4]] : bbox;
+  };
+
+  // A west>east bbox crosses the antimeridian; drawn as-is the ring would go
+  // the short way round through the whole world, so the east edge is
+  // written past 180 and the map wraps it.
+  const ring = (bbox) => {
+    const [w, s, e0, n] = flat(bbox);
+    const e = w <= e0 ? e0 : e0 + 360;
+    return [[[w, s], [e, s], [e, n], [w, n], [w, s]]];
+  };
+
+  // A STAC bbox may cross the antimeridian, written west > east (170 to -170).
+  // Its width is measured the long way round, and it covers a longitude that
+  // is east of west or west of east rather than between the two.
+  const width = (w, e) => (w <= e ? e - w : e + 360 - w);
+  const area = (bbox) => {
+    const f = flat(bbox);
+    if (!f) return Infinity; // no extent sorts last
+    const [w, s, e, n] = f;
+    return width(w, e) * (n - s);
+  };
+
+  const coversBbox = (bbox, { lng, lat }) => {
+    const f = flat(bbox);
+    if (!f) return false;
+    const [w, s, e, n] = f;
+    const inLng = w <= e ? w <= lng && lng <= e : lng >= w || lng <= e;
+    return inLng && s <= lat && lat <= n;
+  };
+
+  // The ranking asks whether the item's pixels are under the map centre. A
+  // scene is a rotated quadrilateral whose bbox is bigger than it, so the
+  // question goes to the geometry when there is one (ray casting over each
+  // polygon ring, holes subtracting) and to the bbox only for an item that
+  // has none.
+  // An edge written from 170 to -170 is a short hop across the dateline, not
+  // a sweep through 0°, so the ring is unwrapped vertex by vertex (each edge
+  // takes the short arc, longitudes may run past ±180) and the centre is then
+  // tested in every copy of the world it could sit in. One edge is left
+  // literal: a horizontal one of 360° or more, which is a footprint written
+  // to span the world, as the global relief item here does. A 360° edge that
+  // also changes latitude runs along the meridian, from 180 to -180 being the
+  // same line, and is unwrapped like any other crossing.
+  const unwrap = (ring) => {
+    const out = [];
+    let prev = null, prevRaw = null, prevY = null, offset = 0;
+    for (const [x0, y] of ring) {
+      let x = x0 + offset;
+      // Literal-or-crossing is decided on the written coordinates; the offset
+      // carries whatever the walk has already shifted the ring by.
+      const worldEdge = prev !== null && Math.abs(x0 - prevRaw) >= 360 && y === prevY;
+      if (prev !== null && !worldEdge) {
+        while (x - prev > 180) { x -= 360; offset -= 360; }
+        while (x - prev < -180) { x += 360; offset += 360; }
+      }
+      out.push([x, y]);
+      prev = x;
+      prevRaw = x0;
+      prevY = y;
+    }
+    return out;
+  };
+  const inRingPlanar = (ring, lng, lat) => {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i], [xj, yj] = ring[j];
+      if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  const inRing = (ring, lng, lat) => {
+    const r = unwrap(ring);
+    return [lng, lng + 360, lng - 360].some((x) => inRingPlanar(r, x, lat));
+  };
+  const inPolygon = (rings, lng, lat) =>
+    rings.length > 0 && inRing(rings[0], lng, lat) && !rings.slice(1).some((hole) => inRing(hole, lng, lat));
+  // Only areas can cover a point: lines and points do not, a collection does
+  // if any member does, and the bbox stands in only for a null geometry.
+  const geometryCovers = (g, middle) => {
+    if (g?.type === "Polygon") return inPolygon(g.coordinates ?? [], middle.lng, middle.lat);
+    if (g?.type === "MultiPolygon") return (g.coordinates ?? []).some((poly) => inPolygon(poly, middle.lng, middle.lat));
+    if (g?.type === "GeometryCollection") return (g.geometries ?? []).some((child) => geometryCovers(child, middle));
+    return false;
+  };
+  const covers = (item, middle) => (item.geometry ? geometryCovers(item.geometry, middle) : coversBbox(item.bbox, middle));
+
+  const when = (props) =>
+    props.datetime ??
+    (props.start_datetime
+      ? `${props.start_datetime} / ${props.end_datetime ?? "open"}`
+      : "no datetime");
+
+  let items = [];
+  let more = false; // "yes" | "maybe" | false: did the walk stop at MAX_ITEMS with pages still to read
+  let selected = null;
+  // STAC item ids are unique within a collection, not across the catalog, so
+  // identity here is collection plus id.
+  const key = (item) => JSON.stringify([item.collection ?? "", item.id]);
+
+  // The footprints stay in one geojson source and get redrawn whole on every
+  // search and every pick, so `selected` is a plain property rather than
+  // feature state to keep in sync.
+  // The item's geometry is the footprint: a satellite scene is a rotated
+  // quadrilateral, and its bbox overstates where it has pixels. The bbox ring
+  // is only the fallback for an item that carries no geometry at all.
+  // Drawn with the same unwrapping the ranking uses, so an edge written from
+  // 170 to -170 crosses the dateline on the map too, rather than sweeping
+  // through Greenwich; the map wraps longitudes past 180 on its own.
+  const drawableGeometry = (g) => {
+    if (g?.type === "Polygon") return { type: "Polygon", coordinates: (g.coordinates ?? []).map(unwrap) };
+    if (g?.type === "MultiPolygon") return { type: "MultiPolygon", coordinates: (g.coordinates ?? []).map((poly) => poly.map(unwrap)) };
+    if (g?.type === "GeometryCollection") return { type: "GeometryCollection", geometries: (g.geometries ?? []).map(drawableGeometry).filter(Boolean) };
+    return g ?? null;
+  };
+  const footprints = () => ({
+    type: "FeatureCollection",
+    features: items.map((item) => ({
+      type: "Feature",
+      geometry: item.geometry
+        ? drawableGeometry(item.geometry)
+        : flat(item.bbox) ? { type: "Polygon", coordinates: ring(item.bbox) } : null,
+      properties: { selected: key(item) === selected },
+    })),
+  });
+
+  map.on("load", () => {
+    map.addSource("footprints", { type: "geojson", data: footprints() });
+    map.addLayer({
+      id: "footprints-line",
+      type: "line",
+      source: "footprints",
+      paint: {
+        "line-color": ["case", ["get", "selected"], "#ffd166", "#4da3ff"],
+        "line-width": ["case", ["get", "selected"], 2, 1],
+      },
+    });
+    search();
+  });
+
+  // What an asset is: a pointer to the actual bytes, keyed by a name the
+  // publisher chooses. GeoLens publishes one per item, `raster_tiles`, and its
+  // href is an XYZ template rather than a file, because GeoLens serves rasters
+  // as tiles cut per request. The item is the catalog entry that tells you
+  // where they live; the ?v= on the end is the cache version the server put
+  // there, so pass the href through unchanged instead of rebuilding it.
+  //
+  // These items advertise no COG or GeoTIFF asset, so the other half of the
+  // usual STAC workflow — read a window of pixels, compute an index — has
+  // nothing to read here. That needs an item whose assets include the raw file.
+  const clearRaster = () => {
+    if (map.getLayer("item-raster")) map.removeLayer("item-raster");
+    if (map.getSource("item-raster")) map.removeSource("item-raster");
+  };
+
+  const draw = (item) => {
+    const props = item.properties ?? {};
+    const asset = item.assets?.raster_tiles;
+    const href = asset ? absolute(asset.href, item) : null;
+    const drawable = href && isHttp(href);
+
+    // Selecting an item always replaces what was on the map, so an item with
+    // nothing to draw leaves the map bare rather than wearing the last one's
+    // imagery under a new label.
+    selected = key(item);
+    clearRaster();
+    if (drawable) {
+      map.addSource("item-raster", { type: "raster", tiles: [href], tileSize: 256 });
+      // Under the footprints, so the outline of what you picked stays visible.
+      map.addLayer({ id: "item-raster", type: "raster", source: "item-raster" }, "footprints-line");
+    }
+    map.getSource("footprints").setData(footprints());
+
+    for (const button of list.querySelectorAll("button.pick")) {
+      button.setAttribute("aria-pressed", String(button.dataset.key === key(item)));
+    }
+    status.className = "";
+    const count = more === "yes"
+      ? `Showing the first ${items.length} items that intersect this view; there are more, zoom in for the rest.`
+      : more === "maybe"
+        ? `Showing the first ${items.length} items that intersect this view; there may be more, zoom in to be sure.`
+        : `${items.length} item(s) intersect this view.`;
+    const title = props.title ?? item.id;
+    status.textContent = drawable
+      ? `${count} Drawing ${title}.`
+      : asset
+        ? `${count} ${title}'s raster_tiles href is not an http(s) URL, so it cannot be drawn here.`
+        : `${count} ${title} advertises no raster_tiles asset, so there is nothing to draw for it.`;
+  };
+
+  const render = () => {
+    list.replaceChildren(...items.map((item) => {
+      const props = item.properties ?? {};
+      const asset = item.assets?.raster_tiles;
+      const href = asset ? absolute(asset.href, item) : null;
+      const assetNote = !asset
+        ? "no raster_tiles asset"
+        : !(href && isHttp(href))
+          ? "raster_tiles · not an http(s) href"
+          : `raster_tiles · ${asset.type ?? "no media type"}`;
+
+      const button = el("button", "pick");
+      button.type = "button";
+      button.dataset.key = key(item);
+      button.setAttribute("aria-pressed", "false");
+      button.append(
+        el("span", "t", props.title ?? item.id),
+        el("span", "m", item.collection),
+        el("span", "m", when(props)),
+        el("span", "m", flat(item.bbox)?.map((n) => n.toFixed(3)).join(", ") ?? "no bbox"),
+        el("span", "a", assetNote),
+      );
+      button.addEventListener("click", () => draw(item));
+
+      const li = el("li");
+      li.append(button);
+
+      // rel=self is the item document itself: the same JSON this list is
+      // built from, one item at a time.
+      // The self link resolves against the response it came in, not against
+      // itself, which is what absolute(href, item) would do with it.
+      let self = null;
+      try {
+        const href = item.links?.find((l) => l.rel === "self")?.href;
+        self = href ? new URL(href, item._base ?? SEARCH).href : null;
+      } catch { self = null; }
+      if (self && isHttp(self)) {
+        const link = el("a", null, "item JSON");
+        link.href = self;
+        li.append(link);
+      }
+      return li;
+    }));
+  };
+
+  let inflight = null;
+  let debounce = null;
+  // A sequence stamp alongside the abort: the list's correctness should not
+  // rest on abort() alone rejecting an in-flight body read.
+  let seq = 0;
+
+  const search = async () => {
+    inflight?.abort();
+    const controller = new AbortController();
+    inflight = controller;
+    const mine = ++seq;
+    status.className = "";
+    status.textContent = "Searching this view…";
+
+    // The server holds one copy of the world; MapLibre's bounds can hold
+    // several (zoomed out) or straddle the antimeridian (west 170, east 190).
+    // Clamp the latitude, collapse a wider-than-the-world view to the world,
+    // and split a view across ±180 into two searches, because a bbox of
+    // 170..190 compares numerically on the server and misses -180..-170.
+    const b = map.getBounds();
+    const south = Math.max(b.getSouth(), -90), north = Math.min(b.getNorth(), 90);
+    const wrapLng = (v) => {
+      const r = ((((v + 180) % 360) + 360) % 360) - 180;
+      return r === -180 && v > 0 ? 180 : r;
+    };
+    let boxes;
+    if (b.getEast() - b.getWest() >= 360) boxes = [[-180, south, 180, north]];
+    else {
+      const w = wrapLng(b.getWest()), e = wrapLng(b.getEast());
+      boxes = w <= e ? [[w, south, e, north]] : [[w, south, 180, north], [-180, south, e, north]];
+    }
+
+    let found;
+    try {
+      // Search pages like Features does: follow `rel="next"` until it stops
+      // appearing, or until this page holds MAX_ITEMS. The demo has six items,
+      // so one page covers it; a real archive of scenes will not fit in one.
+      // One budget of MAX_ITEMS shared by every walk, and pages sliced to
+      // what still fits, so the page never holds more than it advertises.
+      // Two walks only when the view crosses the antimeridian; an item
+      // spanning both halves comes back twice and is kept once.
+      const seen = new Set();
+      const features = [];
+      // "yes" once a page was cut or a next link went unread; "maybe" when the
+      // cap was already full before a second box got its first request, since
+      // an unqueried box may hold nothing new; false when every walk ran dry.
+      let remainder = false;
+      for (const [i, box] of boxes.entries()) {
+        // Duplicates across boxes are only possible once an earlier box has
+        // delivered something; before that a next link is more for certain.
+        const earlier = features.length;
+        const bbox = box.map((n) => n.toFixed(6)).join(",");
+        let url = `${SEARCH}?bbox=${bbox}&limit=20`;
+        // A next link that points back at a page already read would spin this
+        // loop forever, and dedupe would keep the cap from ever ending it. One
+        // sighting per URL; a second is a failed search, not a quiet stop,
+        // since a page the server advertised was never read.
+        const visited = new Set();
+        while (url) {
+          if (features.length >= MAX_ITEMS) { remainder = remainder || "maybe"; break; }
+          if (visited.has(url)) throw new Error(`the server's next link repeats a page already read (${url}), so the result is incomplete`);
+          visited.add(url);
+          const res = await fetch(url, { signal: controller.signal });
+          if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+          const page = await res.json();
+          // Relative links in an item are relative to the document it came in;
+          // remember which one, since a redirect or a next link can move it.
+          const base = res.url || url; // empty for a synthetic response
+          for (const f of page.features ?? []) f._base = base;
+          const fresh = (page.features ?? []).filter((f) => !seen.has(key(f)) && seen.add(key(f)));
+          const take = fresh.slice(0, MAX_ITEMS - features.length);
+          features.push(...take);
+          // STAC allows a relative next href; it is relative to the response,
+          // not to this page, so resolve it against where the page came from.
+          const next = page.links?.find((l) => l.rel === "next")?.href;
+          url = next ? new URL(next, base).href : null;
+          // Fresh items left on a cut page are more for certain. A next link
+          // is certain only in the first box; in the second, everything
+          // unread could still be items the first box already delivered.
+          if (take.length < fresh.length) { remainder = "yes"; url = null; }
+          if (features.length >= MAX_ITEMS && url) { remainder = i === 0 || earlier === 0 ? "yes" : remainder || "maybe"; url = null; }
+        }
+      }
+      // With every page read, the unique items are the whole result. When the
+      // cap stopped the walk, no total is trustworthy: the per-box counts
+      // double-count anything that straddled the split, and a box the cap
+      // skipped was never counted at all. So the page reports "more" and
+      // does not put a number on it.
+      found = { features, more: remainder };
+    } catch (err) {
+      // A newer search already replaced this one; it is not a failure.
+      if (err.name === "AbortError" || mine !== seq) return;
+      // The list, footprints and raster described the previous view. Leaving
+      // them up under an error about this one would show items the map is no
+      // longer looking at, so the failure clears them.
+      items = [];
+      selected = null;
+      more = false;
+      render();
+      map.getSource("footprints").setData(footprints());
+      clearRaster();
+      fail(`STAC search against ${GEOLENS} failed: ${err.message}`, err);
+      return;
+    }
+
+    // Search returns everything that intersects the bbox, and one item here is
+    // the whole planet (ETOPO global relief), so it matches every view you can
+    // pick. Rank by what covers the middle of the map, tightest footprint
+    // first, and the scene you are looking at lands above the global backdrop.
+    // Panned into a world copy, the centre reads as 190° while every bbox is
+    // in ±180, so wrap it the same way as the search boxes.
+    if (mine !== seq) return; // a newer search owns the list now
+    const centre = map.getCenter();
+    const middle = { lng: wrapLng(centre.lng), lat: centre.lat };
+    items = found.features.sort(
+      (a, b) => covers(b, middle) - covers(a, middle) || area(a.bbox) - area(b.bbox),
+    );
+    more = found.more;
+    selected = null;
+    render();
+    map.getSource("footprints").setData(footprints());
+
+    if (items.length === 0) {
+      clearRaster();
+      status.className = "";
+      status.textContent = "No items intersect this view. Pan or zoom out.";
+      return;
+    }
+    draw(items[0]);
+  };
+
+  // Re-search as the view changes. Debounced, because a drag ends in one
+  // moveend but a wheel zoom ends in several.
+  map.on("moveend", () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(search, 400);
+  });
+</script>
+</body>
+</html>

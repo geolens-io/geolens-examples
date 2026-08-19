@@ -56,10 +56,11 @@ API_BASE = f"{BASE_URL.rstrip('/')}/api"
 # header, and offers no way at all to put it in the query string, where it
 # would land in access logs.
 #
-# Check what comes back rather than just the exit code. On the three endpoints
-# below, a key GeoLens does not recognise is ignored rather than refused, so a
-# typo returns HTTP 200 and the public subset. Measured against the demo on
-# 2026-08-15. (The OGC items path analyze.py uses does answer a bad key 401.)
+# A key GeoLens cannot resolve is refused with 401 on every endpoint that reads
+# credentials, so a typo stops the script instead of quietly handing it the
+# public subset. Sending no key at all is anonymous and still sees public data.
+# Measured against the demo (v1.14.0) on 2026-08-18; instances older than
+# v1.14.0 discard the bad key on these three endpoints and answer 200.
 API_KEY = os.environ.get("GEOLENS_API_KEY") or None
 
 # Search runs over embeddings of each record's text, so this matches on meaning

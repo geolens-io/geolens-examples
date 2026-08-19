@@ -1,0 +1,68 @@
+# A GeoLens catalog declared as data. `geolens apply` reads this file and
+# reconciles an instance against it, so what the catalog holds is reviewable in
+# a diff instead of being whatever someone last clicked in the UI.
+#
+# Nothing here needs a server to check: `geolens validate` reads the file
+# against the packaged JSON Schema and never opens a socket.
+manifest_version: "1"
+
+catalog:
+  title: Natural Earth reference layers
+  description: Small global reference layers, published from Git.
+  organization: GeoLens Examples
+
+datasets:
+  # `key` is this entry's identity across every apply. GeoLens matches an
+  # incoming entry to an existing dataset by key and fingerprints the rest, so
+  # re-applying an unchanged entry answers `skip` rather than importing a second
+  # copy. Retitle freely; change the key and you have asked for a new dataset.
+  - key: ne-110m-countries
+    title: Countries (Natural Earth 110m)
+    description: World country polygons at 1:110m, the coarsest Natural Earth scale.
+    sources:
+      # apply POSTs this document and nothing else. No file leaves the machine
+      # running the command, and the server fetches the URI itself. That is
+      # why it has to be something the server can reach. A relative path here
+      # resolves against the server's staging directory, not yours, and the CLI
+      # warns when it sees one. `geolens publish <file>` is the upload path.
+      #
+      # Pinned to a release tag, not `master`. A manifest pointing at a moving
+      # branch re-imports whenever someone upstream commits, and the diff that
+      # caused it is in a repo you don't control.
+      - type: vector
+        uri: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_admin_0_countries.geojson
+        format: geojson
+    metadata:
+      # What the file itself cannot say. GeoLens surfaces license, attribution
+      # and CRS on the OGC and STAC records it serves for this dataset, so a
+      # consumer reading /api/collections gets them without asking anyone.
+      tags: [natural-earth, reference, boundaries]
+      organization: Natural Earth
+      crs: EPSG:4326
+      license: Public domain
+      attribution: Made with Natural Earth
+      bbox: [-180, -90, 180, 90]
+    publication:
+      # The workflow status you are asking for, validated server-side against
+      # that deployment's own status order rather than a fixed enum. The
+      # community default runs draft, ready, internal, published.
+      intent: published
+
+  - key: ne-110m-populated-places
+    title: Populated places (Natural Earth 110m)
+    description: Major world cities as points, carrying population and capital status.
+    sources:
+      - type: vector
+        uri: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_populated_places_simple.geojson
+        format: geojson
+    metadata:
+      tags: [natural-earth, reference, places]
+      organization: Natural Earth
+      crs: EPSG:4326
+      license: Public domain
+      attribution: Made with Natural Earth
+      bbox: [-180, -90, 180, 90]
+    publication:
+      # Held back from the public catalog until someone promotes it. Two
+      # entries, two intents: the field decides visibility, not the apply.
+      intent: draft

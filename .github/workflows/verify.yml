@@ -26,6 +26,16 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
+      # First, and before the browser install: when the demo catalog is reset,
+      # every dependent example fails in the sweep below with no sign that the
+      # cause was the reset. This names the fixture that moved, and tells a
+      # demo that is down apart from an example that is broken.
+      # Bounded on its own: fifteen probes with three attempts each against a
+      # demo that accepts connections and then hangs would otherwise eat most
+      # of the job before the sweep started.
+      - name: Preflight the demo fixtures
+        timeout-minutes: 4
+        run: node ci/check-fixtures.mjs
       - name: Install Playwright Chromium
         run: |
           npm init -y >/dev/null
@@ -66,6 +76,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      # The same client version is written into a dozen files, so one bumped on
+      # its own is drift nobody sees until an example stops matching the docs.
+      - name: Check version pins
+        run: uv run ci/check-pins.py
       - name: Run the OGC analysis
         working-directory: python
         run: |
@@ -76,6 +90,13 @@ jobs:
       - name: Run the SDK quickstart
         working-directory: python
         run: uv run sdk-catalog.py
+      # The catalog-as-code example. `apply` is a write and needs a credential,
+      # so CI checks the part that runs without one: the manifest still matches
+      # the schema this CLI release packages, and that schema still prints.
+      - name: Validate the CLI manifest
+        run: |
+          uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml
+          uvx --from geolens-cli==1.14.0 geolens schema >/dev/null
 
   mcp:
     name: MCP server smoke check

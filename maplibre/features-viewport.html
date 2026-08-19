@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + MapLibre: OGC API Features by viewport</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 10px; max-width: 44ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
+    #hud .capped { color: #ffd166; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="hud">
+  <strong>MapLibre GL JS — OGC API Features by viewport</strong>
+  <p id="status" role="status">Loading meteorite landings for this view from the GeoLens demo…</p>
+  <p>Meteoritical Society via NASA Open Data · <a href="https://demo.getgeolens.com/datasets/6030c57b-ce37-4198-aa1e-be78e0950f53">dataset</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/features-viewport.html">source</a></p>
+</div>
+<script>
+  // Point this at your own GeoLens instance to use your data. The demo is
+  // anonymous, so this page sends no credential. A private dataset needs an
+  // X-Api-Key header, which you would add to the fetch() below. Keep the key
+  // out of the URL and out of this file. See "Authenticating against your
+  // own instance" in the README.
+  const GEOLENS = "https://demo.getgeolens.com";
+
+  // Meteorite Landings: 32,186 points spread over the whole planet. The
+  // sibling features.html asks for `?limit=2000` once and keeps the answer,
+  // which is fine for 496 subway stations and wrong here twice over. First,
+  // the browser would hold and draw thirty thousand features to show the
+  // few hundred on screen. Second, that request never returned 2000 rows to
+  // begin with: the demo caps a page at 1000 and silently clamps anything
+  // larger, so `limit=2000` fetches one page of 1000, and a map drawn from
+  // that one page looks complete. This page asks for the current view
+  // instead, `?bbox=<view>&limit=<page>`, and follows the paging links
+  // until the server stops offering one.
+  const COLLECTION = "6030c57b-ce37-4198-aa1e-be78e0950f53";
+
+  // The demo's largest page. Ask for more and the server clamps to this and
+  // rewrites the `next` link to match, so a bigger number buys nothing. Your
+  // own instance may cap elsewhere; the loop below does not care, because
+  // it reads page boundaries off the links and not off this constant.
+  const PAGE_SIZE = 1000;
+
+  // Hard budget per view. Every page is one more request to the demo and
+  // another thousand features for the browser to parse, index and draw. A
+  // whole-world bbox on this collection is 31 pages, and every pan at that
+  // zoom would walk them again; instead the walk stops here and says so on
+  // screen. That is the decision point: a view that keeps hitting this cap
+  // wants vector tiles, where the server cuts what is on screen per tile
+  // and the client never holds the rest. See maplibre/vector-tiles.html.
+  const MAX_FEATURES = 5000;
+
+  // moveend fires per gesture, and a scroll-wheel zoom is a burst of them.
+  // A short timer collapses the burst into one request for the view where
+  // the user stopped.
+  const DEBOUNCE_MS = 250;
+
+  const map = new maplibregl.Map({
+    container: "map",
+    center: [55.0, 19.4], // Dhofar and the Jiddat al-Harasis, Oman: dense desert finds
+    zoom: 7.3,
+    style: {
+      version: 8,
+      sources: {
+        // Starts empty; loadView() replaces the data on every settled view.
+        meteorites: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
+      },
+      layers: [
+        { id: "bg", type: "background", paint: { "background-color": "#101418" } },
+        {
+          id: "meteorites",
+          type: "circle",
+          source: "meteorites",
+          paint: {
+            "circle-radius": 3,
+            "circle-color": "#ffd166",
+            "circle-stroke-color": "#101418",
+            "circle-stroke-width": 1,
+          },
+        },
+      ],
+    },
+  });
+
+  map.addControl(new maplibregl.NavigationControl());
+
+  const status = document.getElementById("status");
+  const fmt = (n) => n.toLocaleString();
+
+  // Two guards, for two different bugs.
+  //
+  // `inflight` cancels the previous walk. Without it, panning from Oman to
+  // Libya leaves the Oman walk running: three more pages the user will never
+  // see, competing with the Libya request for the connection and for the
+  // demo, which is one small VM.
+  //
+  // `seq` is the ordering guard: a stamp handed to each walk, checked after
+  // every await. Without it, a slow Oman page can land after the fast Libya
+  // page and overwrite the map with points for a view that is no longer on
+  // screen. Cancellation makes that rare, and the map's correctness should
+  // not rest on it: abort() only reaches a fetch that has not finished, and
+  // any future edit that drops the signal, or swaps fetch for a client that
+  // has none, would silently reopen the race. The stamp closes it whatever
+  // the transport does: only the newest walk may touch the source.
+  let seq = 0;
+  let inflight = null;
+  let timer = null;
+
+  async function loadView() {
+    const mine = ++seq;
+    inflight?.abort();
+    inflight = new AbortController();
+    const { signal } = inflight;
+
+    // The server holds one copy of the world; MapLibre's bounds can hold
+    // several (zoomed out) or straddle the antimeridian (west 170, east 190).
+    // Clamp the latitude, collapse a wider-than-the-world view to the world,
+    // and split a view across ±180 into two walks, because a bbox of 170..190
+    // compares numerically on the server and misses -180..-170.
+    const b = map.getBounds();
+    const south = Math.max(b.getSouth(), -90), north = Math.min(b.getNorth(), 90);
+    const wrapLng = (v) => {
+      const r = ((((v + 180) % 360) + 360) % 360) - 180;
+      return r === -180 && v > 0 ? 180 : r;
+    };
+    let boxes;
+    if (b.getEast() - b.getWest() >= 360) boxes = [[-180, south, 180, north]];
+    else {
+      const w = wrapLng(b.getWest()), e = wrapLng(b.getEast());
+      boxes = w <= e ? [[w, south, e, north]] : [[w, south, 180, north], [-180, south, e, north]];
+    }
+
+    const features = [];
+    let pages = 0;
+    let matched = null; // summed per walk when the server states it; null when it never did
+    let capped = false;
+    // A feature whose geometry touches both sides of the dateline comes back
+    // from both walks; keep it once, by id.
+    const seen = new Set();
+
+    status.className = "";
+    status.textContent = "Loading this view…";
+    try {
+      // Follow `rel="next"` until it stops appearing. That link is the only
+      // statement the server makes about whether another page exists.
+      // numberMatched and numberReturned are worth reading, and the status
+      // line puts numberMatched next to what the page holds, but they are a
+      // diagnostic: the last page of any walk returns fewer than matched
+      // with no next link, so "counts differ" is not "keep going". Paging
+      // is keyset-based (`after_gid=`), so each page starts where the
+      // previous one ended by row id, and rows inserted or deleted mid-walk
+      // cannot shift the pages under this reader the way an offset would.
+      walk: for (const [i, box] of boxes.entries()) {
+        // Duplicates across boxes are only possible once an earlier box has
+        // delivered something; before that a next link is more for certain.
+        const earlier = features.length;
+        const bbox = box.map((n) => n.toFixed(6)).join(",");
+        let url = `${GEOLENS}/api/collections/${COLLECTION}/items?bbox=${bbox}&limit=${PAGE_SIZE}`;
+        let first = true;
+        // A next link that points back at a page already read would spin this
+        // loop forever. One sighting per URL; a second is a failed load, not a
+        // quiet stop, since a page the server advertised was never read.
+        const visited = new Set();
+        while (url) {
+          if (visited.has(url)) throw new Error(`the server's next link repeats a page already read (${url}), so this view is incomplete`);
+          visited.add(url);
+          const res = await fetch(url, { signal });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const page = await res.json();
+          if (mine !== seq) return; // a newer view owns the map now
+
+          pages += 1;
+          // numberMatched is per walk and the same on every page of it, so
+          // count it once per box. It is optional in OGC API Features; a
+          // server that omits it leaves the total unknown until the walk ends.
+          if (first) {
+            if (typeof page.numberMatched === "number") matched = (matched ?? 0) + page.numberMatched;
+            first = false;
+          }
+          // Take only what fits under the cap, so the page never holds more
+          // than it says it does: 4,500 held plus a 1,000-row page is 5,000
+          // held and 500 left on the server, not 5,500 held.
+          const fresh = boxes.length === 1
+            ? page.features
+            : page.features.filter((f) => f.id === undefined || (!seen.has(f.id) && seen.add(f.id)));
+          const take = fresh.slice(0, MAX_FEATURES - features.length);
+          features.push(...take);
+          // Paint each page as it lands rather than after the whole walk, so a
+          // three-page view shows its first thousand points a round-trip early.
+          map.getSource("meteorites").setData({ type: "FeatureCollection", features });
+
+          // A relative next href is relative to the response, not this page.
+          // res.url is empty for a synthetic response (a service worker, a
+          // test double), so the request URL is the fallback base.
+          const next = page.links?.find((l) => l.rel === "next")?.href;
+          url = next ? new URL(next, res.url || url).href : null;
+          // Capped means "there was more and we stopped". A view that matches
+          // exactly MAX_FEATURES ends its last page at the cap with no next
+          // link and nothing left over, and that is a complete result, not a
+          // truncated one.
+          // Fresh rows left on a cut page mean more for certain, and so does a
+          // next link in the first box. In the second box a next link is only
+          // a maybe, since everything unread could duplicate the first box,
+          // and a second box never asked at all is a maybe for the same reason.
+          const certain = take.length < fresh.length || (url !== null && (i === 0 || earlier === 0));
+          if (features.length >= MAX_FEATURES && (certain || url !== null || i < boxes.length - 1)) {
+            capped = certain ? true : "maybe";
+            break walk;
+          }
+        }
+      }
+    } catch (err) {
+      // Superseded on purpose, or superseded and then failed late: either way
+      // a newer view owns the map and this one has nothing to report.
+      if (err.name === "AbortError" || mine !== seq) return;
+      // Show only what this view got before it failed: its own pages if any
+      // arrived, an empty source if none did. The previous view's points do
+      // not belong under an error about this one.
+      map.getSource("meteorites").setData({ type: "FeatureCollection", features });
+      status.className = "err";
+      status.textContent = `Could not load features from ${GEOLENS} — ${err.message}. On your own instance, list this page's origin in CORS_ALLOWED_ORIGINS: it is empty by default, which sends no CORS headers at all, and "*" is rejected.`;
+      console.error("GeoLens request failed:", err);
+      return;
+    }
+
+    const held = features.length;
+    // Two walks' numberMatched values overlap by whatever straddled the split,
+    // so for a dateline view that ran dry the unique count is the true total,
+    // and for one the cap cut short there is no exact total to give.
+    const split = boxes.length > 1;
+    // A walk that ran dry held every feature the view matched, so the unique
+    // count is the exact total whether the server stated one or not.
+    if (!capped && (split || matched === null)) matched = held;
+    if (capped) {
+      // Truncated, and said so. Anything short of this line held every
+      // feature the view matched, whatever the two counts looked like on the
+      // way there.
+      status.className = "capped";
+      const total = split || matched === null ? "more than that" : fmt(matched);
+      status.textContent = capped === "maybe"
+        ? `Holding ${fmt(held)} after ${pages} pages: at the ${fmt(MAX_FEATURES)}-feature cap with the far side of the antimeridian not fully read, so there may be more. This is where vector tiles take over.`
+        : `Holding ${fmt(held)} of ${total} matched after ${pages} pages: truncated at the ${fmt(MAX_FEATURES)}-feature cap for one view. This is where vector tiles take over.`;
+      const a = document.createElement("a");
+      a.href = "vector-tiles.html";
+      a.textContent = "See maplibre/vector-tiles.html";
+      status.append(" ", a);
+    } else {
+      status.textContent = `${fmt(held)} features held · ${pages} page${pages === 1 ? "" : "s"} · numberMatched ${fmt(matched)}`;
+    }
+  }
+
+  map.on("load", loadView);
+  map.on("moveend", () => {
+    clearTimeout(timer);
+    timer = setTimeout(loadView, DEBOUNCE_MS);
+  });
+
+  // The attributes are already in the browser, so identify is a lookup: no
+  // round-trip, no GetFeatureInfo. Rendered as text, never as HTML, because a
+  // property value is data someone else typed.
+  map.on("click", "meteorites", (e) => {
+    const pre = document.createElement("pre");
+    pre.textContent = JSON.stringify(e.features[0].properties, null, 2).slice(0, 500);
+    new maplibregl.Popup().setLngLat(e.lngLat).setDOMContent(pre).addTo(map);
+  });
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-# Dependabot watches one of this repo's four dependency surfaces. Saying so
+# Dependabot watches one of this repo's dependency surfaces. Saying so
 # here, rather than letting the file's existence imply coverage it does not
 # have, is why this comment is longer than the config.
 #
@@ -11,7 +11,10 @@
 #   - playwright@1.62.1, installed by a shell line in verify.yml
 #   - CDN pins in the example pages: maplibre-gl, leaflet, ol, @geolens/sdk
 #   - geolens==1.14.0, a PEP 723 inline dependency in python/sdk-catalog.py
-#   - geolens-mcp@1.14.0, in claude-mcp/mcp-config.example.json and index.html
+#   - geolens-mcp@1.14.0, in mcp/clients/*.{json,md} and index.html
+#   - geolens-cli==1.14.0, in verify.yml, cli/README.md and cli/github-actions.yml
+#   - the SHA-pinned actions in cli/github-actions.yml, which is a template for
+#     someone else's repo and so sits outside the directory Dependabot scans
 #
 # None of those has a manifest for Dependabot to read, and that is deliberate.
 # The examples have no build step, which is most of why they are readable, so

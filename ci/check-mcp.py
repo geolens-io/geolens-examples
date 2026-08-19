@@ -4,12 +4,12 @@
 #     "mcp>=1.2,<2",
 # ]
 # ///
-"""Smoke-check the claude-mcp example: spawn the geolens-mcp server over stdio
+"""Smoke-check the mcp example: spawn the geolens-mcp server over stdio
 against the demo, list its tools, and run one real search.
 
 Runs twice, because the two runs catch different things:
 
-  pinned  the exact version claude-mcp/ tells users to install. This is the
+  pinned  the exact version mcp/ tells users to install. This is the
           one that gates the build. A check that does not exercise what the
           docs say to run is testing the wrong thing.
   latest  whatever `uvx geolens-mcp` resolves today. Early warning that a new
@@ -17,7 +17,7 @@ Runs twice, because the two runs catch different things:
           it is not a regression in this repo, and failing on it would block
           unrelated PRs, so it warns and does not fail.
 
-The pinned version is read from claude-mcp/mcp-config.example.json rather than
+The pinned version is read from mcp/clients/generic.json rather than
 written here. Two independent copies of a version string is the bug PR #7 just
 fixed, and rebuilding it one directory over would be a poor tribute.
 
@@ -44,12 +44,12 @@ EXPECTED_TOOLS = {
 }
 
 REPO = Path(__file__).resolve().parent.parent
-MCP_CONFIG = REPO / "claude-mcp" / "mcp-config.example.json"
+MCP_CONFIG = REPO / "mcp" / "clients" / "generic.json"
 INSTANCE = os.environ.get("GEOLENS_INSTANCE", "https://demo.getgeolens.com")
 
 
 def documented_spec() -> str:
-    """The `uvx` argument claude-mcp/mcp-config.example.json documents."""
+    """The `uvx` argument mcp/clients/generic.json documents."""
     config = json.loads(MCP_CONFIG.read_text())
     args = config["mcpServers"]["geolens"]["args"]
     spec = next((a for a in args if a.startswith("geolens-mcp")), None)
@@ -143,8 +143,8 @@ async def main() -> int:
     except Exception as exc:  # noqa: BLE001 - the failure text is the signal
         print(f"FAILED (pinned): {pinned}: {exc!r}", file=sys.stderr)
         print(
-            "The version claude-mcp/ documents does not work against the demo. "
-            "Fix the server or correct the pin in claude-mcp/mcp-config.example.json.",
+            "The version mcp/ documents does not work against the demo. "
+            "Fix the server or correct the pin in mcp/clients/generic.json.",
             file=sys.stderr,
         )
         return 1

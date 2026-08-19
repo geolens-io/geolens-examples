@@ -1,11 +1,13 @@
 // Regression check for the maplibre/imagery.html catalog-probe fix (#18).
 //
 // The page asks /api/collections/<id> whether the dataset exists, because the
-// tile route cannot say: it answers 204 for a tile outside the footprint and
-// 204 for a dataset id that was never there. Measured against the live demo,
-// MapLibre reports both of those exactly as it reports real imagery — same
-// `data` event, same `state: "loaded"` — so a tile answering proves nothing
-// about existence, and the catalog is genuinely the only signal available.
+// tile route does not say it in any way the page can read. Before v1.14.0 it
+// answered 204 for a tile outside the footprint and 204 for a dataset id that
+// was never there, and MapLibre reports both exactly as it reports real
+// imagery — same `data` event, same `state: "loaded"`. From v1.14.0 the
+// missing dataset is a 404 there (measured against the live demo 2026-08-18),
+// which reaches the page as an ordinary tile error. Either way a tile answering
+// proves nothing about existence, and the catalog is the signal available.
 //
 // That makes *how the page reads the catalog's answer* the whole correctness
 // question, and it is not one the ci/manifest.json sweep can reach: the sweep
@@ -78,7 +80,7 @@ async function run({ label, probe, tiles }) {
 
 // --- 404 latches, over working tiles ------------------------------------
 // The one answer that carries information about existence. A tile must not
-// clear it: 204s keep arriving for a dataset that is not there.
+// clear it: tiles keep arriving while the catalog says the dataset is not there.
 const gone = await run({ label: "probe 404, tiles answering", probe: 404, tiles: "live" });
 if (gone.hidden) {
   failures.push("probe 404: HUD was cleared by tiles — a missing dataset now renders nothing and says nothing");

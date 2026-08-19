@@ -1,9 +1,10 @@
-# Ask Claude about your geospatial catalog
+# Ask an MCP client about your geospatial catalog
 
 `geolens-mcp` is a read-only [MCP](https://modelcontextprotocol.io) server that puts a GeoLens
-catalog inside a Claude session. Once it is registered, you stop context-switching to a GIS client
-to answer "what data do we even have for this?" You ask Claude, and it goes and looks. Claude gets
-six tools: `search_datasets` (free-text catalog search), `get_dataset_schema` (columns, geometry type,
+catalog inside any MCP client's session: Claude Code, Claude Desktop, Cursor, Codex, or one you
+wrote yourself. Once it is registered, you stop context-switching to a GIS client to answer "what
+data do we even have for this?" You ask the assistant, and it goes and looks. It gets six tools:
+`search_datasets` (free-text catalog search), `get_dataset_schema` (columns, geometry type,
 SRID, feature count, extent, and source-trust metadata), `get_features` (bounded GeoJSON, with an
 optional bbox filter), `list_maps` and `get_map` (saved maps, their layers and view state), and
 `query` (one SQL `SELECT` through the backend's read-only sandbox). The first five work against a
@@ -11,7 +12,7 @@ public instance with no credentials at all; `query` needs an API key, which is t
 know before you start.
 
 Nothing here can write. The discovery tools are `GET`s, and `query` is a `POST` only in the HTTP
-sense: the backend runs it inside a `READ ONLY` transaction. What Claude can see is bounded by the
+sense: the backend runs it inside a `READ ONLY` transaction. What the assistant can see is bounded by the
 credential you give it: with an API key it sees what that key's user sees, and with no credential it
 sees public data and nothing else.
 
@@ -25,69 +26,22 @@ Every example also pins `geolens-mcp@1.14.0`, the current release and the versio
 The package ships with each GeoLens release, so the version to run is the one matching your
 instance. See [Things that will bite you](#things-that-will-bite-you) for how to move off the pin.
 
-### Claude Code
+### Clients
 
-```bash
-claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0
-```
+Config for each client lives in [`clients/`](./clients):
 
-For your own instance, add the key:
+| Client | File | Use |
+|---|---|---|
+| Claude Code | [`clients/claude-code.md`](./clients/claude-code.md) | a `claude mcp add` one-liner |
+| Claude Desktop | [`clients/claude-desktop.json`](./clients/claude-desktop.json) | merge into `claude_desktop_config.json` |
+| Cursor | [`clients/cursor.json`](./clients/cursor.json) | drop in as `.cursor/mcp.json` |
+| Codex CLI | [`clients/codex.md`](./clients/codex.md) | an `[mcp_servers.geolens]` table for `config.toml` |
+| Anything else that speaks stdio MCP | [`clients/generic.json`](./clients/generic.json) | the plain `{command, args, env}` shape |
 
-```bash
-claude mcp add geolens \
-  -e GEOLENS_INSTANCE=https://geolens.example.com \
-  -e GEOLENS_API_KEY=your-api-key \
-  -- uvx geolens-mcp@1.14.0
-```
-
-`claude mcp add` writes to your local project scope by default; pass `-s user` to make it available
-in every project. Prefer a checked-in config? A `.mcp.json` at the repo root does the same job and
-travels with the project:
-
-```json
-{
-  "mcpServers": {
-    "geolens": {
-      "command": "uvx",
-      "args": ["geolens-mcp@1.14.0"],
-      "env": {
-        "GEOLENS_INSTANCE": "https://demo.getgeolens.com"
-      }
-    }
-  }
-}
-```
-
-Keep real API keys out of a committed `.mcp.json`. Use `claude mcp add` locally, or have the config
-reference an environment variable your shell already exports.
-
-### Claude Desktop
-
-Edit `claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/`, Windows:
-`%APPDATA%\Claude\`), then restart the app. The same block lives in
-[`mcp-config.example.json`](./mcp-config.example.json) in this directory.
-
-```json
-{
-  "mcpServers": {
-    "geolens": {
-      "command": "uvx",
-      "args": ["geolens-mcp@1.14.0"],
-      "env": {
-        "GEOLENS_INSTANCE": "https://demo.getgeolens.com"
-      }
-    }
-  }
-}
-```
-
-To point at your own instance, change `GEOLENS_INSTANCE` and add `"GEOLENS_API_KEY": "your-api-key"`
-to the `env` block. Create the key under **Settings → API keys** in the GeoLens web UI.
-
-One Desktop-specific trap: it launches servers with a minimal `PATH`, so a bare `"uvx"` often fails
-with something like `spawn uvx ENOENT` even though `uvx` works in your terminal. Run `which uvx`
-(`where uvx` on Windows) and use the absolute path, whether that is `/opt/homebrew/bin/uvx`,
-`~/.local/bin/uvx`, or somewhere else.
+Each one points at the public demo with no credentials. For your own instance, change
+`GEOLENS_INSTANCE` and add `GEOLENS_API_KEY` in whichever file you use; create the key under
+**Settings → API keys** in the GeoLens web UI. Keep real API keys out of a committed config file:
+use your client's local/user scope, or reference an environment variable your shell already exports.
 
 ### The three environment variables
 
@@ -117,9 +71,9 @@ by meaning, so a question phrased as a question rather than as keywords still la
 > Find the major hurricane tracks dataset and tell me its columns, geometry type, and SRID. Which
 > column would I use to filter to Category 5 storms?
 
-`get_dataset_schema` is the tool worth prompting Claude toward before any analysis question. It
+`get_dataset_schema` is the tool worth prompting the assistant toward before any analysis question. It
 returns the column list along with the source-trust fields: `origin`, `source_health`, and a
-`source_freshness` of fresh, due, overdue, or unknown. That lets Claude warn you the data may be
+`source_freshness` of fresh, due, overdue, or unknown. That lets the assistant warn you the data may be
 stale instead of quietly answering from it.
 
 **3. Ask a spatial question.** Exercises `search_datasets`, then `get_features` with a bbox.
@@ -128,7 +82,7 @@ stale instead of quietly answering from it.
 > them with their block and lot numbers.
 
 The bbox is `minx,miny,maxx,maxy` in WGS84 regardless of the dataset's own SRID. Responses are
-capped by `limit` and paged with `offset`, so Claude reads a bounded sample rather than dragging
+capped by `limit` and paged with `offset`, so the assistant reads a bounded sample rather than dragging
 43,000 parcels through the context window. Raster datasets have no features and will error here.
 
 **4. Inventory the saved maps.** Exercises `list_maps`.
@@ -141,7 +95,7 @@ capped by `limit` and paged with `offset`, so Claude reads a bounded sample rath
 > Open the "Hurricane Exposure" map, figure out which datasets its layers are built from, and tell
 > me which coastal region has been hit by the most distinct major storms.
 
-This is where the server earns its keep. Claude walks the whole chain on its own and only reads rows
+This is where the server earns its keep. The assistant walks the whole chain on its own and only reads rows
 once it knows which dataset and column it needs.
 
 If your instance has AI chat enabled and you supply an API key for a user who holds that permission,
@@ -153,9 +107,9 @@ mandatory `restrict_tables` scope, a statement timeout, and a row cap.
 
 ## How it actually behaves
 
-Captured on 2026-08-14 by driving the published `geolens-mcp` 1.13.0 wheel over stdio with a
-minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported itself
-healthy at version 1.13.0). Output is real and trimmed for width.
+Captured on 2026-08-14 by driving the wheel `geolens-mcp` published as version 1.13.0 over stdio
+with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported
+itself healthy at 1.13.0; the tool set is unchanged in 1.14.0). Output is real and trimmed for width.
 
 Tool discovery, straight after `initialize`:
 
@@ -210,7 +164,7 @@ has profiled the dataset:
 
 `get_features` on the parcel dataset with `bbox="-74.02,40.70,-74.00,40.72"` and `limit=2`. The
 `numberMatched` count is what makes this answerable. 1,358 of the 43,068 parcels fall in that box,
-and Claude learns that without reading them:
+and the assistant learns that without reading them:
 
 ```json
 { "type": "FeatureCollection", "numberMatched": 1358, "numberReturned": 2 }
@@ -264,7 +218,7 @@ get_features(dataset_id="not-a-uuid")
 
 ## Things that will bite you
 
-Anonymous access sees published public data only. If Claude comes back saying your own instance has
+Anonymous access sees published public data only. If the assistant comes back saying your own instance has
 no datasets, check `GEOLENS_API_KEY` before you go looking at the catalog.
 
 `query` needs both an API key and a user with the AI-chat permission. Without them you get the 401
