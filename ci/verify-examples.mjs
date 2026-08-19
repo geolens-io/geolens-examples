@@ -840,7 +840,18 @@ async function runOnce(page, scratch, entry) {
     // names a URL is attributed to that URL, which is the attribution Chromium
     // and WebKit already give the same failure. One that names nothing stays
     // the page's own.
-    const named = msg.location()?.url || (msg.text().match(/https?:\/\/[^\s"'“”)\]]+/)?.[0] ?? "");
+    //
+    // A subresource-integrity failure is the other measured case: Firefox
+    // reports it against the document ("None of the sha512 hashes in the
+    // integrity attribute match the content of the subresource at https://..."),
+    // so its location is the demo's page while the resource that failed is the
+    // one named in the text. When the demo's analytics beacon host cannot be
+    // reached, that is the beacon host's failure and is attributed to it; a
+    // demo-hosted script failing its own hash still names the demo and counts.
+    const namedInText = msg.text().match(/https?:\/\/[^\s"'“”)\]]+/)?.[0] ?? "";
+    const location = msg.location()?.url ?? "";
+    const sri = /integrity attribute/.test(msg.text());
+    const named = (location && !sri) ? location : (namedInText || location);
     const host = hostOf(named);
     if (host === null || isOurs(host)) consoleErrors.push(msg.text());
     else thirdPartyIssues.push(`console [${host}] ${msg.text()}`);
