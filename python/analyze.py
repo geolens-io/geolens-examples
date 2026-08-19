@@ -58,7 +58,15 @@ if len(ARGS) == 2 or len(ARGS) > 3:
         f"  got {len(ARGS)} arguments; pass both collection ids or neither"
     )
 
-BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_URL", "https://demo.getgeolens.com")
+# The variable used to be GEOLENS_URL. A stale export would otherwise fall
+# through to the demo and report the wrong catalog without a word, so refuse
+# unless an argument names the instance, in which case the export is unused.
+if not ARGS and os.environ.get("GEOLENS_URL") and not os.environ.get("GEOLENS_INSTANCE"):
+    sys.exit("GEOLENS_URL was renamed to GEOLENS_INSTANCE; export that instead.")
+
+# GEOLENS_INSTANCE is the site root; the requests below add /api. An empty
+# value (an unset CI secret, usually) falls back to the demo like an unset one.
+BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_INSTANCE") or "https://demo.getgeolens.com"
 
 # Collection ids are dataset UUIDs. Find them at GET /api/collections, or in
 # the web UI under a dataset's "Share / API" panel.
