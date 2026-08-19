@@ -326,9 +326,11 @@
       // half was cut at the page limit, the two totals overlap by an unknown
       // amount, so the page says "more" instead of putting a number on it.
       // numberMatched is optional in OGC API Features; a page that omits it
-      // is taken as whole, since nothing says otherwise.
+      // is whole only if it also carries no next link, which is the one
+      // statement the server always makes about another page.
       const returned = (p) => p.numberReturned ?? (p.features ?? []).length;
-      const whole = pages.every((p) => returned(p) === (p.numberMatched ?? returned(p)));
+      const hasNext = (p) => (p.links ?? []).some((l) => l.rel === "next");
+      const whole = pages.every((p) => !hasNext(p) && returned(p) === (p.numberMatched ?? returned(p)));
       body = {
         features,
         numberReturned: features.length,

@@ -379,14 +379,15 @@ async function checkStac(name, fx, notes, problems) {
   const [z, x, y] = probe.split("/");
   const tile = await get(href.replace("{z}", z).replace("{x}", x).replace("{y}", y));
   const type = tile.headers.get("content-type") ?? "";
-  if (tile.status !== 200 || !type.startsWith("image/")) {
+  const bytes = tile.status === 200 ? (await tile.arrayBuffer()).byteLength : 0;
+  if (tile.status !== 200 || !type.startsWith("image/") || bytes === 0) {
     problems.push(
-      `fixture ${name}: tile ${probe} of "${pick.properties?.title ?? pick.id}" answered ${tile.status} ${type}, ` +
+      `fixture ${name}: tile ${probe} of "${pick.properties?.title ?? pick.id}" answered ${tile.status} ${type} ${bytes}B, ` +
         `so the STAC example paints nothing over its opening view.`,
     );
     return;
   }
-  notes.push(`"${pick.properties?.title ?? pick.id}" tile ${probe} ${type} ${(await tile.arrayBuffer()).byteLength}B`);
+  notes.push(`"${pick.properties?.title ?? pick.id}" tile ${probe} ${type} ${bytes}B`);
 }
 
 const KNOWN = ["collection", "stac", "vectorTile", "rasterTile", "sharedMap", "search"];
