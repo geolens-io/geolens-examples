@@ -356,7 +356,7 @@ async function checkStac(name, fx, notes, problems) {
   const width = (w, e) => (w <= e ? e - w : e + 360 - w);
   const coversBbox = (b) => { const f = flat(b); if (!f) return false; const [w, s, e, n] = f; const inLng = w <= e ? w <= center[0] && center[0] <= e : center[0] >= w || center[0] <= e; return inLng && s <= center[1] && center[1] <= n; };
   // Each edge takes the short arc (an edge 170 → -170 crosses the dateline), and the centre is tested in every world copy.
-  const unwrap = (ring) => { const out = []; let prev = null; for (const [x0, y] of ring) { let x = x0; if (prev !== null) { while (x - prev > 180) x -= 360; while (x - prev < -180) x += 360; } out.push([x, y]); prev = x; } return out; };
+  const unwrap = (ring) => { const out = []; let prev = null, prevRaw = null, offset = 0; for (const [x0, y] of ring) { let x = x0 + offset; if (prev !== null && Math.abs(x0 - prevRaw) < 360) { while (x - prev > 180) { x -= 360; offset -= 360; } while (x - prev < -180) { x += 360; offset += 360; } } out.push([x, y]); prev = x; prevRaw = x0; } return out; }; // an edge of 360° or more spans the world on purpose
   const planar = (ring, lng, lat) => { let inside = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, yi] = ring[i], [xj, yj] = ring[j]; if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside; } return inside; };
   const inRing = (ring) => { const r = unwrap(ring); return [center[0], center[0] + 360, center[0] - 360].some((x) => planar(r, x, center[1])); };
   const inPolygon = (rings) => rings.length > 0 && inRing(rings[0]) && !rings.slice(1).some(inRing);

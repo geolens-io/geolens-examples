@@ -200,15 +200,23 @@
   // An edge written from 170 to -170 is a short hop across the dateline, not
   // a sweep through 0°, so the ring is unwrapped vertex by vertex (each edge
   // takes the short arc, longitudes may run past ±180) and the centre is then
-  // tested in every copy of the world it could sit in.
+  // tested in every copy of the world it could sit in. An edge of 360° or
+  // more is left alone: that is a footprint written to span the world, as the
+  // global relief item here does, not a crossing.
   const unwrap = (ring) => {
     const out = [];
-    let prev = null;
+    let prev = null, prevRaw = null, offset = 0;
     for (const [x0, y] of ring) {
-      let x = x0;
-      if (prev !== null) { while (x - prev > 180) x -= 360; while (x - prev < -180) x += 360; }
+      let x = x0 + offset;
+      // Literal-or-crossing is decided on the written coordinates; the offset
+      // carries whatever the walk has already shifted the ring by.
+      if (prev !== null && Math.abs(x0 - prevRaw) < 360) {
+        while (x - prev > 180) { x -= 360; offset -= 360; }
+        while (x - prev < -180) { x += 360; offset += 360; }
+      }
       out.push([x, y]);
       prev = x;
+      prevRaw = x0;
     }
     return out;
   };
