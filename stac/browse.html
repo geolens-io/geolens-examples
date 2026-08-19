@@ -267,11 +267,22 @@
   // The item's geometry is the footprint: a satellite scene is a rotated
   // quadrilateral, and its bbox overstates where it has pixels. The bbox ring
   // is only the fallback for an item that carries no geometry at all.
+  // Drawn with the same unwrapping the ranking uses, so an edge written from
+  // 170 to -170 crosses the dateline on the map too, rather than sweeping
+  // through Greenwich; the map wraps longitudes past 180 on its own.
+  const drawableGeometry = (g) => {
+    if (g?.type === "Polygon") return { type: "Polygon", coordinates: (g.coordinates ?? []).map(unwrap) };
+    if (g?.type === "MultiPolygon") return { type: "MultiPolygon", coordinates: (g.coordinates ?? []).map((poly) => poly.map(unwrap)) };
+    if (g?.type === "GeometryCollection") return { type: "GeometryCollection", geometries: (g.geometries ?? []).map(drawableGeometry).filter(Boolean) };
+    return g ?? null;
+  };
   const footprints = () => ({
     type: "FeatureCollection",
     features: items.map((item) => ({
       type: "Feature",
-      geometry: item.geometry ?? (flat(item.bbox) ? { type: "Polygon", coordinates: ring(item.bbox) } : null),
+      geometry: item.geometry
+        ? drawableGeometry(item.geometry)
+        : flat(item.bbox) ? { type: "Polygon", coordinates: ring(item.bbox) } : null,
       properties: { selected: key(item) === selected },
     })),
   });
