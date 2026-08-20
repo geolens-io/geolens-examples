@@ -234,6 +234,11 @@
     cursor: pointer; vertical-align: baseline;
   }
   .addr button:hover { border-color: var(--vector); color: var(--vector); }
+  /* Announced but never seen: the live region the copy buttons report into. */
+  .sr-status {
+    position: absolute; width: 1px; height: 1px; margin: -1px;
+    clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+  }
 
   .actions {
     display: flex; flex-wrap: wrap; gap: .45rem; align-items: center;
@@ -758,12 +763,20 @@
   // needs a secure context, so the buttons only appear where the API exists;
   // without it the text still selects like any other.
   if (navigator.clipboard) {
+    // The button's accessible name stays what it does; the outcome is announced
+    // through a visually hidden live region, since a textContent swap under a
+    // static aria-label reaches nobody's screen reader.
+    const status = el("p", { class: "sr-status", role: "status" });
+    document.body.append(status);
     for (const addr of document.querySelectorAll(".addr")) {
       const text = addr.textContent.trim();
       const btn = el("button", { type: "button", "aria-label": `Copy: ${text}` }, "copy");
       btn.addEventListener("click", async () => {
-        try { await navigator.clipboard.writeText(text); btn.textContent = "copied"; }
-        catch { btn.textContent = "copy failed"; }
+        let outcome;
+        try { await navigator.clipboard.writeText(text); outcome = "copied"; }
+        catch { outcome = "copy failed"; }
+        btn.textContent = outcome;
+        status.textContent = outcome === "copied" ? `Copied: ${text}` : "Copy failed";
         setTimeout(() => { btn.textContent = "copy"; }, 1500);
       });
       addr.append(btn);
