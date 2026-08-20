@@ -25,7 +25,7 @@ GeoLens serves OGC API Features and Records, STAC 1.0, XYZ vector tiles (MVT), a
 
 ## GeoLens in 10 minutes
 
-The table below is arranged by tool. Read in this order, the same examples trace the platform from an empty instance to a map someone else can use.
+The table below is arranged by tool; the numbered steps here trace the platform from an empty instance to a map someone else can use.
 
 1. **Install.** `curl -fsSL https://getgeolens.com/install.sh | sh` starts the stack with Docker Compose; open `http://localhost:8080` about a minute later ([install guide](https://docs.getgeolens.com/guides/quickstart/install/)). The [public demo](https://demo.getgeolens.com) covers the read steps below without an install.
 2. **Publish two sources.** Declare them in a manifest and run `geolens apply`. [`cli/`](cli/) holds a `geolens.yaml` with two Natural Earth layers and the GitHub Actions workflow that applies it ([CLI guide](https://docs.getgeolens.com/guides/cli/)).
@@ -60,13 +60,13 @@ The table below is arranged by tool. Read in this order, the same examples trace
 | [`duckdb/query.py`](duckdb/query.py) | DuckDB 1.5 + `spatial` (single-file `uv run` script) | One SQL join across the GeoParquet export and the Features API, with column pruning over HTTP ranges | `uv run duckdb/query.py` |
 | [`cli/`](cli/) | `geolens-cli` 1.14.0 | Catalog-as-code: offline `validate`, then `apply --dry-run` and `apply` against your instance | `uvx --from geolens-cli==1.14.0 geolens validate cli/geolens.yaml` |
 
-Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted, not just that the requests returned 200. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The embedded map is the exception: it renders seven layers GeoLens styles server-side, so CI proves the frame loaded and its tiles flowed, not that every layer is present. The three `uv run` scripts run green with one command each, and each asserts its own answers rather than merely completing.
+Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted; a 200 response alone does not pass. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The embedded map is the exception: it renders seven layers GeoLens styles server-side, so CI proves the frame loaded and its tiles flowed, and does not check each layer. The three `uv run` scripts run green with one command each, and each asserts its own answers rather than just finishing.
 
 MapLibre examples also work with Mapbox GL JS with minimal changes (both consume the same MVT and raster sources).
 
 ## Running the browser examples
 
-Each browser example is one static HTML file with no build step — the library loads from a pinned CDN. Open the file directly in a browser, or serve the folder if your browser restricts `file://` pages:
+Each browser example is one static HTML file with no build step: the library loads from a pinned CDN. Open the file directly in a browser, or serve the folder if your browser restricts `file://` pages:
 
 ```bash
 python3 -m http.server 8000
@@ -85,7 +85,9 @@ Change it to your instance URL.
 
 These examples need **GeoLens v1.13.0 or newer**. Raster tiles only started sending `Access-Control-Allow-Origin` in that release ([geolens#1464](https://github.com/geolens-io/geolens/issues/1464)), and without it the MapLibre and ArcGIS imagery examples draw an empty map while the server returns perfectly valid PNGs. The features and vector-tile examples reach further back: the anonymous CORS wildcard they depend on has been there since v1.4.7.
 
-Dataset IDs and table names in these examples belong to the demo catalog. Against your own instance, list what's available at `/api/collections` and substitute your collection IDs. The demo gets reset from time to time, and a reset can change its dataset UUIDs, so treat the IDs hardcoded here as demo-specific rather than as part of any API. CI replays every example against the live demo on every pull request, on each push to `main`, and once a week on a schedule, so an ID that stops resolving turns the build red instead of quietly leaving you with a blank map. Those IDs are named once in [`ci/fixtures.json`](ci/fixtures.json) and probed before the browser sweep runs, so a reset shows up as a red preflight naming the dataset that moved rather than as every example failing at once.
+Dataset IDs and table names in these examples belong to the demo catalog. Against your own instance, list what's available at `/api/collections` and substitute your collection IDs. The demo gets reset from time to time, and a reset can change its dataset UUIDs, so treat the IDs hardcoded here as demo-specific rather than as part of any API.
+
+CI replays every example against the live demo on every pull request, on each push to `main`, and once a week on a schedule, so an ID that stops resolving turns the build red instead of quietly leaving you with a blank map. Those IDs are named once in [`ci/fixtures.json`](ci/fixtures.json) and probed before the browser sweep runs, so a reset shows up as a red preflight naming the dataset that moved rather than as every example failing at once.
 
 Anonymous cross-origin reads work with no setup: GeoLens answers the standards paths (`/api/collections`, `/api/stac`, conformance) with `Access-Control-Allow-Origin: *` as long as the request carries no credential. Send a credential and that wildcard is gone, so your page's origin has to be listed in the instance's `CORS_ALLOWED_ORIGINS`. A literal `*` there is rejected, since credentialed CORS requires explicit origins.
 
@@ -148,4 +150,4 @@ It is not the signal that another page exists. Walk the stations collection at `
 
 ## License
 
-[MIT](LICENSE). The examples are intentionally small — copy them into your project freely.
+[MIT](LICENSE). The examples are intentionally small; copy them into your project freely.
