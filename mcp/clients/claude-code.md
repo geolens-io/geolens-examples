@@ -1,7 +1,7 @@
 # Claude Code
 
 ```bash
-claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.0
+claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.14.1
 ```
 
 For your own instance, add the key:
@@ -10,7 +10,7 @@ For your own instance, add the key:
 claude mcp add geolens \
   -e GEOLENS_INSTANCE=https://geolens.example.com \
   -e GEOLENS_API_KEY=your-api-key \
-  -- uvx geolens-mcp@1.14.0
+  -- uvx geolens-mcp@1.14.1
 ```
 
 `claude mcp add` writes to your local project scope by default; pass `-s user` to make it available
