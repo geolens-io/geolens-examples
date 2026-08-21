@@ -25,7 +25,7 @@ The server is on PyPI, so `uvx` fetches and runs it on demand; there is nothing 
 Python 3.11 or newer. Every example below points at the public demo instance, which serves its
 catalog anonymously, so you can paste any of them as-is and have working tools in about a minute.
 
-Every example also pins `geolens-mcp@1.14.1`, the current release and the version the demo reports.
+Every example also pins `geolens-mcp@1.14.2`, the current release and the version the demo reports.
 The package ships with each GeoLens release, so the version to run is the one matching your
 instance. See [Things that will bite you](#things-that-will-bite-you) for how to move off the pin.
 
@@ -114,7 +114,7 @@ limits are in [Using query](https://docs.getgeolens.com/guides/sdk/mcp/#using-qu
 
 Captured on 2026-08-14 by driving the wheel `geolens-mcp` published as version 1.13.0 over stdio
 with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported
-itself healthy at 1.13.0; the tool set is unchanged in 1.14.1). Output is real and trimmed for width.
+itself healthy at 1.13.0; the tool set is unchanged in 1.14.2). Output is real and trimmed for width.
 The ids and counts below are whatever the demo held at capture time; read the transcript for
 shape, not for literal values.
 
