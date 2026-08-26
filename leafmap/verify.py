@@ -7,6 +7,7 @@
 #     "leafmap==0.63.1",
 #     "geopandas==1.1.4",
 #     "requests==2.33.1",
+#     "pip",  # uv's own environments skip it; the notebook's first cell runs %pip
 # ]
 # ///
 """Execute quickstart.ipynb headlessly against a live GeoLens instance.
