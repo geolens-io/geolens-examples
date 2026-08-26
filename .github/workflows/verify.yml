@@ -132,6 +132,11 @@ jobs:
       # this needs no artifact check the way analyze.py needs its PNG.
       - name: Run the DuckDB query
         run: uv run duckdb/query.py
+      # Executes the actual notebook headlessly with nbclient rather than a
+      # copy of its logic, so a cell that raises here is a cell that would
+      # raise for a reader running it in Jupyter.
+      - name: Run the leafmap notebook
+        run: uv run leafmap/verify.py
       # The catalog-as-code example. `apply` is a write and needs a credential,
       # so CI checks the part that runs without one: the manifest still matches
       # the schema this CLI release packages, and that schema still prints.
