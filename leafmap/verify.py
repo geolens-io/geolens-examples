@@ -52,13 +52,27 @@ def main() -> int:
 
     # Print what each cell printed, so a green run in CI shows the same catalog
     # search results, feature counts and CQL2 match a person sees in Jupyter.
+    printed = []
     for cell in nb.cells:
         for output in cell.get("outputs", []):
             if output.get("output_type") == "stream":
+                printed.append(output["text"])
                 print(output["text"], end="")
             elif output.get("output_type") == "error":
                 print("\n".join(output.get("traceback", [])), file=sys.stderr)
                 return 1
+
+    # The CQL2 cell skips gracefully when an instance doesn't advertise
+    # basic-cql2, which is the right behaviour for a reader on an older
+    # self-hosted instance. It's the wrong behaviour here: this always runs
+    # against the pinned public demo, which does support it, and CQL2
+    # filtering is the headline capability the README and gallery advertise
+    # this notebook demonstrates. A silent skip here means the thing this
+    # example exists to prove stopped being provable, not that it passed.
+    if "doesn't advertise CQL2 support" in "".join(printed):
+        print(f"\n{NOTEBOOK.name} ran, but the pinned demo no longer advertises "
+              "CQL2 support on the datasets collection", file=sys.stderr)
+        return 1
 
     print(f"\n{NOTEBOOK.name} executed cleanly")
     return 0
