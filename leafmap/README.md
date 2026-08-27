@@ -47,6 +47,13 @@ probe tile are all calibrated to the demo's data. They're what makes the
 notebook check itself rather than requirements your catalog has to meet,
 so expect to loosen or drop them once you're pointed elsewhere.
 
+One more thing a private instance needs: the raster tile template in
+section 4 is fetched straight by the browser, which has no way to attach
+an `X-Api-Key` header to a plain URL. A public raster (like the demo's DEM)
+doesn't care, but a private one needs a signed tile token in its place;
+`GET /api/tiles/token/<id>/` mints one and, for a raster dataset, hands
+back the whole `tile_url` ready to use.
+
 ## Re-running the check
 
 [`verify.py`](verify.py) executes the actual `quickstart.ipynb` headlessly
