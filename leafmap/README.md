@@ -52,7 +52,14 @@ section 4 is fetched straight by the browser, which has no way to attach
 an `X-Api-Key` header to a plain URL. A public raster (like the demo's DEM)
 doesn't care, but a private one needs a signed tile token in its place;
 `GET /api/tiles/token/<id>/` mints one and, for a raster dataset, hands
-back the whole `tile_url` ready to use.
+back a `tile_url` with the signature already in the query string, though
+it's root-relative and still needs `GEOLENS` prefixed onto it before it's
+a URL a browser can request.
+
+And any of the data requests above (search, the two collections, the
+conformance check) will 401 against a private instance with nothing more
+done: set the `GEOLENS_API_KEY` environment variable before opening the
+notebook, and every request in it sends that as an `X-Api-Key` header.
 
 ## Re-running the check
 
