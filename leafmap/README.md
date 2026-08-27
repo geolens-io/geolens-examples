@@ -7,7 +7,7 @@ serves OGC API Features, OGC API Records, STAC 1.0, MVT vector tiles and
 raster tiles baked by TiTiler, and every one of them is plain HTTP.
 
 ```bash
-uv run --with jupyterlab --with ipykernel jupyter lab quickstart.ipynb
+uv run --with jupyterlab --with ipykernel --with pip jupyter lab quickstart.ipynb
 ```
 
 `uv` builds a throwaway environment holding just enough to open the notebook;
