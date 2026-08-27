@@ -137,5 +137,13 @@
     "requireColors": [
       "#ffd166"
     ]
+  },
+  {
+    "path": "maplibre/pmtiles.html",
+    "wait": 8000,
+    "requireUrls": [
+      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items"
+    ],
+    "minDataResponses": 1
   }
 ]

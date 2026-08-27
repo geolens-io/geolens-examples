@@ -19,9 +19,13 @@ both as tables in one statement:
 | `read_parquet()` | `GET /api/datasets/{id}/export?format=parquet` | columnar, so a query that names two columns fetches two columns |
 | `ST_Read()` | `GET /api/collections/{id}/items` | GeoJSON, read whole, which is what a format with no index costs |
 
-Parquet is one of five export formats the same route serves
+Parquet is one of seven export formats the same route serves
 ([the docs list the rest](https://docs.getgeolens.com/guides/user/exports/#export-formats));
-it is the one DuckDB can read a column at a time.
+it is the one DuckDB can read a column at a time. Of the two formats GeoLens 1.16.0
+added, FlatGeobuf (`format=fgb`) is the interchange one: `ST_Read` opens it over the
+same anonymous HTTP as the GeoJSON route (29 rows from the lines export, verified
+2026-08-27). PMTiles, the other, is for serving maps rather than querying;
+[`maplibre/pmtiles.html`](../maplibre/pmtiles.html) is that story.
 
 [`python/analyze.py`](../python/analyze.py) reads the same two collections into
 GeoPandas. Use that when the analysis is Python. Use this when it is SQL, when

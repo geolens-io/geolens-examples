@@ -31,6 +31,9 @@ datasets:
       # caused it is in a repo you don't control.
       - type: vector
         uri: https://raw.githubusercontent.com/nvkelso/natural-earth-vector/v5.1.2/geojson/ne_110m_admin_0_countries.geojson
+        # One of the formats the door ingests. From GeoLens 1.16.0 the list
+        # also takes .fgb, .kml and .kmz sources, and a zipped FileGDB rides
+        # the existing .zip rule (https://docs.getgeolens.com/guides/cli/).
         format: geojson
     metadata:
       # What the file itself cannot say. GeoLens surfaces license, attribution

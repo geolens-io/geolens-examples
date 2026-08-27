@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "geolens==1.15.0",
+#     "geolens==1.16.0",
 #     "geopandas==1.1.4",
 # ]
 # ///
@@ -15,13 +15,14 @@ uv reads the PEP 723 block above, builds a throwaway environment, and runs the
 script. `geolens` is the generated Python SDK, published on PyPI.
 
 What it does: asks the catalog a plain-language question, reads the column
-schema GeoLens inferred for the dataset that comes back, and pulls one
-server-filtered slice of it into GeoPandas.
+schema GeoLens inferred for the dataset that comes back, counts a CQL2-filtered
+slice of it through the OGC items route, and pulls the same slice into
+GeoPandas through the export route.
 
 analyze.py next door does the same job over raw OGC API - Features HTTP. Use
 that when the client has to be a standards client. Use this when it is Python:
-search, schema and export are three typed calls, and a bad filter comes back as
-a ProblemDetail instead of a 400 you have to decode yourself.
+search, schema, items and export are four typed calls, and a bad filter comes
+back as a ProblemDetail instead of a 400 you have to decode yourself.
 """
 
 from __future__ import annotations
@@ -38,6 +39,9 @@ from geolens.api.datasets import (
 )
 from geolens.api.datasets_metadata import (
     list_attributes_endpoint_datasets_dataset_id_attributes_get as list_attributes,
+)
+from geolens.api.ogc_features import (
+    get_collection_items_collections_dataset_id_items_get as collection_items,
 )
 from geolens.api.search import search_datasets_endpoint_search_datasets_get as search
 
@@ -77,7 +81,9 @@ QUERY = "space rocks that fell to earth"
 # The filter runs in PostGIS, not here. Plain SQL against the dataset's own
 # columns, which is why the schema step above it is not decoration: mass_kg is
 # a column this catalog inferred and named, and you have to read it to write
-# this line. One tonne and up.
+# this line. One tonne and up. The same text also parses as CQL2, the grammar
+# the OGC items route takes in its filter= parameter, so both server-side
+# lanes below can be asked for exactly the same rows.
 WHERE = "mass_kg > 1000"
 
 
@@ -115,8 +121,19 @@ def main() -> int:
         "attributes",
     ).parsed
 
-    # 3. Export the slice. format_ also takes gpkg, parquet, shp and csv;
-    #    geojson keeps this script to two dependencies.
+    # 3. Count the slice before pulling it. The same dataset is also an OGC
+    #    API - Features collection, and from GeoLens 1.16.0 the items route
+    #    evaluates CQL2 filters in PostGIS (filter=, with filter-lang defaulting
+    #    to cql2-text). limit=1 keeps features off the wire; number_matched
+    #    still counts every row the filter passes.
+    filtered = ok(
+        collection_items.sync_detailed(dataset_id, client=client, filter_=WHERE, limit=1),
+        "filtered items",
+    ).parsed
+    matched = filtered.number_matched
+
+    # 4. Export the slice. format_ also takes gpkg, parquet, shp, csv, fgb and
+    #    pmtiles; geojson keeps this script to two dependencies.
     export = ok(
         export_dataset.sync_detailed(
             client=client, dataset_id=dataset_id, format_="geojson", where=WHERE
@@ -149,11 +166,17 @@ def main() -> int:
             f"    {attr.field_name:<12} {str(attr.data_type):<18} {role:<12}{units}".rstrip()
         )
     print()
-    print(f"  filter              {WHERE}   (server-side, in SQL)")
+    print(f"  filter              {WHERE}   (evaluated in PostGIS, both lanes)")
+    print(f"  numberMatched       {matched:>10,}   items route, filter= as CQL2")
     print(
         f"  downloaded          {len(gdf):>10,}   of {total:,} features"
-        f", {len(export.content) / 1024:.1f} KB"
+        f", {len(export.content) / 1024:.1f} KB   export route, where= as SQL"
     )
+    if matched != len(gdf):
+        sys.exit(
+            f"\n  filter= matched {matched} rows but where= exported {len(gdf)}; "
+            "the two lanes disagree about the same filter"
+        )
     print()
     print("  heaviest recoveries")
     print(f"    {'tonnes':>8}  {'year':>4}  {'name':<24}  class")

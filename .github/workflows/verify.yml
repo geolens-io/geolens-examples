@@ -142,8 +142,8 @@ jobs:
       # the schema this CLI release packages, and that schema still prints.
       - name: Validate the CLI manifest
         run: |
-          uvx --from geolens-cli==1.15.0 geolens validate cli/geolens.yaml
-          uvx --from geolens-cli==1.15.0 geolens schema >/dev/null
+          uvx --from geolens-cli==1.16.0 geolens validate cli/geolens.yaml
+          uvx --from geolens-cli==1.16.0 geolens schema >/dev/null
 
   mcp:
     name: MCP server smoke check

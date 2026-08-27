@@ -537,7 +537,16 @@ async function checkStac(name, fx, notes, problems) {
 // header. A Parquet file opens and closes with the same magic, so the head is
 // as good as the footer here and needs no length to address.
 async function checkExport(name, fx, notes, problems) {
-  const { format, contentType, magic } = fx.export;
+  // `export` is one probe or a list of them: the subway lines serve both the
+  // parquet export duckdb/query.py ranges into and the pmtiles export
+  // maplibre/pmtiles.html documents cutting its committed file from.
+  for (const ex of Array.isArray(fx.export) ? fx.export : [fx.export]) {
+    await checkOneExport(name, fx, ex, notes, problems);
+  }
+}
+
+async function checkOneExport(name, fx, ex, notes, problems) {
+  const { format, contentType, magic } = ex;
   const path = `/api/datasets/${fx.collection}/export?format=${format}`;
   // Through get(), so a 502 on the demo's one bad minute is retried and then
   // filed as "demo unavailable" rather than as this fixture having moved. The
@@ -589,7 +598,7 @@ async function checkExport(name, fx, notes, problems) {
   if (res.status === 401 || res.status === 403) {
     problems.push(
       `fixture ${name}: the ${format} export answered ${res.status} to an anonymous caller ` +
-        `(${fx.export.why ?? "an example reads this export anonymously"}). The dataset stopped ` +
+        `(${ex.why ?? "an example reads this export anonymously"}). The dataset stopped ` +
         `being public, or the export route stopped serving anonymous callers. DuckDB reports ` +
         `this one as "HTTP 0 Internal Server Error" and GDAL as "Could not open GDAL dataset", ` +
         `so it is worth catching here instead.`,
@@ -597,7 +606,10 @@ async function checkExport(name, fx, notes, problems) {
     return;
   }
   if (res.status !== 206 && res.status !== 200) {
-    problems.push(`fixture ${name}: the ${format} export answered ${res.status}, so duckdb/query.py has nothing to read.`);
+    problems.push(
+      `fixture ${name}: the ${format} export answered ${res.status} ` +
+        `(${ex.why ?? "an example reads this export anonymously"}).`,
+    );
     return;
   }
 
@@ -612,8 +624,8 @@ async function checkExport(name, fx, notes, problems) {
     problems.push(
       `fixture ${name}: the ${format} export opens with ${JSON.stringify(opening)}, not ` +
         `${JSON.stringify(magic)}, so it is not the file format the route claims. ` +
-        `The examples asking for it are the ones that write ${fx.export.grep} ` +
-        `(grep -rl "${fx.export.grep}").`,
+        `The examples asking for it are the ones that write ${ex.grep} ` +
+        `(grep -rl "${ex.grep}").`,
     );
   }
   const ranged = res.status === 206 ? "ranged" : "range declined, whole file offered";
