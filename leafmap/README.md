@@ -38,10 +38,14 @@ the notebook's own first cell installs the pinned `leafmap`, `geopandas` and
 
 ## Using your own instance
 
-Change `GEOLENS` near the top of the notebook. Everything else (dataset ids,
-the tile URL) is read from the response, except the two subway collection ids
-and the DEM id, which are the public demo's; list `/api/collections` on your
-own instance and substitute yours.
+Change `GEOLENS` near the top of the notebook. That alone doesn't make the
+rest of it run: the two subway collection ids and the DEM id are the public
+demo's, so list `/api/collections` on your own instance and substitute
+yours. Past that, the notebook's own assertions (the meteorite search
+result, the subway row counts and titles), the map centers, and the raster
+probe tile are all calibrated to the demo's data. They're what makes the
+notebook check itself rather than requirements your catalog has to meet,
+so expect to loosen or drop them once you're pointed elsewhere.
 
 ## Re-running the check
 
