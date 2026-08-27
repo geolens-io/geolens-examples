@@ -1,5 +1,5 @@
 {
-  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-19, GeoLens 1.14.1. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
+  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-27, GeoLens 1.16.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
   "fixtures": {
     "nycSubwayStations": {
       "title": "NYC Subway Stations (MTA)",
@@ -14,13 +14,22 @@
       "itemType": "feature",
       "geometryType": "MultiLineString",
       "minNumberMatched": 20,
-      "export": {
-        "format": "parquet",
-        "contentType": "application/vnd.apache.parquet",
-        "magic": "PAR1",
-        "grep": "format=parquet",
-        "why": "duckdb/query.py reads this export with DuckDB's read_parquet over HTTP, which needs the route to answer anonymously and to serve byte ranges"
-      },
+      "export": [
+        {
+          "format": "parquet",
+          "contentType": "application/vnd.apache.parquet",
+          "magic": "PAR1",
+          "grep": "format=parquet",
+          "why": "duckdb/query.py reads this export with DuckDB's read_parquet over HTTP, which needs the route to answer anonymously and to serve byte ranges"
+        },
+        {
+          "format": "pmtiles",
+          "contentType": "application/vnd.pmtiles",
+          "magic": "PMTiles",
+          "grep": "format=pmtiles",
+          "why": "maplibre/pmtiles.html commits a copy of this export and documents the command that cut it; the probe keeps that command honest"
+        }
+      ],
       "vectorTile": {
         "path": "/api/tiles/data.nyc_subway_lines_mta/",
         "probe": "12/1206/1539.pbf",

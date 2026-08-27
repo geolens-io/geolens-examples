@@ -422,7 +422,7 @@
      "Pull features into Python or SQL and analyze them next to everything else you work with."],
   ];
 
-  // Fourteen web-developer cards are too many to scan as one grid, and the
+  // Fifteen web-developer cards are too many to scan as one grid, and the
   // real choice there is two-dimensional: the library is decided before anyone
   // lands here, the pattern is what they came to pick. So the subheads are the
   // patterns and the card's meta line keeps naming the library.
@@ -454,6 +454,16 @@
       address: "/api/tiles/data.nyc_subway_lines_mta/{z}/{x}/{y}.pbf",
       thumb: "assets/maplibre-vector-tiles.jpg",
       live: "maplibre/vector-tiles.html", source: "maplibre/vector-tiles.html",
+      datasets: [LINES],
+    },
+    {
+      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 5 + pmtiles 4.5",
+      title: "PMTiles: tiles from one static file",
+      blurb: "A PMTiles export committed next to the page. The pmtiles protocol range-reads only the tiles in view, so after one export no tile server is involved at all.",
+      tag: "PMTiles", kind: "vector",
+      address: "/api/datasets/{id}/export?format=pmtiles",
+      thumb: "assets/maplibre-pmtiles.jpg",
+      live: "maplibre/pmtiles.html", source: "maplibre/pmtiles.html",
       datasets: [LINES],
     },
     {
@@ -551,7 +561,7 @@
       title: "Catalog tools in an MCP client",
       blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. Works with Claude Code, Claude Desktop, Cursor, Codex, or any MCP client. The discovery tools need no credential.",
       tag: "MCP", kind: "tooling",
-      address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.15.0",
+      address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.16.0",
       snippet: "<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 5 matched, 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
       source: "mcp/README.md",
       docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/mcp"],
@@ -611,7 +621,7 @@
       datasets: [],
     },
     {
-      audience: "web-developer", group: "search", tool: "@geolens/sdk 1.15.0 · MapLibre",
+      audience: "web-developer", group: "search", tool: "@geolens/sdk 1.16.0 · MapLibre",
       title: "Catalog to map with the SDK",
       blurb: "Searches the catalog, shows what it knows that a tile URL cannot — origin, freshness, schema — then adds the layer using the tile template the collection advertises. No dataset id or table name is written into this page.",
       tag: "TypeScript SDK", kind: "vector",
@@ -631,22 +641,22 @@
       datasets: [],
     },
     {
-      audience: "data-scientist", tool: "geolens 1.15.0 · single-file uv script",
+      audience: "data-scientist", tool: "geolens 1.16.0 · single-file uv script",
       title: "Catalog to GeoPandas with the SDK",
-      blurb: "Searches the catalog, reads a dataset's schema as GeoLens understands it — label, categorical, measure, temporal — filters server-side in SQL, and exports the matching rows straight into a GeoDataFrame.",
+      blurb: "Searches the catalog, reads a dataset's schema as GeoLens understands it — label, categorical, measure, temporal — counts a CQL2 filter on the OGC items route, and exports the same server-filtered rows straight into a GeoDataFrame.",
       tag: "Python SDK", kind: "vector",
       address: "uv run python/sdk-catalog.py",
-      snippet: "  filter              mass_kg > 1000   (server-side, in SQL)\n  downloaded                  51   of 32,186 features, 11.1 KB\n\n      tonnes  year  name                      class\n        60.0  1920  Hoba                      Iron, IVB\n        58.2  1818  Cape York                 Iron, IIIAB",
+      snippet: "  filter              mass_kg > 1000   (PostGIS, both lanes)\n  numberMatched               51   items route, filter= as CQL2\n  downloaded                  51   of 32,186 features, 11.1 KB\n\n      tonnes  year  name                      class\n        60.0  1920  Hoba                      Iron, IVB",
       source: "python/sdk-catalog.py",
       docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/python"],
       datasets: [],
     },
     {
-      audience: "data-engineer", tool: "geolens-cli 1.15.0",
+      audience: "data-engineer", tool: "geolens-cli 1.16.0",
       title: "A catalog declared in Git",
       blurb: "A geolens.yaml naming datasets, their sources and their metadata, reconciled onto an instance by geolens apply. Each entry has a stable key, so re-applying an unchanged one skips instead of importing a second copy.",
       tag: "CLI", kind: "tooling",
-      address: "uvx --from geolens-cli==1.15.0 geolens validate cli/geolens.yaml",
+      address: "uvx --from geolens-cli==1.16.0 geolens validate cli/geolens.yaml",
       snippet: "<b>$</b> geolens validate cli/geolens.yaml\n  Manifest valid: cli/geolens.yaml\n\n<b>$</b> geolens --json apply --dry-run\n  ne-110m-countries          create\n  ne-110m-populated-places   create",
       source: "cli/README.md",
       docs: ["Manifest and CI workflow", "https://github.com/geolens-io/geolens-examples/tree/main/cli"],

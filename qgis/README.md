@@ -68,7 +68,7 @@ collection: one record per dataset, geometry the dataset's footprint, attributes
 any other collection and open its attribute table, and you have the catalog in QGIS: sort by
 `feature_count`, or read a description before you commit to adding the layer.
 
-The demo takes CQL2 on this collection. Ask it yourself:
+The demo takes CQL2 on every collection, this one included. Ask it yourself:
 
 ```bash
 curl -G "https://demo.getgeolens.com/api/collections/datasets/items" \
@@ -76,27 +76,45 @@ curl -G "https://demo.getgeolens.com/api/collections/datasets/items" \
 # numberMatched 2: NYC Subway Lines (MTA), NYC Subway Stations (MTA)
 ```
 
-QGIS 4.2 does not send that. Select the `datasets` row, click **Build query**, and enter
-`"title" LIKE '%Subway%'`: the layer shows two records, and QGIS pops up *Whole filter will be
-evaluated on client side.* That is accurate. QGIS pushes a filter to the server as
-`filter=...&filter-lang=cql2-text` only when the conformance page lists the OGC API - Features
-Part 3 classes (`.../ogcapi-features-3/1.0/conf/filter` and `.../features-filter`). GeoLens 1.14.0
-lists CQL2 (`cql2-text`, `cql2-json`, `basic-cql2`) but not those two, so QGIS downloads all 29
-records and filters them itself. On a 29-row catalog nobody will notice.
-
-To make the server do the filtering, hand QGIS the items URL with the filter already on it.
-Layer ▸ Add Layer ▸ Add Vector Layer…, Source Type *File*, and paste into *Vector Dataset(s)*:
+QGIS sends that itself. Select the `datasets` row, click **Build query**, and enter
+`"title" LIKE '%Subway%'`: the layer arrives with only the two matching records, filtered by
+the server. Measured through a logging proxy in a PyQGIS session on 2026-08-27 (QGIS 4.2.1
+against the demo on GeoLens 1.16.0), this is everything QGIS asked for on the way there:
 
 ```
-https://demo.getgeolens.com/api/collections/datasets/items?filter=title LIKE '%Subway%'
+/api/conformance
+/api/collections/datasets/queryables
+/api/collections/datasets/items?limit=100&filter=(title LIKE '%Subway%')&filter-lang=cql2-text
 ```
 
-QGIS passes a URL to GDAL as it would a path, GDAL reads the GeoJSON, and the layer arrives
-with only the two matching records. CQL2 works only on the catalog; see
+QGIS checks before it commits. It pushes a filter down as `filter=...&filter-lang=cql2-text`
+only when the conformance document lists the OGC API - Features Part 3 classes
+(`.../ogcapi-features-3/1.0/conf/filter` and `.../features-filter`), and it reads each
+collection's `/queryables` document to learn which fields it may filter on. GeoLens declares
+both Part 3 classes plus `queryables` from 1.16.0 on, alongside CQL2's `cql2-text`,
+`cql2-json`, `basic-cql2`, `advanced-comparison-operators` and `basic-spatial-functions`.
+Against an older instance those classes are missing, so the same Build query pops up *Whole
+filter will be evaluated on client side* and downloads all the records first. See
 [OGC API - Features](https://docs.getgeolens.com/guides/api/ogc/#ogc-api---features) for the
-endpoint rule. Feature collections take `bbox` and plain
-`property=value` parameters instead (`items?borough=M` on the stations returns 153), which is
-what step 1's view-extent option uses.
+filter grammar and the endpoint reference.
+
+Feature collections filter the same way, not only the catalog. `"borough" = 'M'` as the
+subset string on the subway stations fetched 153 of the 496 stations in the same session,
+evaluated in PostGIS, with QGIS paging through the filtered result rather than the whole
+layer:
+
+```
+/api/collections/{stations-id}/items?limit=100&filter=(borough = 'M')&filter-lang=cql2-text
+/api/collections/{stations-id}/items?limit=100&after_gid=319&filter=(borough = 'M')
+```
+
+Two boundaries worth knowing. Spatial predicates (`S_INTERSECTS` and its siblings) push down
+on QGIS 3.44 or later: earlier releases looked for a draft-era conformance class name that
+the final Part 3 spec renamed ([qgis/QGIS#62156](https://github.com/qgis/QGIS/pull/62156)),
+so they fall back to client-side evaluation without saying so, while GeoLens advertises the
+standardized `basic-spatial-functions`. And the *Only request features overlapping the view
+extent* option from step 1 is not CQL2 at all: it rides the plain `bbox` parameter, as do
+`property=value` shortcuts like `items?borough=M`, and both of those work on any QGIS.
 
 ## 3. Raster and vector tiles
 
@@ -173,10 +191,10 @@ if a whole dataset in one file is what you are after.
 
 ## Re-running the check
 
-`verify.py` opens the two feature layers and the DEM with QGIS's own providers, asserts validity
-and the 496 / 29 counts, renders the subway to a PNG, draws the DEM over the summit and requires
-it to paint more than a flat fill, and optionally writes the project file. It
-needs the Python that ships with QGIS:
+`verify.py` opens the two feature layers and the DEM with QGIS's own providers, asserts validity,
+the 496 / 29 counts and the 153 stations a `"borough" = 'M'` subset filter matches, renders the
+subway to a PNG, draws the DEM over the summit and requires it to paint more than a flat fill,
+and optionally writes the project file. It needs the Python that ships with QGIS:
 
 ```bash
 QT_QPA_PLATFORM=offscreen /Applications/QGIS.app/Contents/MacOS/python qgis/verify.py out.png

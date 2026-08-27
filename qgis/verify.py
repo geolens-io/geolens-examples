@@ -1,9 +1,10 @@
 """Headless check that QGIS reads the GeoLens demo. Run it with the Python QGIS ships:
     QT_QPA_PLATFORM=offscreen /Applications/QGIS.app/Contents/MacOS/python qgis/verify.py [render.png] [project.qgz]
 Opens the two subway collections over OGC API - Features and the Matterhorn DEM as XYZ
-tiles, asserts every layer is valid and the counts match the catalog (496 stations, 29
-lines), renders the subway layers to a 760x427 PNG and, given a second path, writes the
-same layers out as a QGIS project."""
+tiles, asserts every layer is valid, the counts match the catalog (496 stations, 29
+lines) and a CQL2 subset filter answers right (153 Manhattan stations), renders the subway
+layers to a 760x427 PNG and, given a second path, writes the same layers out as a QGIS
+project."""
 import glob, os, sys
 from urllib.parse import quote
 
@@ -46,6 +47,16 @@ for layer in (lines, stations, dem):
 counts = {layer.name(): sum(1 for _ in layer.getFeatures()) for layer in (lines, stations)}
 print(counts)
 assert counts == {"NYC subway lines": 29, "NYC subway stations": 496}, counts
+
+# fix(geolens-examples#45): GeoLens 1.16.0 declares the Part 3 filter classes, so a
+# subset string travels to the server as CQL2 (measured; README section 2). The count
+# is the same if a QGIS build evaluates it client-side instead, so this asserts the
+# filter's answer, not which side computed it.
+assert stations.setSubsetString("\"borough\" = 'M'"), "subset string rejected"
+manhattan = sum(1 for _ in stations.getFeatures())
+assert manhattan == 153, f"borough = 'M' matched {manhattan} stations, expected 153"
+print("subset filter borough = 'M' matched", manhattan, "stations")
+stations.setSubsetString("")
 
 # Same palette as the browser examples: blue lines, amber stations, dark ground.
 lines.renderer().symbol().setColor(QColor("#4da3ff"))

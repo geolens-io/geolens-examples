@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + MapLibre: PMTiles, no tile server</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 10px; max-width: 46ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="hud">
+  <strong>MapLibre GL JS — PMTiles, no tile server</strong>
+  <p id="status" role="status">Opening subway-lines.pmtiles…</p>
+  <p id="freshness"></p>
+  <p>MTA via data.ny.gov · <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/pmtiles.html">source</a></p>
+</div>
+<script>
+  // The tiles on this page come from one static file, not from a server that
+  // cuts them per request. subway-lines.pmtiles sits next to this page and was
+  // exported from the demo once (GeoLens 1.16.0 added the format; anonymous
+  // works because the dataset is public and published):
+  //
+  //   curl -o subway-lines.pmtiles \
+  //     "https://demo.getgeolens.com/api/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6/export?format=pmtiles"
+  //
+  // That is the whole story this example tells: export once, copy the file to
+  // any static host, and GeoLens is out of the serving path. The 368 KB file
+  // holds the layer tiled to z14, and the pmtiles protocol reads only the
+  // few KB of it the current view needs, so a parcel-sized export behaves too.
+  //
+  // Two operational notes, both measured:
+  //  - Range requests are what make that partial reading work. A host that
+  //    ignores the Range header (python3 -m http.server does) sends the whole
+  //    file; loadFile() below probes once and falls back to reading it into
+  //    memory, and the status line says which mode this page got. GitHub
+  //    Pages, S3, nginx and Caddy all answer 206.
+  //  - The file is committed here rather than fetched live from the export
+  //    URL, because that route sends no CORS headers yet, so a cross-origin
+  //    browser fetch of it fails (geolens#1698). Same-origin static hosting
+  //    is the intended shape regardless.
+  const GEOLENS = "https://demo.getgeolens.com";
+  const DATASET = "de602fbe-8b30-4755-924f-c9e7fd9613b6";
+  const FILE = "subway-lines.pmtiles";
+
+  const status = document.getElementById("status");
+  const freshness = document.getElementById("freshness");
+  const fail = (message) => {
+    status.hidden = false;
+    status.className = "err";
+    status.textContent = message;
+  };
+
+  // One probe decides the read mode. bytes=0-0 asks for a single byte: a host
+  // that supports ranges answers 206 and the PMTiles(url) path reads header,
+  // directories and tiles as it needs them; a host that answers 200 has
+  // already sent the whole file, so wrap that body in a FileSource instead of
+  // asking pmtiles to range into a host that cannot.
+  async function loadFile() {
+    const probe = await fetch(FILE, { headers: { range: "bytes=0-0" } });
+    if (probe.status === 206) {
+      probe.body?.cancel();
+      return { file: new pmtiles.PMTiles(new URL(FILE, location.href).href), ranged: true, size: null };
+    }
+    if (!probe.ok) throw new Error(`could not read ${FILE}: HTTP ${probe.status}`);
+    const blob = await probe.blob();
+    return { file: new pmtiles.PMTiles(new pmtiles.FileSource(new File([blob], FILE))), ranged: false, size: blob.size };
+  }
+
+  const protocol = new pmtiles.Protocol();
+  maplibregl.addProtocol("pmtiles", protocol.tile);
+
+  (async () => {
+    const { file, ranged, size } = await loadFile();
+    protocol.add(file);
+
+    // The file describes itself: bounds and zooms come from its header, the
+    // source-layer name from its metadata. Nothing on this page repeats a fact
+    // the archive already carries.
+    const header = await file.getHeader();
+    const meta = await file.getMetadata();
+    const layerId = meta.vector_layers[0].id; // "data.nyc_subway_lines_mta"
+
+    const map = new maplibregl.Map({
+      container: "map",
+      bounds: [[header.minLon, header.minLat], [header.maxLon, header.maxLat]],
+      fitBoundsOptions: { padding: 32 },
+      style: {
+        version: 8,
+        sources: {
+          subway: { type: "vector", url: `pmtiles://${file.source.getKey()}` },
+        },
+        layers: [
+          { id: "bg", type: "background", paint: { "background-color": "#101418" } },
+          {
+            id: "subway-lines",
+            type: "line",
+            source: "subway",
+            "source-layer": layerId,
+            paint: { "line-color": "#4da3ff", "line-width": 2 },
+          },
+        ],
+      },
+    });
+    map.addControl(new maplibregl.NavigationControl());
+
+    map.on("data", (e) => {
+      if (!e.tile || e.sourceId !== "subway") return;
+      if (status.className === "err") return;
+      status.className = "";
+      status.textContent = ranged
+        ? "Served with HTTP range requests: the header, then only the tiles in view."
+        : `This host answered a range request with the whole file (${(size / 1024).toFixed(0)} KB), so it was read once into memory. A host that answers 206 — GitHub Pages, S3, nginx, Caddy — serves a few KB per view instead.`;
+    });
+    map.on("error", (e) => {
+      fail(`Could not draw ${FILE} — ${e.error?.message ?? "request failed"}.`);
+      console.error("PMTiles rendering failed:", e.error ?? e);
+    });
+
+    // The file is a snapshot and says so: ask the live catalog how many
+    // features the collection matches today and compare with what the export
+    // was cut from. When the two drift apart, re-export.
+    try {
+      const res = await fetch(`${GEOLENS}/api/collections/${DATASET}/items?limit=1`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const live = (await res.json()).numberMatched;
+      const cut = meta.tilestats?.layers?.[0]?.count;
+      freshness.textContent =
+        live === cut
+          ? `Live catalog check: the collection still matches the ${cut} features this file was cut from.`
+          : `Live catalog check: the collection now matches ${live} features; this file was cut from ${cut}. Re-export to catch up.`;
+    } catch (err) {
+      freshness.textContent = `Could not compare against the live catalog (${err.message}). The map above needs no server, which is rather the point.`;
+    }
+  })().catch((err) => {
+    const local = location.protocol === "file:"
+      ? " This page reads a file next to itself, which file:// blocks — serve the folder instead: python3 -m http.server 8000."
+      : "";
+    fail(`Could not open ${FILE} — ${err.message}.${local}`);
+    console.error("PMTiles open failed:", err);
+  });
+</script>
+</body>
+</html>

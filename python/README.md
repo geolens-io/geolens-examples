@@ -112,8 +112,9 @@ downstream is metres.
 ## sdk-catalog.py: find a dataset, then take a slice of it
 
 Asks the catalog a plain-language question, reads the column schema GeoLens
-inferred for whatever comes back, and pulls one server-filtered slice of it into
-GeoPandas. It takes three SDK calls and never assembles a URL. Each call is the
+inferred for whatever comes back, counts a CQL2-filtered slice through the OGC
+items route, and pulls the same slice into GeoPandas through the export route.
+It takes four SDK calls and never assembles a URL. Each call is the
 `sync_detailed` form, so the status code arrives with the parsed body; the
 [Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/#first-call)
 covers the `sync`, `sync_detailed` and `asyncio` variants.
@@ -139,8 +140,9 @@ Reading https://demo.getgeolens.com ...
     fall         character varying  categorical
     geom         MULTIPOINT         geometry
 
-  filter              mass_kg > 1000   (server-side, in SQL)
-  downloaded                  51   of 32,186 features, 11.1 KB
+  filter              mass_kg > 1000   (evaluated in PostGIS, both lanes)
+  numberMatched               51   items route, filter= as CQL2
+  downloaded                  51   of 32,186 features, 11.1 KB   export route, where= as SQL
 
   heaviest recoveries
       tonnes  year  name                      class
@@ -172,11 +174,15 @@ names and types. `semantic_role` is the profiler's read on what each column is f
 numbers to be in. Reading that is what tells you the filter should be on `mass_kg`,
 and that the values are kilograms rather than grams.
 
-**The filter runs in PostGIS.** `where="mass_kg > 1000"` is SQL against the
-dataset's own columns, evaluated server-side. The 51 rows that match arrive as
-11 KB; the same export without the filter is 6.7 MB and 32,186 rows. Pulling a whole
-dataset down to throw most of it away is the usual way this goes wrong, and one
-argument avoids it. `format_` also takes `gpkg`, `parquet`, `shp` and `csv`.
+**The filter runs in PostGIS, on two routes.** `where="mass_kg > 1000"` is SQL
+against the dataset's own columns, evaluated server-side by the export route. The
+51 rows that match arrive as 11 KB; the same export without the filter is 6.7 MB
+and 32,186 rows. Pulling a whole dataset down to throw most of it away is the
+usual way this goes wrong, and one argument avoids it. From GeoLens 1.16.0 the
+OGC items route evaluates the same text as CQL2 (`filter=`, with `filter-lang`
+defaulting to `cql2-text`), so the script counts the slice there first with
+`limit=1` and checks that `numberMatched` agrees with what the export handed
+over. `format_` also takes `gpkg`, `parquet`, `shp`, `csv`, `fgb` and `pmtiles`.
 
 String comparisons are the one gap: the identifier check that keeps a `where` clause
 honest reads quoted literals as column names, so `fall = 'Fell'` comes back
@@ -188,7 +194,7 @@ you decode by hand at the call site.
 
 **An unrecognised API key is refused, not ignored.** Set `GEOLENS_API_KEY` and the
 SDK sends `X-API-Key`; it has no way at all to put a key in the query string. A key
-GeoLens cannot resolve answers 401 on all three of these endpoints, so a stale key
+GeoLens cannot resolve answers 401 on all four of these endpoints, so a stale key
 stops the script instead of quietly handing it the public subset. Sending no key is
 anonymous and still reads public data. Measured against the demo (v1.14.0) on
 2026-08-18. Instances older than v1.14.0 discard the bad key here and answer 200, so
@@ -265,9 +271,9 @@ itself is untested here, since the demo datasets are public and need no key.
 ## Pinned versions
 
 `analyze.py` pins `geopandas==1.1.4`, `httpx==0.28.1`, `matplotlib==3.11.1`;
-`sdk-catalog.py` pins `geolens==1.15.0` and `geopandas==1.1.4`. Those were the
-current releases on 2026-08-23, and `sdk-catalog.py` was re-run against the
-live demo (serving 1.15.0) on that date.
+`sdk-catalog.py` pins `geolens==1.16.0` and `geopandas==1.1.4`. Those were the
+current releases on 2026-08-27, and `sdk-catalog.py` was re-run against the
+live demo (serving 1.16.0) on that date.
 `requires-python = ">=3.11"` comes from matplotlib 3.11, the strictest
 floor of the set.
 
