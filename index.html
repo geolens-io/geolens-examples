@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <title>GeoLens Examples</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="description" content="Runnable examples for reading a GeoLens catalog from MapLibre, Leaflet, OpenLayers, the ArcGIS SDK, QGIS, DuckDB, the TypeScript and Python SDKs, the CLI and MCP: OGC API Features, STAC, vector and raster tiles, and embedded maps. Every live example runs against the public demo." />
+<meta name="description" content="Runnable examples for reading a GeoLens catalog from MapLibre, Leaflet, OpenLayers, the ArcGIS SDK, QGIS, leafmap, DuckDB, the TypeScript and Python SDKs, the CLI and MCP: OGC API Features, STAC, vector and raster tiles, and embedded maps. Every live example runs against the public demo." />
 <link rel="canonical" href="https://geolens-io.github.io/geolens-examples/" />
 <meta property="og:title" content="GeoLens Examples" />
 <meta property="og:description" content="Copy-paste integrations against a self-hosted GeoLens spatial data hub: OGC API Features, STAC, vector and raster tiles, embedded maps, and both SDKs. Every live example runs against the public demo." />
@@ -567,6 +567,17 @@
       source: "python/analyze.py",
       docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/python"],
       datasets: [LINES, STATIONS],
+    },
+    {
+      audience: "data-scientist", tool: "leafmap + GeoPandas · Jupyter notebook",
+      title: "GeoLens in a leafmap notebook",
+      blurb: "Search the catalog, load two collections over OGC API Features onto a leafmap map, push a CQL2 filter to the server, and drop raster tiles baked by TiTiler on the same map. No SDK: requests and geopandas read every surface as plain HTTP.",
+      tag: "leafmap", kind: "vector",
+      address: "uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/quickstart.ipynb",
+      snippet: "CQL2 filter \"title LIKE '%Subway%'\" matched 2 of the catalog's ~30 datasets:\n                    title\n   NYC Subway Lines (MTA)\nNYC Subway Stations (MTA)",
+      source: "leafmap/quickstart.ipynb",
+      docs: ["Walkthrough and verification", "https://github.com/geolens-io/geolens-examples/tree/main/leafmap"],
+      datasets: [LINES, STATIONS, DEM],
     },
     {
       audience: "data-scientist", tool: "DuckDB 1.5 · single-file uv script",
