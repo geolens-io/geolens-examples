@@ -63,7 +63,7 @@
     the same <code>q</code> runs a catalog text search and matches words, not
     meaning.</p>
   <form id="form">
-    <input id="q" type="search" value="space rocks that fell to earth"
+    <input id="q" type="search" value="every space rock ever recovered on this planet"
            aria-label="Search the catalog" />
     <label><input id="spatial" type="checkbox" /> limit to map view (adds <code>bbox</code>)</label>
   </form>
@@ -83,8 +83,10 @@
   const GEOLENS = "https://demo.getgeolens.com";
 
   // `q` runs the query against embeddings the server keeps in pgvector, so it
-  // matches meaning: "space rocks that fell to earth" returns the meteorite
-  // dataset with none of those words in its title, description or keywords.
+  // matches meaning: "every space rock ever recovered on this planet" returns the meteorite
+  // dataset with none of those words in its title. How much of the query
+  // survives literally in the rest of each hit's text is measured, not
+  // asserted: overlap() below prints it per record.
   //
   // That is the demo. On a self-hosted instance semantic search is off by
   // default: the Semantic Search toggle under Admin > Settings > AI has to be
@@ -103,7 +105,7 @@
   //
   // Same query from Python, where CORS does not apply — python/sdk-catalog.py:
   //
-  //   search.sync_detailed(client=client, q="space rocks that fell to earth", limit=5)
+  //   search.sync_detailed(client=client, q="every space rock ever recovered on this planet", limit=5)
   //
   // A standards client can filter this same collection with CQL2 instead, which
   // is literal rather than semantic and is the right tool once you know the

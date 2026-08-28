@@ -444,6 +444,7 @@
   const STATIONS = ["Subway stations", "724bf894-dc1a-418c-abc6-555798c44d7c"];
   const DEM = ["Matterhorn DEM", "6f03bafa-34b3-4902-9351-40ce09a8181f"];
   const METEORITES = ["Meteorite landings", "6030c57b-ce37-4198-aa1e-be78e0950f53"];
+  const FALLS = ["Meteorite observed falls", "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1"];
 
   const EXAMPLES = [
     {
@@ -465,6 +466,16 @@
       thumb: "assets/maplibre-pmtiles.jpg",
       live: "maplibre/pmtiles.html", source: "maplibre/pmtiles.html",
       datasets: [LINES],
+    },
+    {
+      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 5 + pmtiles 4.5",
+      title: "PMTiles from a live export URL",
+      blurb: "The same protocol pointed straight at the export route, no file committed. The export route serves CORS from GeoLens 1.16.1 on, so the browser range-reads the live archive across origins.",
+      tag: "PMTiles", kind: "vector",
+      address: "/api/datasets/{id}/export?format=pmtiles",
+      thumb: "assets/maplibre-pmtiles-live.jpg",
+      live: "maplibre/pmtiles-live.html", source: "maplibre/pmtiles-live.html",
+      datasets: [FALLS],
     },
     {
       audience: "web-developer", group: "features", tool: "MapLibre GL JS 5",
@@ -561,8 +572,8 @@
       title: "Catalog tools in an MCP client",
       blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. Works with Claude Code, Claude Desktop, Cursor, Codex, or any MCP client. The discovery tools need no credential.",
       tag: "MCP", kind: "tooling",
-      address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.16.0",
-      snippet: "<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 5 matched, 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
+      address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.16.1",
+      snippet: "<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
       source: "mcp/README.md",
       docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/mcp"],
       datasets: [], catalog: true,
@@ -584,7 +595,7 @@
       blurb: "Search the catalog, load two collections over OGC API Features onto a leafmap map, push a CQL2 filter to the server, and drop raster tiles baked by TiTiler on the same map. No SDK: requests and geopandas read every surface as plain HTTP.",
       tag: "leafmap", kind: "vector",
       address: "uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/quickstart.ipynb",
-      snippet: "CQL2 filter \"title LIKE '%Subway%'\" matched 2 of the catalog's ~30 datasets:\n                    title\n   NYC Subway Lines (MTA)\nNYC Subway Stations (MTA)",
+      snippet: "CQL2 filter \"title LIKE '%Subway%'\" matched 2 of the catalog's datasets:\n                    title\n   NYC Subway Lines (MTA)\nNYC Subway Stations (MTA)",
       source: "leafmap/quickstart.ipynb",
       docs: ["Walkthrough and verification", "https://github.com/geolens-io/geolens-examples/tree/main/leafmap"],
       datasets: [LINES, STATIONS, DEM],
@@ -603,7 +614,7 @@
     {
       audience: "web-developer", group: "search", tool: "MapLibre GL JS 5 · fetch",
       title: "Semantic search over the catalog",
-      blurb: "Type what the data is about. The query runs against embeddings, so \"space rocks that fell to earth\" finds the meteorite dataset with none of those words in its title. Tick the box and the map's bounds filter the same query by record extent.",
+      blurb: "Type what the data is about. The query runs against embeddings, so \"every space rock ever recovered on this planet\" finds the meteorite dataset with none of those words in its title. Tick the box and the map's bounds filter the same query by record extent.",
       tag: "Search", kind: "vector",
       address: "/api/collections/datasets/items?q=...&bbox=...",
       thumb: "assets/search-catalog.jpg",
@@ -621,7 +632,7 @@
       datasets: [],
     },
     {
-      audience: "web-developer", group: "search", tool: "@geolens/sdk 1.16.0 · MapLibre",
+      audience: "web-developer", group: "search", tool: "@geolens/sdk 1.16.1 · MapLibre",
       title: "Catalog to map with the SDK",
       blurb: "Searches the catalog, shows what it knows that a tile URL cannot — origin, freshness, schema — then adds the layer using the tile template the collection advertises. No dataset id or table name is written into this page.",
       tag: "TypeScript SDK", kind: "vector",
@@ -641,7 +652,7 @@
       datasets: [],
     },
     {
-      audience: "data-scientist", tool: "geolens 1.16.0 · single-file uv script",
+      audience: "data-scientist", tool: "geolens 1.16.1 · single-file uv script",
       title: "Catalog to GeoPandas with the SDK",
       blurb: "Searches the catalog, reads a dataset's schema as GeoLens understands it — label, categorical, measure, temporal — counts a CQL2 filter on the OGC items route, and exports the same server-filtered rows straight into a GeoDataFrame.",
       tag: "Python SDK", kind: "vector",
@@ -652,11 +663,11 @@
       datasets: [],
     },
     {
-      audience: "data-engineer", tool: "geolens-cli 1.16.0",
+      audience: "data-engineer", tool: "geolens-cli 1.16.1",
       title: "A catalog declared in Git",
       blurb: "A geolens.yaml naming datasets, their sources and their metadata, reconciled onto an instance by geolens apply. Each entry has a stable key, so re-applying an unchanged one skips instead of importing a second copy.",
       tag: "CLI", kind: "tooling",
-      address: "uvx --from geolens-cli==1.16.0 geolens validate cli/geolens.yaml",
+      address: "uvx --from geolens-cli==1.16.1 geolens validate cli/geolens.yaml",
       snippet: "<b>$</b> geolens validate cli/geolens.yaml\n  Manifest valid: cli/geolens.yaml\n\n<b>$</b> geolens --json apply --dry-run\n  ne-110m-countries          create\n  ne-110m-populated-places   create",
       source: "cli/README.md",
       docs: ["Manifest and CI workflow", "https://github.com/geolens-io/geolens-examples/tree/main/cli"],

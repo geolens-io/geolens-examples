@@ -124,8 +124,8 @@ Reading https://demo.getgeolens.com ...
 
                        GEOLENS CATALOG
 --------------------------------------------------------------
-  asked for           'space rocks that fell to earth'
-  matched                      1   record
+  asked for           'every space rock ever recovered on this planet'
+  matched                      2   records
 
   Meteorite Landings (Meteoritical Society)
     id                6030c57b-ce37-4198-aa1e-be78e0950f53
@@ -163,8 +163,8 @@ Reading https://demo.getgeolens.com ...
 
 ### What it shows
 
-**Search matches meaning, not words.** `space rocks that fell to earth` finds
-*Meteorite Landings* even though none of those five words is in the title. GeoLens
+**Search matches meaning, not words.** `every space rock ever recovered on this planet` finds
+*Meteorite Landings* even though none of those words is in the title. GeoLens
 embeds each record's text at ingest and searches the vectors, so the query is a
 description of the data rather than a guess at its filename.
 
@@ -271,9 +271,9 @@ itself is untested here, since the demo datasets are public and need no key.
 ## Pinned versions
 
 `analyze.py` pins `geopandas==1.1.4`, `httpx==0.28.1`, `matplotlib==3.11.1`;
-`sdk-catalog.py` pins `geolens==1.16.0` and `geopandas==1.1.4`. Those were the
-current releases on 2026-08-27, and `sdk-catalog.py` was re-run against the
-live demo (serving 1.16.0) on that date.
+`sdk-catalog.py` pins `geolens==1.16.1` and `geopandas==1.1.4`. Those were the
+current releases on 2026-08-28, and `sdk-catalog.py` was re-run against the
+live demo (serving 1.16.1) on that date.
 `requires-python = ">=3.11"` comes from matplotlib 3.11, the strictest
 floor of the set.
 

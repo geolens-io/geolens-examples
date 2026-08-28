@@ -145,5 +145,14 @@
       "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items"
     ],
     "minDataResponses": 1
+  },
+  {
+    "path": "maplibre/pmtiles-live.html",
+    "wait": 8000,
+    "requireUrls": [
+      "/api/datasets/dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1/export?format=pmtiles",
+      "/collections/dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1/items"
+    ],
+    "minDataResponses": 1
   }
 ]

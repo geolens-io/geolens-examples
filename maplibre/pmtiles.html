@@ -23,7 +23,7 @@
   <strong>MapLibre GL JS — PMTiles, no tile server</strong>
   <p id="status" role="status">Opening subway-lines.pmtiles…</p>
   <p id="freshness"></p>
-  <p>MTA via data.ny.gov · <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/pmtiles.html">source</a></p>
+  <p>MTA via data.ny.gov · <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">dataset</a> · <a href="pmtiles-live.html">live-URL variant</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/pmtiles.html">source</a></p>
 </div>
 <script>
   // The tiles on this page come from one static file, not from a server that
@@ -45,10 +45,12 @@
   //    file; loadFile() below probes once and falls back to reading it into
   //    memory, and the status line says which mode this page got. GitHub
   //    Pages, S3, nginx and Caddy all answer 206.
-  //  - The file is committed here rather than fetched live from the export
-  //    URL, because that route sends no CORS headers yet, so a cross-origin
-  //    browser fetch of it fails (geolens#1698). Same-origin static hosting
-  //    is the intended shape regardless.
+  //  - The file is committed here because a copy you own is the point of the
+  //    exercise: same-origin static hosting, on any host, with GeoLens out of
+  //    the serving path. From GeoLens 1.16.1 the export route also serves
+  //    CORS to anonymous browser clients (geolens#1698), so the pmtiles
+  //    protocol can read a live export URL directly instead of a copy —
+  //    pmtiles-live.html is that variant.
   const GEOLENS = "https://demo.getgeolens.com";
   const DATASET = "de602fbe-8b30-4755-924f-c9e7fd9613b6";
   const FILE = "subway-lines.pmtiles";

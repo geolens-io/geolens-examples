@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "geolens==1.16.0",
+#     "geolens==1.16.1",
 #     "geopandas==1.1.4",
 # ]
 # ///
@@ -75,8 +75,8 @@ API_BASE = f"{BASE_URL.rstrip('/')}/api"
 API_KEY = os.environ.get("GEOLENS_API_KEY") or None
 
 # Search runs over embeddings of each record's text, so this matches on meaning
-# rather than words. None of these five words appears in the title it finds.
-QUERY = "space rocks that fell to earth"
+# rather than words. None of these words appears in the title it finds.
+QUERY = "every space rock ever recovered on this planet"
 
 # The filter runs in PostGIS, not here. Plain SQL against the dataset's own
 # columns, which is why the schema step above it is not decoration: mass_kg is

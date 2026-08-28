@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>GeoLens + MapLibre: PMTiles from a live export URL</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+    /* Page shell: what this is, whether it loaded, where the data came from. */
+    #hud { position: absolute; z-index: 2; left: 10px; bottom: 10px; max-width: 46ch; padding: 8px 11px; border-radius: 6px; background: rgba(11, 14, 18, .82); color: #e6edf3; font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
+    #hud a { color: #4da3ff; }
+    #hud .err { color: #ff9d9d; }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div id="hud">
+  <strong>MapLibre GL JS — PMTiles from a live export URL</strong>
+  <p id="status" role="status">Opening the live export…</p>
+  <p id="freshness"></p>
+  <p>Meteoritical Society via NASA Open Data · <a href="https://demo.getgeolens.com/datasets/dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1">dataset</a> · <a href="pmtiles.html">committed-file variant</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/pmtiles-live.html">source</a></p>
+</div>
+<script>
+  // The sibling page, pmtiles.html, commits its PMTiles file next to itself:
+  // export once, copy to any static host, GeoLens out of the serving path.
+  // This page skips the copy. The pmtiles protocol points straight at the
+  // export URL on the demo, and range-reads the archive across origins: the
+  // header, the directories, then only the tiles in view.
+  //
+  // That works because GeoLens 1.16.1 put CORS on the export route for
+  // anonymous browser clients — Access-Control-Allow-Origin on the ranged
+  // GETs, a preflight that allows the Range header, and Content-Range exposed
+  // so the client can address the file. Against an older instance the fetch
+  // dies in the browser's CORS check before a byte arrives; the committed-file
+  // page is the variant that works on any static host and any GeoLens with
+  // the export format (1.16.0 on).
+  //
+  // The trade the two pages make is freshness against custody. A committed
+  // file is a snapshot you re-export by hand; this page serves whatever the
+  // export route holds, and GeoLens stays in the serving path to do it. The
+  // whole archive is ~630 KB — 1,096 witnessed meteorite falls tiled for the
+  // browser to read a few KB at a time.
+  const GEOLENS = "https://demo.getgeolens.com";
+  const DATASET = "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1";
+  const EXPORT_URL = `${GEOLENS}/api/datasets/${DATASET}/export?format=pmtiles`;
+
+  const status = document.getElementById("status");
+  const freshness = document.getElementById("freshness");
+  const fail = (message) => {
+    status.hidden = false;
+    status.className = "err";
+    status.textContent = message;
+  };
+
+  // Same probe as the committed-file page, for a different reason. There the
+  // question is whether the static host honours ranges at all; here GeoLens
+  // always can, but is entitled to answer a range with the whole file while
+  // the export artifact is being rebuilt (geolens#1585). bytes=0-0 asks for a
+  // single byte: on a 206 the PMTiles(url) path ranges into the route as it
+  // needs to; on a 200 the body has already been sent, so read it once into
+  // memory and say so.
+  async function loadFile() {
+    const probe = await fetch(EXPORT_URL, { headers: { range: "bytes=0-0" } });
+    if (probe.status === 206) {
+      probe.body?.cancel();
+      return { file: new pmtiles.PMTiles(EXPORT_URL), ranged: true, size: null };
+    }
+    if (!probe.ok) throw new Error(`the export answered HTTP ${probe.status}`);
+    const blob = await probe.blob();
+    return { file: new pmtiles.PMTiles(new pmtiles.FileSource(new File([blob], "export.pmtiles"))), ranged: false, size: blob.size };
+  }
+
+  const protocol = new pmtiles.Protocol();
+  maplibregl.addProtocol("pmtiles", protocol.tile);
+
+  (async () => {
+    const { file, ranged, size } = await loadFile();
+    protocol.add(file);
+
+    // The export describes itself: bounds and zooms come from its header, the
+    // source-layer name from its metadata. Nothing on this page repeats a
+    // fact the archive already carries.
+    const header = await file.getHeader();
+    const meta = await file.getMetadata();
+    const layerId = meta.vector_layers[0].id; // "data.meteorite_observed_falls_meteoritical_society"
+
+    const map = new maplibregl.Map({
+      container: "map",
+      bounds: [[header.minLon, header.minLat], [header.maxLon, header.maxLat]],
+      fitBoundsOptions: { padding: 32 },
+      style: {
+        version: 8,
+        sources: {
+          falls: { type: "vector", url: `pmtiles://${file.source.getKey()}` },
+        },
+        layers: [
+          { id: "bg", type: "background", paint: { "background-color": "#101418" } },
+          {
+            id: "meteorite-falls",
+            type: "circle",
+            source: "falls",
+            "source-layer": layerId,
+            paint: {
+              "circle-radius": 3,
+              "circle-color": "#ffd166",
+              "circle-stroke-color": "#101418",
+              "circle-stroke-width": 1,
+            },
+          },
+        ],
+      },
+    });
+    map.addControl(new maplibregl.NavigationControl());
+
+    map.on("data", (e) => {
+      if (!e.tile || e.sourceId !== "falls") return;
+      if (status.className === "err") return;
+      status.className = "";
+      status.textContent = ranged
+        ? "Range-reading the live export across origins: the header, then only the tiles in view."
+        : `The export declined the range and sent the whole file (${(size / 1024).toFixed(0)} KB) — GeoLens does that while the artifact is being rebuilt — so it was read once into memory.`;
+    });
+    map.on("error", (e) => {
+      fail(`Could not draw the export — ${e.error?.message ?? "request failed"}.`);
+      console.error("PMTiles rendering failed:", e.error ?? e);
+    });
+
+    // The export artifact is cut from the dataset and cached, so it can trail
+    // a reload the way the committed file trails an export. Ask the live
+    // catalog how many features the collection matches now and compare with
+    // what this archive was cut from.
+    try {
+      const res = await fetch(`${GEOLENS}/api/collections/${DATASET}/items?limit=1`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const live = (await res.json()).numberMatched;
+      const cut = meta.tilestats?.layers?.[0]?.count;
+      freshness.textContent =
+        live === cut
+          ? `Live catalog check: the collection still matches the ${cut} features this export was cut from.`
+          : `Live catalog check: the collection now matches ${live} features; this export was cut from ${cut}. GeoLens rebuilds it after the dataset changes.`;
+    } catch (err) {
+      freshness.textContent = `Could not compare against the live catalog (${err.message}).`;
+    }
+  })().catch((err) => {
+    // A TypeError from fetch with nothing more to say is how every browser
+    // words a CORS refusal, which against GeoLens older than 1.16.1 is the
+    // expected way for this page to fail.
+    const cors = err instanceof TypeError
+      ? " A cross-origin read of the export route needs GeoLens 1.16.1 or later; against an older instance, use the committed-file variant (pmtiles.html)."
+      : "";
+    fail(`Could not open the live export — ${err.message}.${cors}`);
+    console.error("PMTiles open failed:", err);
+  });
+</script>
+</body>
+</html>
