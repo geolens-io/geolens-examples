@@ -10,9 +10,9 @@
 # Not watched, and still a manual edit:
 #   - playwright@1.62.1, installed by a shell line in verify.yml
 #   - CDN pins in the example pages: maplibre-gl, leaflet, ol, @geolens/sdk
-#   - geolens==1.16.0, a PEP 723 inline dependency in python/sdk-catalog.py
-#   - geolens-mcp@1.16.0, in mcp/clients/*.{json,md} and index.html
-#   - geolens-cli==1.16.0, in verify.yml, cli/README.md and cli/github-actions.yml
+#   - geolens==1.16.1, a PEP 723 inline dependency in python/sdk-catalog.py
+#   - geolens-mcp@1.16.1, in mcp/clients/*.{json,md} and index.html
+#   - geolens-cli==1.16.1, in verify.yml, cli/README.md and cli/github-actions.yml
 #   - duckdb==1.5.5, a PEP 723 inline dependency in duckdb/query.py
 #   - the qgis/qgis image digest in .github/workflows/qgis.yml; the
 #     github-actions ecosystem bumps `uses:` pins, not `container.image`

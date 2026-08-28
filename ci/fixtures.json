@@ -1,5 +1,5 @@
 {
-  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-27, GeoLens 1.16.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
+  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-28, GeoLens 1.16.1. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
   "fixtures": {
     "nycSubwayStations": {
       "title": "NYC Subway Stations (MTA)",
