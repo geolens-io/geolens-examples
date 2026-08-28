@@ -84,7 +84,9 @@
 
   // `q` runs the query against embeddings the server keeps in pgvector, so it
   // matches meaning: "every space rock ever recovered on this planet" returns the meteorite
-  // dataset with none of those words in its title, description or keywords.
+  // dataset with none of those words in its title. How much of the query
+  // survives literally in the rest of each hit's text is measured, not
+  // asserted: overlap() below prints it per record.
   //
   // That is the demo. On a self-hosted instance semantic search is off by
   // default: the Semantic Search toggle under Admin > Settings > AI has to be

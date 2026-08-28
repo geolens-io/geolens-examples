@@ -75,7 +75,7 @@ API_BASE = f"{BASE_URL.rstrip('/')}/api"
 API_KEY = os.environ.get("GEOLENS_API_KEY") or None
 
 # Search runs over embeddings of each record's text, so this matches on meaning
-# rather than words. None of these five words appears in the title it finds.
+# rather than words. None of these words appears in the title it finds.
 QUERY = "every space rock ever recovered on this planet"
 
 # The filter runs in PostGIS, not here. Plain SQL against the dataset's own
