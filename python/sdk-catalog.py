@@ -76,7 +76,7 @@ API_KEY = os.environ.get("GEOLENS_API_KEY") or None
 
 # Search runs over embeddings of each record's text, so this matches on meaning
 # rather than words. None of these five words appears in the title it finds.
-QUERY = "space rocks that fell to earth"
+QUERY = "every space rock ever recovered on this planet"
 
 # The filter runs in PostGIS, not here. Plain SQL against the dataset's own
 # columns, which is why the schema step above it is not decoration: mass_kg is

@@ -124,7 +124,7 @@ Reading https://demo.getgeolens.com ...
 
                        GEOLENS CATALOG
 --------------------------------------------------------------
-  asked for           'space rocks that fell to earth'
+  asked for           'every space rock ever recovered on this planet'
   matched                      1   record
 
   Meteorite Landings (Meteoritical Society)
@@ -163,7 +163,7 @@ Reading https://demo.getgeolens.com ...
 
 ### What it shows
 
-**Search matches meaning, not words.** `space rocks that fell to earth` finds
+**Search matches meaning, not words.** `every space rock ever recovered on this planet` finds
 *Meteorite Landings* even though none of those five words is in the title. GeoLens
 embeds each record's text at ingest and searches the vectors, so the query is a
 description of the data rather than a guess at its filename.

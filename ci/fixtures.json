@@ -40,6 +40,20 @@
         "grep": "nyc_subway_lines_mta"
       }
     },
+    "meteoriteFalls": {
+      "title": "Meteorite Observed Falls (Meteoritical Society)",
+      "collection": "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1",
+      "itemType": "feature",
+      "geometryType": "MultiPoint",
+      "minNumberMatched": 1000,
+      "export": {
+        "format": "pmtiles",
+        "contentType": "application/vnd.pmtiles",
+        "magic": "PMTiles",
+        "grep": "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1",
+        "why": "maplibre/pmtiles-live.html points the pmtiles protocol straight at this export URL from another origin, which needs the route to answer anonymously, serve byte ranges, and send the CORS headers GeoLens 1.16.1 added"
+      }
+    },
     "matterhornDem": {
       "title": "swissALTI3D Matterhorn DEM (2m mosaic)",
       "collection": "6f03bafa-34b3-4902-9351-40ce09a8181f",
@@ -88,7 +102,7 @@
         "grep": "meteorite_landings_meteoritical_society"
       },
       "search": {
-        "q": "space rocks that fell to earth",
+        "q": "every space rock ever recovered on this planet",
         "limit": 5,
         "recordType": "vector_dataset"
       }

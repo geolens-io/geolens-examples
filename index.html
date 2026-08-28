@@ -444,6 +444,7 @@
   const STATIONS = ["Subway stations", "724bf894-dc1a-418c-abc6-555798c44d7c"];
   const DEM = ["Matterhorn DEM", "6f03bafa-34b3-4902-9351-40ce09a8181f"];
   const METEORITES = ["Meteorite landings", "6030c57b-ce37-4198-aa1e-be78e0950f53"];
+  const FALLS = ["Meteorite observed falls", "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1"];
 
   const EXAMPLES = [
     {
@@ -465,6 +466,16 @@
       thumb: "assets/maplibre-pmtiles.jpg",
       live: "maplibre/pmtiles.html", source: "maplibre/pmtiles.html",
       datasets: [LINES],
+    },
+    {
+      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 5 + pmtiles 4.5",
+      title: "PMTiles from a live export URL",
+      blurb: "The same protocol pointed straight at the export route, no file committed. The export route serves CORS from GeoLens 1.16.1 on, so the browser range-reads the live archive across origins.",
+      tag: "PMTiles", kind: "vector",
+      address: "/api/datasets/{id}/export?format=pmtiles",
+      thumb: "assets/maplibre-pmtiles-live.jpg",
+      live: "maplibre/pmtiles-live.html", source: "maplibre/pmtiles-live.html",
+      datasets: [FALLS],
     },
     {
       audience: "web-developer", group: "features", tool: "MapLibre GL JS 5",
@@ -603,7 +614,7 @@
     {
       audience: "web-developer", group: "search", tool: "MapLibre GL JS 5 · fetch",
       title: "Semantic search over the catalog",
-      blurb: "Type what the data is about. The query runs against embeddings, so \"space rocks that fell to earth\" finds the meteorite dataset with none of those words in its title. Tick the box and the map's bounds filter the same query by record extent.",
+      blurb: "Type what the data is about. The query runs against embeddings, so \"every space rock ever recovered on this planet\" finds the meteorite dataset with none of those words in its title. Tick the box and the map's bounds filter the same query by record extent.",
       tag: "Search", kind: "vector",
       address: "/api/collections/datasets/items?q=...&bbox=...",
       thumb: "assets/search-catalog.jpg",
