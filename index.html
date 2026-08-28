@@ -445,6 +445,7 @@
   const DEM = ["Matterhorn DEM", "6f03bafa-34b3-4902-9351-40ce09a8181f"];
   const METEORITES = ["Meteorite landings", "6030c57b-ce37-4198-aa1e-be78e0950f53"];
   const FALLS = ["Meteorite observed falls", "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1"];
+  const SENTINEL = ["Sentinel-2 tile, by reference", "20683d4a-a531-4dab-ba80-c24e6d49ef76"];
 
   const EXAMPLES = [
     {
@@ -599,6 +600,17 @@
       source: "leafmap/quickstart.ipynb",
       docs: ["Walkthrough and verification", "https://github.com/geolens-io/geolens-examples/tree/main/leafmap"],
       datasets: [LINES, STATIONS, DEM],
+    },
+    {
+      audience: "data-scientist", tool: "leafmap + samgeo · Jupyter notebook",
+      title: "Segment GeoLens imagery with samgeo",
+      blurb: "Find a Sentinel-2 tile by footprint over STAC, read the two assets a by-reference import preserves (GeoLens's own tiles and the untouched origin COG), and hand the tile layer to samgeo for Segment Anything. leafmap and samgeo are both opengeos projects.",
+      tag: "STAC", kind: "raster",
+      address: "uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/samgeo.ipynb",
+      snippet: "1 STAC item(s) over [-74.05, 40.68, -73.95, 40.75]:\n  20683d4a-a531-4dab-ba80-c24e6d49ef76  'Sentinel-2 TCI S2B_T18TWL_20260812T155330_L2A'\ndata (the origin catalog's own COG, untouched):\n  https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/...TCI.tif",
+      source: "leafmap/samgeo.ipynb",
+      docs: ["Walkthrough and verification", "https://github.com/geolens-io/geolens-examples/tree/main/leafmap"],
+      datasets: [SENTINEL],
     },
     {
       audience: "data-scientist", tool: "DuckDB 1.5 · single-file uv script",

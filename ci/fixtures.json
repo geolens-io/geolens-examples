@@ -1,5 +1,5 @@
 {
-  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-28, GeoLens 1.16.1. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
+  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-28, GeoLens 1.16.1. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM, Upper New York Bay for the Sentinel-2 tile. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
   "fixtures": {
     "nycSubwayStations": {
       "title": "NYC Subway Stations (MTA)",
@@ -66,6 +66,20 @@
         ],
         "grep": "6f03bafa-34b3-4902-9351-40ce09a8181f"
       }
+    },
+    "sentinelNYHarbor": {
+      "title": "Sentinel-2 TCI S2B_T18TWL_20260812T155330_L2A",
+      "collection": "20683d4a-a531-4dab-ba80-c24e6d49ef76",
+      "itemType": "coverage",
+      "rasterTile": {
+        "path": "/raster-tiles/20683d4a-a531-4dab-ba80-c24e6d49ef76/tiles/",
+        "probe": "12/1205/1540.png",
+        "contentTypes": [
+          "image/png"
+        ],
+        "grep": "20683d4a-a531-4dab-ba80-c24e6d49ef76"
+      },
+      "why": "leafmap/samgeo.ipynb reads this by-reference Sentinel-2 import; the probe sits over the harbor tile the notebook segments."
     },
     "restlessEarthMap": {
       "title": "Restless Earth",

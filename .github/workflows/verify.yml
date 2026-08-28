@@ -137,6 +137,11 @@ jobs:
       # raise for a reader running it in Jupyter.
       - name: Run the leafmap notebook
         run: uv run leafmap/verify.py
+      # Separate step and separate script from the one above, so a failure
+      # names this notebook rather than "the leafmap notebook" generically.
+      # Never runs the samgeo section either, for the same reason.
+      - name: Run the leafmap + samgeo notebook
+        run: uv run leafmap/verify_samgeo.py
       # The catalog-as-code example. `apply` is a write and needs a credential,
       # so CI checks the part that runs without one: the manifest still matches
       # the schema this CLI release packages, and that schema still prints.
