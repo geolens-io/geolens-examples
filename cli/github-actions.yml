@@ -53,7 +53,7 @@ jobs:
       # manifest needs no Python project, no lockfile and no virtualenv for it.
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Validate the manifest
-        run: uvx --from geolens-cli==1.16.1 geolens validate geolens.yaml
+        run: uvx --from geolens-cli==1.17.0 geolens validate geolens.yaml
 
   # The plan step. --dry-run reaches the instance, matches every entry by key
   # and reports create/update/skip without writing anything, which is the
@@ -80,7 +80,7 @@ jobs:
       # `geolens apply --json` is an error.
       - name: Preview the apply
         if: ${{ env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
-        run: uvx --from geolens-cli==1.16.1 geolens --json apply --dry-run geolens.yaml
+        run: uvx --from geolens-cli==1.17.0 geolens --json apply --dry-run geolens.yaml
       # A fork holds no secrets, so the step above skips and this job goes
       # green having previewed nothing. Say that out loud, or a green check
       # reads as "the instance agreed" when nobody asked it.
@@ -124,7 +124,7 @@ jobs:
             echo "main has moved on to $tip since this run started for $GITHUB_SHA; leaving the apply to the newer run."
             exit 0
           fi
-          uvx --from geolens-cli==1.16.1 geolens --json apply geolens.yaml
+          uvx --from geolens-cli==1.17.0 geolens --json apply geolens.yaml
       # Red, not a note. The preview job above may skip, because a fork's pull
       # request has no way to reach the instance and validate has already said
       # what it could. A push to main is different: green there has to mean the
