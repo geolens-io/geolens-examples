@@ -5,7 +5,7 @@ Add a `[mcp_servers.geolens]` table to `~/.codex/config.toml`:
 ```toml
 [mcp_servers.geolens]
 command = "uvx"
-args = ["geolens-mcp@1.16.1"]
+args = ["geolens-mcp@1.17.0"]
 
 [mcp_servers.geolens.env]
 GEOLENS_INSTANCE = "https://demo.getgeolens.com"
