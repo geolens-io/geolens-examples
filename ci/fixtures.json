@@ -1,16 +1,23 @@
 {
-  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-08-30, GeoLens 1.17.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM, Upper New York Bay for the Sentinel-2 tile. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
+  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-09-22, GeoLens 1.20.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM, Upper New York Bay for the Sentinel-2 tile. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
   "fixtures": {
     "nycSubwayStations": {
       "title": "NYC Subway Stations (MTA)",
-      "collection": "724bf894-dc1a-418c-abc6-555798c44d7c",
+      "collection": "4e7cba4c-4caa-4609-b5c4-3c6cd252697c",
       "itemType": "feature",
       "geometryType": "MultiPoint",
-      "minNumberMatched": 400
+      "minNumberMatched": 400,
+      "export": {
+        "format": "pmtiles",
+        "contentType": "application/vnd.pmtiles",
+        "magic": "PMTiles",
+        "grep": "4e7cba4c-4caa-4609-b5c4-3c6cd252697c",
+        "why": "maplibre/pmtiles-live.html points the pmtiles protocol straight at this export URL from another origin, which needs the route to answer anonymously, serve byte ranges, and send the CORS headers GeoLens 1.16.1 added"
+      }
     },
     "nycSubwayLines": {
       "title": "NYC Subway Lines (MTA)",
-      "collection": "de602fbe-8b30-4755-924f-c9e7fd9613b6",
+      "collection": "39e1319e-54ad-4431-9efc-f5eef7910fdb",
       "itemType": "feature",
       "geometryType": "MultiLineString",
       "minNumberMatched": 20,
@@ -40,57 +47,36 @@
         "grep": "nyc_subway_lines_mta"
       }
     },
-    "meteoriteFalls": {
-      "title": "Meteorite Observed Falls (Meteoritical Society)",
-      "collection": "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1",
-      "itemType": "feature",
-      "geometryType": "MultiPoint",
-      "minNumberMatched": 1000,
-      "export": {
-        "format": "pmtiles",
-        "contentType": "application/vnd.pmtiles",
-        "magic": "PMTiles",
-        "grep": "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1",
-        "why": "maplibre/pmtiles-live.html points the pmtiles protocol straight at this export URL from another origin, which needs the route to answer anonymously, serve byte ranges, and send the CORS headers GeoLens 1.16.1 added"
-      }
-    },
     "matterhornDem": {
       "title": "swissALTI3D Matterhorn DEM (2m mosaic)",
-      "collection": "6f03bafa-34b3-4902-9351-40ce09a8181f",
+      "collection": "d8fd56a9-d12f-4dbb-af8b-81a7289fc600",
       "itemType": "coverage",
       "rasterTile": {
-        "path": "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/",
+        "path": "/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/",
         "probe": "12/2135/1457.png",
         "contentTypes": [
           "image/png"
         ],
-        "grep": "6f03bafa-34b3-4902-9351-40ce09a8181f"
+        "grep": "d8fd56a9-d12f-4dbb-af8b-81a7289fc600"
       }
     },
     "sentinelNYHarbor": {
-      "title": "Sentinel-2 TCI S2B_T18TWL_20260812T155330_L2A",
-      "collection": "20683d4a-a531-4dab-ba80-c24e6d49ef76",
+      "title": "Sentinel-2 TCI S2A_T18TWL_20260829T155705_L2A",
+      "collection": "bf1a8df1-5e8f-4f75-9547-038343f37a97",
       "itemType": "coverage",
       "rasterTile": {
-        "path": "/raster-tiles/20683d4a-a531-4dab-ba80-c24e6d49ef76/tiles/",
+        "path": "/raster-tiles/bf1a8df1-5e8f-4f75-9547-038343f37a97/tiles/",
         "probe": "12/1205/1540.png",
         "contentTypes": [
           "image/png"
         ],
-        "grep": "20683d4a-a531-4dab-ba80-c24e6d49ef76"
+        "grep": "bf1a8df1-5e8f-4f75-9547-038343f37a97"
       },
       "why": "leafmap/samgeo.ipynb reads this by-reference Sentinel-2 import; the probe sits over the harbor tile the notebook segments."
     },
-    "restlessEarthMap": {
-      "title": "Restless Earth",
-      "sharedMap": {
-        "token": "NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU",
-        "layers": 7
-      }
-    },
     "meteorites": {
       "title": "Meteorite Landings (Meteoritical Society)",
-      "collection": "6030c57b-ce37-4198-aa1e-be78e0950f53",
+      "collection": "c17f7df9-936e-4268-96d3-9e199fe04f81",
       "itemType": "feature",
       "geometryType": "MultiPoint",
       "minNumberMatched": 30000,
@@ -151,19 +137,23 @@
       "title": "Saved maps the gallery links by UUID",
       "maps": [
         {
+          "title": "Restless Earth",
+          "id": "ca1c9bb8-01a9-40ba-9e56-d1e015613a7e"
+        },
+        {
           "title": "Manhattan - A Century of Skyline",
-          "id": "dcae16bd-40bd-494e-bf2f-cfb378735257"
+          "id": "146eddc1-30af-4c8e-aa6f-a6569e663823"
         },
         {
           "title": "The Matterhorn in 3D",
-          "id": "1c5e021a-8ede-4ebe-a06c-92322208de45"
+          "id": "05633c96-8c7b-40c0-93eb-fe8f40212e23"
         },
         {
-          "title": "New York From Orbit - Sentinel-2, by Reference",
-          "id": "1c4207ab-b1c0-4309-9924-c1ea355003a3"
+          "title": "New York From Orbit - Sentinel-2",
+          "id": "71c658e5-d7c0-4b12-8bab-3b4ee6968cd5"
         }
       ],
-      "why": "index.html links these three under 'See what GeoLens itself builds'; no example loads them, so the browser sweep would never notice a reset dropping one. Restless Earth is the sharedMap fixture above."
+      "why": "index.html links these four under 'See what GeoLens itself builds'; no example loads them, so the browser sweep would never notice a reset dropping one."
     }
   }
 }

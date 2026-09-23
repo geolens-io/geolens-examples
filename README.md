@@ -10,11 +10,11 @@
 <p align="center">
   <a href="https://geolens-io.github.io/geolens-examples/search/catalog.html"><img src="assets/search-catalog.jpg" width="32%" alt="Semantic catalog search: the phrase 'every space rock ever recovered on this planet' matches the meteorite landings dataset, drawn on the map beside the result card" /></a>
   <a href="qgis/"><img src="assets/qgis-window.jpg" width="32%" alt="QGIS showing the demo's subway stations and lines over OGC API Features, and the Matterhorn DEM as XYZ tiles" /></a>
-  <a href="https://geolens-io.github.io/geolens-examples/embed/iframe.html"><img src="assets/embed-iframe.jpg" width="32%" alt="A saved GeoLens map, Restless Earth, embedded in an iframe on a plain page with its legend and styling intact" /></a>
+  <a href="embed/"><img src="assets/embed-iframe.jpg" width="32%" alt="A saved GeoLens map, Restless Earth, embedded in an iframe on a plain page with its legend and styling intact" /></a>
 </p>
 <p align="center"><em>Search the catalog by meaning, connect from desktop GIS, or embed a map, with the same self-hosted catalog and open APIs underneath.</em></p>
 
-- **[Live gallery](https://geolens-io.github.io/geolens-examples/)**: every browser example running, arranged by what you are trying to do. Open one before you clone anything.
+- **[Live gallery](https://geolens-io.github.io/geolens-examples/)**: every live browser example running, arranged by what you are trying to do. Open one before you clone anything.
 - **[Try GeoLens](https://demo.getgeolens.com/maps)**: the public demo these examples read. Its catalog and its saved maps open without an account.
 - **[Main repository](https://github.com/geolens-io/geolens)**: GeoLens itself, with the install script, the docs, and the issue tracker.
 
@@ -32,7 +32,7 @@ The table below is arranged by tool; the numbered steps here trace the platform 
 3. **Find them by meaning.** [`search/catalog.html`](search/catalog.html) asks the catalog for a phrase rather than a title. On your own instance semantic search is off until an admin adds an embedding provider, turns it on under Admin > Settings > AI, and runs the embedding backfill ([search guide](https://docs.getgeolens.com/guides/user/search/)).
 4. **Build a map.** Add layers from the catalog, style each one, set the viewport, save ([map builder guide](https://docs.getgeolens.com/guides/user/map-builder/)). The demo's [showcase maps](https://demo.getgeolens.com/maps) came in through the same maps API, by script rather than by hand.
 5. **Analyze on the server.** The builder's Analysis panel runs buffer, intersect, dissolve and five more operations in PostGIS and writes the result back to the catalog as a new dataset; all but dissolve preview on the map first ([analysis guide](https://docs.getgeolens.com/guides/user/analysis/)). The demo answers anonymous analysis calls with 401, so there is no live example here; [`python/analyze.py`](python/analyze.py) does a comparable spatial join client-side.
-6. **Publish or embed it.** A share link gives the map a stable `/m/<token>` URL, and `?embed=true` puts it in an iframe on a page that is not GeoLens: [`embed/iframe.html`](embed/iframe.html).
+6. **Publish or embed it.** A share link gives the map a stable `/m/<token>` URL, and `?embed=true` puts it in an iframe on a page that is not GeoLens: [`embed/iframe.html`](embed/iframe.html) (paused until the demo has a share link again, [#60](https://github.com/geolens-io/geolens-examples/issues/60)).
 7. **Read it back from anywhere.** The same catalog answers QGIS over OGC API Features ([`qgis/`](qgis/)), the Python SDK ([`python/sdk-catalog.py`](python/sdk-catalog.py)), the TypeScript SDK ([`typescript/catalog-map.html`](typescript/catalog-map.html)), leafmap and GeoPandas in a notebook ([`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb)), and plain SQL in DuckDB ([`duckdb/query.py`](duckdb/query.py)).
 
 ## Examples
@@ -51,20 +51,20 @@ The table below is arranged by tool; the numbered steps here trace the platform 
 | [`openlayers/imagery.html`](openlayers/imagery.html) | OpenLayers 10 | XYZ raster, and what `crossOrigin` costs you | [Live](https://geolens-io.github.io/geolens-examples/openlayers/imagery.html) |
 | [`leaflet/features.html`](leaflet/features.html) | Leaflet 1.9 | GeoJSON features straight into `L.geoJSON` | [Live](https://geolens-io.github.io/geolens-examples/leaflet/features.html) |
 | [`leaflet/imagery.html`](leaflet/imagery.html) | Leaflet 1.9 | Raster tiles as plain `<img>`, so no CORS needed | [Live](https://geolens-io.github.io/geolens-examples/leaflet/imagery.html) |
-| [`typescript/catalog-map.html`](typescript/catalog-map.html) | `@geolens/sdk` 1.17.0 + MapLibre | Catalog search, schema and freshness, then the tile link the collection advertises ([TypeScript SDK guide](https://docs.getgeolens.com/guides/sdk/typescript/)) | [Live](https://geolens-io.github.io/geolens-examples/typescript/catalog-map.html) |
+| [`typescript/catalog-map.html`](typescript/catalog-map.html) | `@geolens/sdk` 1.20.0 + MapLibre | Catalog search, schema and freshness, then the tile link the collection advertises ([TypeScript SDK guide](https://docs.getgeolens.com/guides/sdk/typescript/)) | [Live](https://geolens-io.github.io/geolens-examples/typescript/catalog-map.html) |
 | [`search/catalog.html`](search/catalog.html) | MapLibre GL JS 5.x + `fetch` | Semantic catalog search, narrowed to the map view, then drawn | [Live](https://geolens-io.github.io/geolens-examples/search/catalog.html) |
-| [`embed/iframe.html`](embed/iframe.html) | No library | A saved GeoLens map in an iframe, styling and legend intact | [Live](https://geolens-io.github.io/geolens-examples/embed/iframe.html) |
+| [`embed/iframe.html`](embed/iframe.html) | No library | A saved GeoLens map in an iframe, styling and legend intact | Paused until the demo has a share link again ([#60](https://github.com/geolens-io/geolens-examples/issues/60)) |
 | [`stac/browse.html`](stac/browse.html) | MapLibre GL JS 5.x | STAC item search over the map view, then the tile asset each item advertises | [Live](https://geolens-io.github.io/geolens-examples/stac/browse.html) |
 | [`python/analyze.py`](python/analyze.py) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | `uv run python/analyze.py` |
-| [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.17.0 (single-file `uv run` script) | SDK catalog search, schema semantics, a server-side CQL2 filter count, export into GeoPandas ([Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/)) | `uv run python/sdk-catalog.py` |
+| [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.20.0 (single-file `uv run` script) | SDK catalog search, schema semantics, a server-side CQL2 filter count, export into GeoPandas ([Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/)) | `uv run python/sdk-catalog.py` |
 | [`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb) | leafmap + GeoPandas (Jupyter notebook) | Catalog search, OGC API Features into GeoPandas, a CQL2 filter against the catalog, raster tiles baked by TiTiler | `uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/quickstart.ipynb` |
 | [`leafmap/samgeo.ipynb`](leafmap/samgeo.ipynb) | leafmap + samgeo (Jupyter notebook) | STAC item search by footprint, the two assets a by-reference import preserves, raster tiles, optional Segment Anything segmentation | `uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/samgeo.ipynb` |
-| [`mcp/`](mcp/) | Any MCP client via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant ([MCP server guide](https://docs.getgeolens.com/guides/sdk/mcp/)) | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.17.0` |
+| [`mcp/`](mcp/) | Any MCP client via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant ([MCP server guide](https://docs.getgeolens.com/guides/sdk/mcp/)) | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.20.0` |
 | [`qgis/`](qgis/) | QGIS 4.2 | OGC API Features + Records with CQL2, XYZ raster, tile-token auth | `https://demo.getgeolens.com/api/` |
 | [`duckdb/query.py`](duckdb/query.py) | DuckDB 1.5 + `spatial` (single-file `uv run` script) | One SQL join across the GeoParquet export and the Features API, with column pruning over HTTP ranges | `uv run duckdb/query.py` |
-| [`cli/`](cli/) | `geolens-cli` 1.17.0 | Catalog-as-code: offline `validate`, then `apply --dry-run` and `apply` against your instance | `uvx --from geolens-cli==1.17.0 geolens validate cli/geolens.yaml` |
+| [`cli/`](cli/) | `geolens-cli` 1.20.0 | Catalog-as-code: offline `validate`, then `apply --dry-run` and `apply` against your instance | `uvx --from geolens-cli==1.20.0 geolens validate cli/geolens.yaml` |
 
-Every browser row above is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted; a 200 response alone does not pass. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The embedded map is the exception: it renders seven layers GeoLens styles server-side, so CI proves the frame loaded and its tiles flowed, and does not check each layer. The three `uv run` scripts run green with one command each, and each asserts its own answers rather than just finishing. [`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb) and [`leafmap/samgeo.ipynb`](leafmap/samgeo.ipynb) are checked the same way, one level up: [`leafmap/verify.py`](leafmap/verify.py) and [`leafmap/verify_samgeo.py`](leafmap/verify_samgeo.py) each execute their own notebook headlessly and fail on the first cell that raises.
+Every browser row above with a Live link is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted; a 200 response alone does not pass. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The three `uv run` scripts run green with one command each, and each asserts its own answers rather than just finishing. [`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb) and [`leafmap/samgeo.ipynb`](leafmap/samgeo.ipynb) are checked the same way, one level up: [`leafmap/verify.py`](leafmap/verify.py) and [`leafmap/verify_samgeo.py`](leafmap/verify_samgeo.py) each execute their own notebook headlessly and fail on the first cell that raises.
 
 MapLibre examples also work with Mapbox GL JS with minimal changes (both consume the same MVT and raster sources).
 
@@ -91,7 +91,7 @@ These examples need **GeoLens v1.13.0 or newer**. Raster tiles only started send
 
 Dataset IDs and table names in these examples belong to the demo catalog. Against your own instance, list what's available at `/api/collections` and substitute your collection IDs. The demo gets reset from time to time, and a reset can change its dataset UUIDs, so treat the IDs hardcoded here as demo-specific rather than as part of any API.
 
-CI replays every example against the live demo on every pull request, on each push to `main`, and once a week on a schedule, so an ID that stops resolving turns the build red instead of quietly leaving you with a blank map. Those IDs are named once in [`ci/fixtures.json`](ci/fixtures.json) and probed before the browser sweep runs, so a reset shows up as a red preflight naming the dataset that moved rather than as every example failing at once.
+CI replays every example except the paused embed ([#60](https://github.com/geolens-io/geolens-examples/issues/60)) against the live demo on every pull request, on each push to `main`, and once a week on a schedule, so an ID that stops resolving turns the build red instead of quietly leaving you with a blank map. Those IDs are named once in [`ci/fixtures.json`](ci/fixtures.json) and probed before the browser sweep runs, so a reset shows up as a red preflight naming the dataset that moved rather than as every example failing at once.
 
 Anonymous cross-origin reads work with no setup: GeoLens answers the standards paths (`/api/collections`, `/api/stac`, conformance) with `Access-Control-Allow-Origin: *` as long as the request carries no credential. Send a credential and that wildcard is gone, so your page's origin has to be listed in the instance's `CORS_ALLOWED_ORIGINS`. A literal `*` there is rejected, since credentialed CORS requires explicit origins.
 
@@ -105,7 +105,7 @@ The demo is public, so none of these examples send a credential. On your own ins
 | A static XYZ/MVT URL template that cannot set headers | a signed tile token, scoped to one dataset and short-lived |
 | Public data, including everything in the demo | nothing |
 
-The header and the `?api_key=` query parameter carry the same key and grant the same access. Only the transport differs. The order GeoLens checks credentials in is documented in the [authentication guide](https://docs.getgeolens.com/guides/api/auth/) and implemented by `_resolve_api_key` and `get_optional_user` in `backend/app/modules/auth/dependencies.py`.
+The `?api_key=` query parameter carries the same key as the header, but from GeoLens 1.18.1 it only counts on `GET`, `HEAD` and `OPTIONS` requests. On anything else, a `POST` read such as `/api/stac/search` included, the key is treated as absent (`_supplied_api_key` in `backend/app/modules/auth/dependencies.py`, geolens#1845). The order GeoLens checks credentials in is documented in the [authentication guide](https://docs.getgeolens.com/guides/api/auth/) and implemented by `_resolve_api_key` and `get_optional_user` in the same file.
 
 Prefer the header. A key in a URL ends up in browser history, server access logs, every proxy log along the way, analytics, screenshots, and anything anyone copy-pastes, which is why GeoLens deprecated the query lane in geolens#821 and kept it only for clients that genuinely cannot set a header. Desktop GIS consuming an XYZ template is the case it exists for.
 
@@ -116,10 +116,10 @@ Do not put a long-lived API key in a static HTML file, and do not commit one. An
 `GET /api/tiles/token/<dataset_id>/` mints a token for a single dataset (the [tile endpoints reference](https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints) covers what a tile token is and why it is not an API key). A vector dataset returns `sig`, `exp`, and `scope` to append to the tile template; a raster dataset returns the whole `tile_url` with those already in the query string.
 
 ```bash
-curl https://demo.getgeolens.com/api/tiles/token/6f03bafa-34b3-4902-9351-40ce09a8181f/
+curl https://demo.getgeolens.com/api/tiles/token/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/
 # {"kind":"raster",
-#  "tile_url":"/raster-tiles/6f03.../tiles/{z}/{x}/{y}.png?sig=47a4...&exp=1786838400&scope=6f03...&v=1",
-#  "expires_in":530, ...}
+#  "tile_url":"/raster-tiles/d8fd.../tiles/{z}/{x}/{y}.png?sig=7031...&exp=1790127900&scope=d8fd...%3Ap0&v=1&pv=0",
+#  "expires_in":160, ...}
 ```
 
 `exp` is always a 15-minute boundary, usually the next one. When that boundary is under a minute away the mint skips to the following one instead, so a fresh token carries anywhere from 60 seconds to just under 16 minutes. Read `expires_in` off the response rather than assuming a fixed TTL. `POST /api/tiles/tokens/` mints up to 50 in one call for a multi-layer map.
@@ -128,7 +128,7 @@ Two properties decide whether this fits your page.
 
 Minting is itself authorized. A public, published dataset hands a token to anyone, which is why the `curl` above works signed out. A private one answers an anonymous mint with 401, so a page holding no credential cannot mint its own token and something server-side has to hold the key and pass tokens down. A scoped token does not remove the need for a credential. It keeps the credential out of the browser.
 
-Tokens expire and clients do not renew them on their own. MapLibre keeps requesting whatever template you handed it, so a page that stays open has to re-mint and reset the source URL before `exp` passes.
+Tokens expire and clients do not renew them on their own. MapLibre keeps requesting whatever template you handed it, so a page that stays open has to re-mint and reset the source URL before `exp` passes. From GeoLens 1.19.0 a token also stops working within a minute of its dataset being unpublished or made private, whatever time it had left ([tile endpoints](https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints)).
 
 `X-Embed-Token` is a different mechanism and not a substitute here. Embed tokens are minted per *map* by an authenticated owner, and the tile routes read them from the header only, so one cannot ride along in a URL template.
 
@@ -143,14 +143,14 @@ Use vector tiles when the dataset is large, when users pan and zoom across all o
 Every items response says which case you are in:
 
 ```bash
-curl "https://demo.getgeolens.com/api/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items?limit=2" \
+curl "https://demo.getgeolens.com/api/collections/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/items?limit=2" \
   | jq '{numberMatched, numberReturned}'
 # { "numberMatched": 496, "numberReturned": 2 }
 ```
 
 `numberMatched` is what the query found; `numberReturned` is what this page contains. When they differ you are holding a partial result, which is the signal that a one-shot fetch has truncated your data.
 
-It is not the signal that another page exists. Walk the stations collection at `limit=400` and the last page returns 96 of 496 matched, counts differing, with no `next` link on it. The `rel="next"` link is the authority: follow it until it stops appearing, and read the counts as a diagnostic rather than a loop condition. Paging is keyset-based (`after_gid=`), so rows do not shift under a reader mid-scan. `python/analyze.py` does exactly that in a few lines. [`maplibre/features-viewport.html`](maplibre/features-viewport.html) is the same guidance in a browser: it requests `bbox=<view>` on every settled view, follows `next`, cancels the walk a pan made stale, and stops at a per-view cap that says on screen when to switch to vector tiles.
+It is not the signal that another page exists. Walk the stations collection at `limit=400` and the last page returns 96 of 496 matched, counts differing, with no `next` link on it. The `rel="next"` link is the authority: follow it until it stops appearing, and read the counts as a diagnostic rather than a loop condition. Paging is keyset-based (`after_gid=`), so rows do not shift under a reader mid-scan. `python/analyze.py` does exactly that in a few lines. [`maplibre/features-viewport.html`](maplibre/features-viewport.html) is the same guidance in a browser: it requests `bbox=<view>` on every settled view, follows `next`, cancels the walk a pan made stale, and stops at a per-view cap that says on screen when to switch to vector tiles. From GeoLens 1.18.0 the counts can also be approximate: past 20,000 matches on a filtered request (`bbox`, a property filter or CQL2), `numberMatched` is the database's estimate and the response carries `X-GeoLens-Number-Matched: estimated` ([paging](https://docs.getgeolens.com/guides/api/ogc/#ogc-api---features)).
 
 ## License
 

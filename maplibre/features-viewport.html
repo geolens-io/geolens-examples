@@ -22,7 +22,7 @@
 <div id="hud">
   <strong>MapLibre GL JS — OGC API Features by viewport</strong>
   <p id="status" role="status">Loading meteorite landings for this view from the GeoLens demo…</p>
-  <p>Meteoritical Society via NASA Open Data · <a href="https://demo.getgeolens.com/datasets/6030c57b-ce37-4198-aa1e-be78e0950f53">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/features-viewport.html">source</a></p>
+  <p>Meteoritical Society via NASA Open Data · <a href="https://demo.getgeolens.com/datasets/c17f7df9-936e-4268-96d3-9e199fe04f81">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/features-viewport.html">source</a></p>
 </div>
 <script>
   // Point this at your own GeoLens instance to use your data. The demo is
@@ -42,7 +42,7 @@
   // that one page looks complete. This page asks for the current view
   // instead, `?bbox=<view>&limit=<page>`, and follows the paging links
   // until the server stops offering one.
-  const COLLECTION = "6030c57b-ce37-4198-aa1e-be78e0950f53";
+  const COLLECTION = "c17f7df9-936e-4268-96d3-9e199fe04f81";
 
   // The demo's largest page. Ask for more and the server clamps to this and
   // rewrites the `next` link to match, so a bigger number buys nothing. Your
@@ -142,6 +142,11 @@
     const features = [];
     let pages = 0;
     let matched = null; // summed per walk when the server states it; null when it never did
+    // From GeoLens 1.18.0 a filtered request (a bbox counts) matching over
+    // 20,000 rows reports the database's estimate and sets
+    // `X-GeoLens-Number-Matched: estimated`, which GeoLens exposes to
+    // cross-origin readers. The `next` links are unaffected.
+    let estimated = false;
     let capped = false;
     // A feature whose geometry touches both sides of the dateline comes back
     // from both walks; keep it once, by id.
@@ -184,6 +189,7 @@
           // server that omits it leaves the total unknown until the walk ends.
           if (first) {
             if (typeof page.numberMatched === "number") matched = (matched ?? 0) + page.numberMatched;
+            if (res.headers.get("X-GeoLens-Number-Matched") === "estimated") estimated = true;
             first = false;
           }
           // Take only what fits under the cap, so the page never holds more
@@ -245,7 +251,7 @@
       // feature the view matched, whatever the two counts looked like on the
       // way there.
       status.className = "capped";
-      const total = split || matched === null ? "more than that" : fmt(matched);
+      const total = split || matched === null ? "more than that" : `${estimated ? "about " : ""}${fmt(matched)}`;
       status.textContent = capped === "maybe"
         ? `Holding ${fmt(held)} after ${pages} pages: at the ${fmt(MAX_FEATURES)}-feature cap with the far side of the antimeridian not fully read, so there may be more. This is where vector tiles take over.`
         : `Holding ${fmt(held)} of ${total} matched after ${pages} pages: truncated at the ${fmt(MAX_FEATURES)}-feature cap for one view. This is where vector tiles take over.`;

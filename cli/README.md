@@ -43,7 +43,7 @@ nothing to install and no virtualenv to keep.
 ### `validate`: offline, no instance, no credential
 
 ```bash
-uvx --from geolens-cli==1.17.0 geolens validate cli/geolens.yaml
+uvx --from geolens-cli==1.20.0 geolens validate cli/geolens.yaml
 # Manifest valid: cli/geolens.yaml
 ```
 
@@ -56,7 +56,7 @@ path, which is what an editor wants for completion.
 ### `apply --dry-run`: reaches an instance, writes nothing
 
 ```bash
-uvx --from geolens-cli==1.17.0 geolens --json apply --dry-run cli/geolens.yaml
+uvx --from geolens-cli==1.20.0 geolens --json apply --dry-run cli/geolens.yaml
 ```
 
 The instance matches each entry to an existing dataset by `key`, fingerprints the rest, and answers
@@ -71,17 +71,20 @@ rather than an edit to an old one.
 ### `apply`: the write
 
 ```bash
-uvx --from geolens-cli==1.17.0 geolens --json apply cli/geolens.yaml
+uvx --from geolens-cli==1.20.0 geolens --json apply cli/geolens.yaml
 ```
 
 Same request without `dry_run`. Applying an unchanged entry skips rather than re-importing, so this
 is safe to run on every push. It reconciles *declared configuration*, though, not data: if a source
-URL serves new contents while the manifest is byte-identical, apply still skips it.
+URL serves new contents while the manifest is byte-identical, apply still skips it. From GeoLens
+1.18.0 a `vector` source can carry a `checksum` (`sha256:<digest>`) for that case. GeoLens never
+checks it against the file; changing it is what makes apply see an update
+([Manifest schema (v1)](https://docs.getgeolens.com/guides/cli/#manifest-schema-v1)).
 
 `geolens refresh <dataset-id>` re-pulls datasets that keep an upstream binding (a WFS/ArcGIS/OGC API
 Features service, a registered PostGIS table, a STAC item). A manifest source the server downloaded
-is an ordinary upload once ingested, so refresh refuses it; change the entry or its URI so apply sees
-an update.
+is an ordinary upload once ingested, so refresh refuses it; change a `vector` source's `checksum`,
+or its URI, so apply sees an update.
 
 ## Authenticating non-interactively
 
@@ -99,7 +102,7 @@ There is no `GEOLENS_API_KEY`. If an API key is what you have, the CLI takes one
 storage:
 
 ```bash
-echo "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.17.0 geolens login \
+echo "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.20.0 geolens login \
   https://geolens.example.com --api-key - --no-keyring
 ```
 
@@ -116,7 +119,7 @@ here cannot. Applying a manifest is a write, writes need a credential, and the d
 
 ```bash
 GEOLENS_INSTANCE=https://demo.getgeolens.com \
-  uvx --from geolens-cli==1.17.0 geolens apply --dry-run cli/geolens.yaml
+  uvx --from geolens-cli==1.20.0 geolens apply --dry-run cli/geolens.yaml
 # Error: Manifest apply request failed (401): Could not validate credentials
 ```
 
@@ -161,11 +164,13 @@ Three secrets:
 ## Editing the manifest
 
 Change titles, descriptions, tags and `publication.intent` freely; those are updates to the datasets
-their keys name. Keep `key` stable, or you get a new dataset next to the old one. See
+their keys name. Tags only accumulate, though: from GeoLens 1.19.1 they merge into the dataset's
+keywords, and one you drop from the manifest stays on the dataset until someone edits it there. Keep `key` stable,
+or you get a new dataset next to the old one. See
 [Manifest schema (v1)](https://docs.getgeolens.com/guides/cli/#manifest-schema-v1) for the full
 field list. Only one `sources` entry per dataset is allowed by the schema, and the source URI must
-end in something the ingest path recognises: `zip`, `gpkg`, `geojson`, `json`, `csv`, `xlsx` or
-`xls` for `vector`, and `tif` or `tiff` for `raster_cog`.
+end in something the ingest path recognises: `zip`, `gpkg`, `geojson`, `json`, `csv`, `xlsx`, `xls`,
+`fgb`, `kml` or `kmz` for `vector`, and `tif` or `tiff` for `raster_cog`.
 
 `publication.intent` is deliberately not a fixed enum. The valid values come from the workflow
 statuses your deployment defines, validated server-side when you apply. The community default runs

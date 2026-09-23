@@ -23,7 +23,7 @@
   <strong>MapLibre GL JS — PMTiles, no tile server</strong>
   <p id="status" role="status">Opening subway-lines.pmtiles…</p>
   <p id="freshness"></p>
-  <p>MTA via data.ny.gov · <a href="https://demo.getgeolens.com/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6">dataset</a> · <a href="pmtiles-live.html">live-URL variant</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/pmtiles.html">source</a></p>
+  <p>MTA via data.ny.gov · <a href="https://demo.getgeolens.com/datasets/39e1319e-54ad-4431-9efc-f5eef7910fdb">dataset</a> · <a href="pmtiles-live.html">live-URL variant</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/pmtiles.html">source</a></p>
 </div>
 <script>
   // The tiles on this page come from one static file, not from a server that
@@ -32,7 +32,7 @@
   // works because the dataset is public and published):
   //
   //   curl -o subway-lines.pmtiles \
-  //     "https://demo.getgeolens.com/api/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6/export?format=pmtiles"
+  //     "https://demo.getgeolens.com/api/datasets/39e1319e-54ad-4431-9efc-f5eef7910fdb/export?format=pmtiles"
   //
   // That is the whole story this example tells: export once, copy the file to
   // any static host, and GeoLens is out of the serving path. The 368 KB file
@@ -52,7 +52,7 @@
   //    protocol can read a live export URL directly instead of a copy —
   //    pmtiles-live.html is that variant.
   const GEOLENS = "https://demo.getgeolens.com";
-  const DATASET = "de602fbe-8b30-4755-924f-c9e7fd9613b6";
+  const DATASET = "39e1319e-54ad-4431-9efc-f5eef7910fdb";
   const FILE = "subway-lines.pmtiles";
 
   const status = document.getElementById("status");

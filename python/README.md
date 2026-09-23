@@ -35,7 +35,7 @@ Reading https://demo.getgeolens.com ...
   after dissolve           562.1 km   (coincident parts merged)
   measured in         EPSG:32618
 
-  ADA accessible             162   (33% of stations)
+  ADA accessible             163   (33% of stations)
   partly accessible            9
 
   stations by borough
@@ -125,10 +125,10 @@ Reading https://demo.getgeolens.com ...
                        GEOLENS CATALOG
 --------------------------------------------------------------
   asked for           'every space rock ever recovered on this planet'
-  matched                      2   records
+  matched                      1   record
 
   Meteorite Landings (Meteoritical Society)
-    id                6030c57b-ce37-4198-aa1e-be78e0950f53
+    id                c17f7df9-936e-4268-96d3-9e199fe04f81
     features              32,186   MULTIPOINT
     license           NASA open data (public domain)
 
@@ -209,7 +209,7 @@ reads the URL directly, no `/vsicurl/` prefix:
 
 ```bash
 ogr2ogr -f GPKG stations.gpkg \
-  "https://demo.getgeolens.com/api/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items?limit=2000" \
+  "https://demo.getgeolens.com/api/collections/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/items?limit=2000" \
   -nln stations
 ```
 
@@ -232,14 +232,14 @@ needs no conversion at all:
 
 ```bash
 curl -o stations.gpkg \
-  "https://demo.getgeolens.com/api/datasets/724bf894-dc1a-418c-abc6-555798c44d7c/export?format=gpkg"
+  "https://demo.getgeolens.com/api/datasets/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/export?format=gpkg"
 ```
 
 For the other formats (`geojson`, `parquet`, `shp`, `csv`), convert locally:
 
 ```bash
 curl -o lines.geojson \
-  "https://demo.getgeolens.com/api/datasets/de602fbe-8b30-4755-924f-c9e7fd9613b6/export?format=geojson"
+  "https://demo.getgeolens.com/api/datasets/39e1319e-54ad-4431-9efc-f5eef7910fdb/export?format=geojson"
 ogr2ogr -f GPKG lines.gpkg lines.geojson -nln subway_lines   # Feature Count: 29
 ```
 
@@ -249,7 +249,7 @@ with 405 and GDAL sat there waiting. It now answers 200 with `Accept-Ranges: byt
 and serves ranges as 206, so this opens in about two seconds:
 
 ```bash
-ogrinfo -so "/vsicurl/https://demo.getgeolens.com/api/datasets/724bf894-dc1a-418c-abc6-555798c44d7c/export?format=gpkg"
+ogrinfo -so "/vsicurl/https://demo.getgeolens.com/api/datasets/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/export?format=gpkg"
 ```
 
 GDAL warns that the URL carries no `.gpkg` extension, then opens it anyway. Against
@@ -271,9 +271,9 @@ itself is untested here, since the demo datasets are public and need no key.
 ## Pinned versions
 
 `analyze.py` pins `geopandas==1.1.4`, `httpx==0.28.1`, `matplotlib==3.11.1`,
-the current releases on 2026-08-28; `sdk-catalog.py` pins `geolens==1.17.0`,
+the current releases on 2026-08-28; `sdk-catalog.py` pins `geolens==1.20.0`,
 the current release, and `geopandas==1.1.4`. `sdk-catalog.py` was re-run
-against the live demo (serving 1.17.0) on 2026-08-30.
+against the live demo (serving 1.20.0) on 2026-09-22.
 `requires-python = ">=3.11"` comes from matplotlib 3.11, the strictest
 floor of the set.
 

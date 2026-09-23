@@ -22,7 +22,7 @@
 <div id="hud">
   <strong>Leaflet — raster tiles</strong>
   <p id="status" role="status">Loading the swissALTI3D Matterhorn DEM from the GeoLens demo…</p>
-  <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/6f03bafa-34b3-4902-9351-40ce09a8181f">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/leaflet/imagery.html">source</a></p>
+  <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/d8fd56a9-d12f-4dbb-af8b-81a7289fc600">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/leaflet/imagery.html">source</a></p>
 </div>
 <script>
   // Point this at your own GeoLens instance to use your data.
@@ -31,15 +31,18 @@
   // Every raster dataset in GeoLens is served as XYZ tiles. Read the exact
   // template from the dataset's collection metadata (the "tiles" link on
   // /api/collections/<dataset_id>) rather than hand-building it — the link
-  // carries the .png extension and a cache-version query the server expects:
-  //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>
+  // carries the .png extension and two cache keys: `v`, the content version,
+  // and from GeoLens 1.19.0 `pv`, the publication version, which changes with
+  // the dataset's publication status or visibility
+  // (https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints):
+  //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>&pv=<n>
   // For a private dataset, mint a scoped token from
   // GET /api/tiles/token/<dataset_id>/ and use the tile_url it returns. It
   // carries sig, exp and scope, covers that one dataset, and expires on a
   // 15-minute boundary, so between 1 and 16 minutes from now; read expires_in
   // rather than assuming a TTL. A pasted api_key does none of that. See
   // "Authenticating against your own instance" in the README.
-  const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
+  const DEM = "d8fd56a9-d12f-4dbb-af8b-81a7289fc600"; // swissALTI3D Matterhorn DEM
 
   const map = L.map("map").setView([45.9763, 7.6586], 12); // Matterhorn; [lat, lng]
 
@@ -52,7 +55,7 @@
   // Reading pixels back is where it matters here: `crossOrigin: true` below,
   // or getImageData() on a canvas these tiles were drawn into, both need the
   // header and both fail against a pre-1.13.0 instance.
-  const tiles = L.tileLayer(`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`, {
+  const tiles = L.tileLayer(`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1&pv=0`, {
     tileSize: 256,
     maxZoom: 20,
   }).addTo(map);

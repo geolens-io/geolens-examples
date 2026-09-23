@@ -30,9 +30,9 @@ print("QGIS", Qgis.QGIS_VERSION)
 
 GEOLENS = "https://demo.getgeolens.com"
 API = GEOLENS + "/api/"  # keep the slash: bare /api answers with a redirect QGIS cannot follow
-LINES = "de602fbe-8b30-4755-924f-c9e7fd9613b6"
-STATIONS = "724bf894-dc1a-418c-abc6-555798c44d7c"
-DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"
+LINES = "39e1319e-54ad-4431-9efc-f5eef7910fdb"
+STATIONS = "4e7cba4c-4caa-4609-b5c4-3c6cd252697c"
+DEM = "d8fd56a9-d12f-4dbb-af8b-81a7289fc600"
 
 def oapif(collection_id, name):
     return QgsVectorLayer(f"url='{API}' typename='{collection_id}' pagingEnabled='true'", name, "OAPIF")

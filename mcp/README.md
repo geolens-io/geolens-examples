@@ -25,7 +25,7 @@ The server is on PyPI, so `uvx` fetches and runs it on demand; there is nothing 
 Python 3.11 or newer. Every example below points at the public demo instance, which serves its
 catalog anonymously, so you can paste any of them as-is and have working tools in about a minute.
 
-Every example also pins `geolens-mcp@1.17.0`, the current release and the version the demo reports.
+Every example also pins `geolens-mcp@1.20.0`, the current release and the version the demo reports.
 The package ships with each GeoLens release, so the version to run is the one matching your
 instance. See [Things that will bite you](#things-that-will-bite-you) for how to move off the pin.
 
@@ -84,12 +84,13 @@ stale instead of quietly answering from it.
 
 **3. Ask a spatial question.** Exercises `search_datasets`, then `get_features` with a bbox.
 
-> How many NYC parcels fall inside the bounding box -74.02,40.70,-74.00,40.72, and show me two of
-> them with their block and lot numbers.
+> How many Manhattan buildings fall inside the bounding box -74.02,40.70,-74.00,40.72? Show me
+> two of them with their roof height and the year they were built.
 
 The bbox is `minx,miny,maxx,maxy` in WGS84 regardless of the dataset's own SRID. Responses are
 capped by `limit` and paged with `offset`, so the assistant reads a bounded sample rather than dragging
-43,000 parcels through the context window. Raster datasets have no features and will error here.
+22,000 building footprints through the context window. Raster datasets have no features and will
+error here.
 
 **4. Inventory the saved maps.** Exercises `list_maps`.
 
@@ -112,11 +113,10 @@ limits are in [Using query](https://docs.getgeolens.com/guides/sdk/mcp/#using-qu
 
 ## How it actually behaves
 
-Captured on 2026-08-14 by driving the wheel `geolens-mcp` published as version 1.13.0 over stdio
-with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported
-itself healthy at 1.13.0; the tool set is unchanged in 1.17.0). Output is real and trimmed for width.
-The ids and counts below are whatever the demo held at capture time; read the transcript for
-shape, not for literal values.
+Captured on 2026-09-22 by driving the wheel `geolens-mcp` published as version 1.20.0 over stdio
+with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported itself
+healthy at 1.20.0). Output is real and trimmed for width. The ids and counts below are whatever the demo held at capture time;
+read the transcript for shape, not for literal values.
 
 Tool discovery, straight after `initialize`:
 
@@ -130,24 +130,25 @@ Tool discovery, straight after `initialize`:
 - query: Run one read-only SQL SELECT against accessible datasets.
 ```
 
-`search_datasets(query="new york city parcels", limit=3)` returns a GeoJSON FeatureCollection where
-each feature is a dataset record. The feature `id` is the dataset id you pass to every other tool:
+`search_datasets(query="new york city buildings", limit=3)` returns a GeoJSON FeatureCollection
+where each feature is a dataset record. The feature `id` is the dataset id you pass to every other
+tool:
 
 ```json
-{ "numberMatched": 5, "numberReturned": 3 }
+{ "numberMatched": 4, "numberReturned": 3 }
 
-{ "id": "4657a40c-8d91-4436-9b0e-9759d377fbd0", "title": "MNMAP_PLUTO",
+{ "id": "a0fce5fd-3ab1-496a-a8c6-97bbb53e48f9", "title": "Manhattan Building Heights",
   "record_type": "vector_dataset", "source_freshness": "unknown",
-  "feature_count": 43068 }
-{ "id": "de602fbe-8b30-4755-924f-c9e7fd9613b6", "title": "NYC Subway Lines (MTA)",
+  "feature_count": 22325 }
+{ "id": "4e7cba4c-4caa-4609-b5c4-3c6cd252697c", "title": "NYC Subway Stations (MTA)",
+  "record_type": "vector_dataset", "feature_count": 496 }
+{ "id": "39e1319e-54ad-4431-9efc-f5eef7910fdb", "title": "NYC Subway Lines (MTA)",
   "record_type": "vector_dataset", "feature_count": 29 }
-{ "id": "0fa6ca98-8c21-4dd0-8b1c-1241050f10fc", "title": "Manhattan Building Heights",
-  "record_type": "vector_dataset", "feature_count": 22324 }
 ```
 
 `get_dataset_schema` on the subway dataset. Note `srid` and `table_name`, and that `column_info`
-carries optional slots (`semantic_role`, `sample_values`, `stats`) that are null unless the instance
-has profiled the dataset:
+carries optional slots (`semantic_role`, `domain_type`, `sample_values`, `stats`) that are null unless
+the instance has profiled the dataset:
 
 ```json
 { "title": "NYC Subway Lines (MTA)", "geometry_type": "MULTILINESTRING",
@@ -163,43 +164,46 @@ has profiled the dataset:
 
 "column_info": [
   { "name": "service", "type": "character varying", "semantic_role": null,
-    "sample_values": null, "stats": null },
+    "domain_type": null, "sample_values": null, "stats": null },
   { "name": "service_name", "type": "character varying", "semantic_role": null,
-    "sample_values": null, "stats": null }
+    "domain_type": null, "sample_values": null, "stats": null }
 ]
 ```
 
-`get_features` on the parcel dataset with `bbox="-74.02,40.70,-74.00,40.72"` and `limit=2`. The
-`numberMatched` count is what makes this answerable. 1,358 of the 43,068 parcels fall in that box,
+`get_features` on the buildings dataset with `bbox="-74.02,40.70,-74.00,40.72"` and `limit=2`. The
+`numberMatched` count is what makes this answerable. 1,422 of the 22,325 buildings fall in that box,
 and the assistant learns that without reading them:
 
 ```json
-{ "type": "FeatureCollection", "numberMatched": 1358, "numberReturned": 2 }
+{ "type": "FeatureCollection", "numberMatched": 1422, "numberReturned": 2 }
 
-{ "id": 1, "geometry": { "type": "MultiPolygon", … },
-  "properties": { "cd": 101, "bbl": 1000257501, "lot": 7501, "block": 25, … } }
+{ "id": 47, "geometry": { "type": "MultiPolygon", … },
+  "properties": { "height_roof": 147, "construction_year": 1920, "era": "1900-1929", … } }
+{ "id": 48, "geometry": { "type": "MultiPolygon", … },
+  "properties": { "height_roof": 56.83, "construction_year": 1839, "era": "Pre-1900", … } }
 ```
 
-Each parcel carries 85 property keys, which is a good argument for keeping `limit` small.
+Each building carries nine property keys. A wider dataset makes a stronger case for keeping `limit`
+small, since every key of every feature lands in the context window.
 
 The full chain from prompt 5, four calls end to end:
 
 ```
 1. list_maps(search="hurricane exposure")
-   → "Hurricane Exposure - Which Coasts the Major Storms Reach"  c072d473-…
-2. get_map("c072d473-…")
-   → 3 layers → dataset ids caf6b9c8-…, c5fe3ee9-…, 13039dea-…
-3. get_dataset_schema("caf6b9c8-…")
+   → "Hurricane Exposure - Which Coasts the Major Storms Reach"  6a33241c-…
+2. get_map("6a33241c-…")
+   → 3 layers → dataset ids 45f93e29-…, 65f399d2-…, a3cc6ee2-…
+3. get_dataset_schema("45f93e29-…")
    → "Hurricane Exposure by Coastal Region", MULTIPOLYGON, 289 features,
      columns: region, source_count
-   get_dataset_schema("c5fe3ee9-…")
+   get_dataset_schema("65f399d2-…")
    → "Major Hurricane Tracks (Cat 3+ legs, one per storm)", MULTILINESTRING,
      202 features, columns: name, season, peak_wind_kt, peak_category,
      major_legs, landfall
-   get_dataset_schema("13039dea-…")
+   get_dataset_schema("a3cc6ee2-…")
    → "Atlantic Basin Regions (Natural Earth admin-1)", MULTIPOLYGON,
      480 features, columns: region, country
-4. get_features("caf6b9c8-…", limit=3)
+4. get_features("45f93e29-…", limit=3)
    → numberMatched: 289
      { "region": "Acklins",  "source_count": 7 }
      { "region": "Alabama",  "source_count": 8 }
@@ -211,7 +215,7 @@ And the honest failure. Anonymous `query` is refused, exactly as documented:
 ```
 query(sql="SELECT 1 AS n", restrict_tables=["nonexistent"], row_limit=1)
 → isError: True
-  GeoLens API 401 for /query/: Could not validate credentials
+  Error executing tool query: GeoLens API 401 for /query/: Could not validate credentials
 ```
 
 Bad ids are rejected client-side before any request goes out, which is worth knowing because it is a
@@ -220,7 +224,7 @@ different error than a 404:
 ```
 get_features(dataset_id="not-a-uuid")
 → isError: True
-  Invalid id (expected a UUID): 'not-a-uuid'
+  Error executing tool get_features: Invalid id (expected a UUID): 'not-a-uuid'
 ```
 
 ## Things that will bite you

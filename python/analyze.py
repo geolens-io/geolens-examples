@@ -70,8 +70,8 @@ BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_INSTANCE") or "https://d
 
 # Collection ids are dataset UUIDs. Find them at GET /api/collections, or in
 # the web UI under a dataset's "Share / API" panel.
-LINES_ID = ARGS[1] if len(ARGS) == 3 else "de602fbe-8b30-4755-924f-c9e7fd9613b6"
-STATIONS_ID = ARGS[2] if len(ARGS) == 3 else "724bf894-dc1a-418c-abc6-555798c44d7c"
+LINES_ID = ARGS[1] if len(ARGS) == 3 else "39e1319e-54ad-4431-9efc-f5eef7910fdb"
+STATIONS_ID = ARGS[2] if len(ARGS) == 3 else "4e7cba4c-4caa-4609-b5c4-3c6cd252697c"
 
 # Public datasets need no credentials. For a private dataset, send an API key
 # in the X-Api-Key header. GeoLens also accepts ?api_key= in the query string,
