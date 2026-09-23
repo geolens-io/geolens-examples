@@ -21,7 +21,7 @@
 <div id="hud">
   <strong>MapLibre GL JS — raster tiles</strong>
   <p id="status" role="status">Loading the swissALTI3D Matterhorn DEM from the GeoLens demo…</p>
-  <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/6f03bafa-34b3-4902-9351-40ce09a8181f">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/imagery.html">source</a></p>
+  <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/d8fd56a9-d12f-4dbb-af8b-81a7289fc600">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/imagery.html">source</a></p>
 </div>
 <script>
   // MapLibre fetches tiles CORS-mode for its WebGL textures, so the server
@@ -43,9 +43,12 @@
   // Every raster dataset in GeoLens is served as XYZ tiles. Read the exact
   // template from the dataset's collection metadata (the "tiles" link on
   // /api/collections/<dataset_id>) rather than hand-building it — the link
-  // carries the .png extension and a cache-version query the server expects:
-  //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>
-  const DEM = "6f03bafa-34b3-4902-9351-40ce09a8181f"; // swissALTI3D Matterhorn DEM
+  // carries the .png extension and two cache keys: `v`, the content version,
+  // and from GeoLens 1.19.0 `pv`, the publication version, which changes with
+  // the dataset's publication status or visibility
+  // (https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints):
+  //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>&pv=<n>
+  const DEM = "d8fd56a9-d12f-4dbb-af8b-81a7289fc600"; // swissALTI3D Matterhorn DEM
 
   const map = new maplibregl.Map({
     container: "map",
@@ -56,7 +59,7 @@
       sources: {
         dem: {
           type: "raster",
-          tiles: [`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1`],
+          tiles: [`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1&pv=0`],
           tileSize: 256,
         },
       },

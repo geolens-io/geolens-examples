@@ -16,6 +16,13 @@ durable, not permanent: it would stop working if anyone revoked it or the demo
 map were rebuilt from scratch. If you see GeoLens's "Map not found" card where
 the map should be, that is what happened, and the code is fine.
 
+> **Paused.** The demo was rebuilt from scratch on 2026-09-13 and the link went
+> with it, so `iframe.html` shows that card and CI no longer loads it
+> ([#60](https://github.com/geolens-io/geolens-examples/issues/60)). Minting a
+> new link takes the map owner's credentials, which this repo does not hold.
+> The CI check described next is off until #60 closes; the rest of this page
+> still describes how the embed works.
+
 CI loads this page against the live demo on pull requests, on pushes to `main`,
 and on a weekly schedule, and fails if the frame stops rendering the map. So a
 revoked link surfaces as a red build rather than as a blank box someone

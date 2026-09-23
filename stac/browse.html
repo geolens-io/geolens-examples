@@ -75,8 +75,8 @@
   // /api/stac/ advertises search, collections and conformance; the endpoint
   // list and the same search from pystac-client are in the docs:
   // https://docs.getgeolens.com/guides/api/ogc/#stac-10
-  // (GeoLens items carry one asset, `raster_tiles`, not `data`; see draw()
-  // below).
+  // (Every GeoLens item carries `raster_tiles`, which is what this page draws;
+  // see draw() below.)
   //
   // The demo honours bbox, collections, datetime and limit on GET, and takes
   // the same query as JSON over POST. An item's time can arrive two ways: a
@@ -307,15 +307,19 @@
   });
 
   // What an asset is: a pointer to the actual bytes, keyed by a name the
-  // publisher chooses. GeoLens publishes one per item, `raster_tiles`, and its
-  // href is an XYZ template rather than a file, because GeoLens serves rasters
-  // as tiles cut per request. The item is the catalog entry that tells you
-  // where they live; the ?v= on the end is the cache version the server put
-  // there, so pass the href through unchanged instead of rebuilding it.
+  // publisher chooses. Every GeoLens item has `raster_tiles`, and its href is
+  // an XYZ template rather than a file, because GeoLens serves rasters as
+  // tiles cut per request. The item is the catalog entry that tells you where
+  // they live; the ?v=&pv= on the end is the cache key the server put there,
+  // so pass the href through unchanged instead of rebuilding it.
   //
-  // These items advertise no COG or GeoTIFF asset, so the other half of the
-  // usual STAC workflow — read a window of pixels, compute an index — has
-  // nothing to read here. That needs an item whose assets include the raw file.
+  // From GeoLens 1.16.1 an item imported by reference from another STAC
+  // catalog, like the Sentinel-2 scenes here, also keeps that catalog's `data`
+  // asset: the original COG, where it already lives. That COG is what the rest
+  // of the usual STAC workflow reads (a pixel window, an index), and
+  // leafmap/samgeo.ipynb reads it. An uploaded raster's other assets depend on
+  // whether the instance stores files locally or on S3; the STAC section of
+  // the docs linked at the top lists them.
   const clearRaster = () => {
     if (map.getLayer("item-raster")) map.removeLayer("item-raster");
     if (map.getSource("item-raster")) map.removeSource("item-raster");

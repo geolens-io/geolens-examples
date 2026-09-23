@@ -327,21 +327,21 @@
     </p>
     <ul>
       <li>
-        <a href="https://demo.getgeolens.com/m/NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU">Restless Earth</a>.
+        <a href="https://demo.getgeolens.com/maps/ca1c9bb8-01a9-40ba-9e56-d1e015613a7e">Restless Earth</a>.
         Seven layers: 30 days of USGS earthquakes, 6,000 years of deadly eruptions, plate
         boundaries, ETOPO relief.
       </li>
       <li>
-        <a href="https://demo.getgeolens.com/maps/dcae16bd-40bd-494e-bf2f-cfb378735257">Manhattan - A Century of Skyline</a>.
+        <a href="https://demo.getgeolens.com/maps/146eddc1-30af-4c8e-aa6f-a6569e663823">Manhattan - A Century of Skyline</a>.
         Every building extruded to its surveyed roof height, coloured by the era it was built.
       </li>
       <li>
-        <a href="https://demo.getgeolens.com/maps/1c5e021a-8ede-4ebe-a06c-92322208de45">The Matterhorn in 3D</a>.
+        <a href="https://demo.getgeolens.com/maps/05633c96-8c7b-40c0-93eb-fe8f40212e23">The Matterhorn in 3D</a>.
         62 cloud-optimized GeoTIFFs of swisstopo 2 m lidar mosaicked into one VRT, with the
         climbing routes from OSM.
       </li>
       <li>
-        <a href="https://demo.getgeolens.com/maps/1c4207ab-b1c0-4309-9924-c1ea355003a3">New York From Orbit</a>.
+        <a href="https://demo.getgeolens.com/maps/71c658e5-d7c0-4b12-8bab-3b4ee6968cd5">New York From Orbit</a>.
         Sentinel-2 scenes read by reference from the AWS open-data archive, nothing downloaded.
       </li>
     </ul>
@@ -406,7 +406,7 @@
   //             Still two copies, now with a guard: ci/verify-examples.mjs
   //             fails the build if a command here matches no README row, or a
   //             README row's command matches no card here (#16).
-  //   thumb     screenshot in .github/assets, or use `snippet` for a text panel
+  //   thumb     screenshot in assets/, or use `snippet` for a text panel
   //   datasets  demo catalog deep links, https://demo.getgeolens.com/datasets/<id>
   // ---------------------------------------------------------------------------
   const AUDIENCES = [
@@ -440,12 +440,11 @@
   };
 
   const REPO = "https://github.com/geolens-io/geolens-examples/blob/main/";
-  const LINES = ["Subway lines", "de602fbe-8b30-4755-924f-c9e7fd9613b6"];
-  const STATIONS = ["Subway stations", "724bf894-dc1a-418c-abc6-555798c44d7c"];
-  const DEM = ["Matterhorn DEM", "6f03bafa-34b3-4902-9351-40ce09a8181f"];
-  const METEORITES = ["Meteorite landings", "6030c57b-ce37-4198-aa1e-be78e0950f53"];
-  const FALLS = ["Meteorite observed falls", "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1"];
-  const SENTINEL = ["Sentinel-2 tile, by reference", "20683d4a-a531-4dab-ba80-c24e6d49ef76"];
+  const LINES = ["Subway lines", "39e1319e-54ad-4431-9efc-f5eef7910fdb"];
+  const STATIONS = ["Subway stations", "4e7cba4c-4caa-4609-b5c4-3c6cd252697c"];
+  const DEM = ["Matterhorn DEM", "d8fd56a9-d12f-4dbb-af8b-81a7289fc600"];
+  const METEORITES = ["Meteorite landings", "c17f7df9-936e-4268-96d3-9e199fe04f81"];
+  const SENTINEL = ["Sentinel-2 tile, by reference", "bf1a8df1-5e8f-4f75-9547-038343f37a97"];
 
   const EXAMPLES = [
     {
@@ -476,7 +475,7 @@
       address: "/api/datasets/{id}/export?format=pmtiles",
       thumb: "assets/maplibre-pmtiles-live.jpg",
       live: "maplibre/pmtiles-live.html", source: "maplibre/pmtiles-live.html",
-      datasets: [FALLS],
+      datasets: [STATIONS],
     },
     {
       audience: "web-developer", group: "features", tool: "MapLibre GL JS 5",
@@ -573,8 +572,8 @@
       title: "Catalog tools in an MCP client",
       blurb: "A read-only MCP server exposing catalog search, dataset schemas, bounded features, saved maps, and one sandboxed SQL SELECT. Works with Claude Code, Claude Desktop, Cursor, Codex, or any MCP client. The discovery tools need no credential.",
       tag: "MCP", kind: "tooling",
-      address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.17.0",
-      snippet: "<b>&gt;</b> Which datasets cover NYC parcels?\n\n  search_datasets → 3 returned\n    MNMAP_PLUTO                 43,068\n    Manhattan Building Heights  22,324",
+      address: "claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.20.0",
+      snippet: "<b>&gt;</b> Which datasets cover NYC buildings?\n\n  search_datasets → 3 returned\n    Manhattan Building Heights  22,325\n    NYC Subway Stations (MTA)      496",
       source: "mcp/README.md",
       docs: ["Setup and transcript", "https://github.com/geolens-io/geolens-examples/tree/main/mcp"],
       datasets: [], catalog: true,
@@ -607,7 +606,7 @@
       blurb: "Find a Sentinel-2 tile by footprint over STAC, read the two assets a by-reference import preserves (GeoLens's own tiles and the untouched origin COG), and hand the tile layer to samgeo for Segment Anything. leafmap and samgeo are both opengeos projects.",
       tag: "STAC", kind: "raster",
       address: "uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/samgeo.ipynb",
-      snippet: "1 STAC item(s) over [-74.05, 40.68, -73.95, 40.75]:\n  20683d4a-a531-4dab-ba80-c24e6d49ef76  'Sentinel-2 TCI S2B_T18TWL_20260812T155330_L2A'\ndata (the origin catalog's own COG, untouched):\n  https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/...TCI.tif",
+      snippet: "1 STAC item(s) over [-74.05, 40.68, -73.95, 40.75]:\n  bf1a8df1-5e8f-4f75-9547-038343f37a97  'Sentinel-2 TCI S2A_T18TWL_20260829T155705_L2A'\ndata (the origin catalog's own COG, untouched):\n  https://e84-earth-search-sentinel-data.s3.us-west-2.amazonaws.com/...TCI.tif",
       source: "leafmap/samgeo.ipynb",
       docs: ["Walkthrough and verification", "https://github.com/geolens-io/geolens-examples/tree/main/leafmap"],
       datasets: [SENTINEL],
@@ -644,7 +643,7 @@
       datasets: [],
     },
     {
-      audience: "web-developer", group: "search", tool: "@geolens/sdk 1.17.0 · MapLibre",
+      audience: "web-developer", group: "search", tool: "@geolens/sdk 1.20.0 · MapLibre",
       title: "Catalog to map with the SDK",
       blurb: "Searches the catalog, shows what it knows that a tile URL cannot — origin, freshness, schema — then adds the layer using the tile template the collection advertises. No dataset id or table name is written into this page.",
       tag: "TypeScript SDK", kind: "vector",
@@ -656,15 +655,16 @@
     {
       audience: "web-developer", group: "embed", tool: "No library",
       title: "A saved map, embedded",
-      blurb: "The map you styled in the builder, in an iframe on a page that is not GeoLens. It renders itself, so the styling, legend and popups survive. A share token makes a public map reachable without a login.",
+      blurb: "The map you styled in the builder, in an iframe on a page that is not GeoLens. It renders itself, so the styling, legend and popups survive. A share token makes a public map reachable without a login. Paused: the 2026-09-13 demo reset removed this map's share token.",
       tag: "Embed", kind: "tooling",
       address: "/m/{shareToken}?embed=true",
       thumb: "assets/embed-iframe.jpg",
-      live: "embed/iframe.html", source: "embed/iframe.html",
+      source: "embed/iframe.html",
+      docs: ["Why it is paused", "https://github.com/geolens-io/geolens-examples/issues/60"],
       datasets: [],
     },
     {
-      audience: "data-scientist", tool: "geolens 1.17.0 · single-file uv script",
+      audience: "data-scientist", tool: "geolens 1.20.0 · single-file uv script",
       title: "Catalog to GeoPandas with the SDK",
       blurb: "Searches the catalog, reads a dataset's schema as GeoLens understands it — label, categorical, measure, temporal — counts a CQL2 filter on the OGC items route, and exports the same server-filtered rows straight into a GeoDataFrame.",
       tag: "Python SDK", kind: "vector",
@@ -675,11 +675,11 @@
       datasets: [],
     },
     {
-      audience: "data-engineer", tool: "geolens-cli 1.17.0",
+      audience: "data-engineer", tool: "geolens-cli 1.20.0",
       title: "A catalog declared in Git",
       blurb: "A geolens.yaml naming datasets, their sources and their metadata, reconciled onto an instance by geolens apply. Each entry has a stable key, so re-applying an unchanged one skips instead of importing a second copy.",
       tag: "CLI", kind: "tooling",
-      address: "uvx --from geolens-cli==1.17.0 geolens validate cli/geolens.yaml",
+      address: "uvx --from geolens-cli==1.20.0 geolens validate cli/geolens.yaml",
       snippet: "<b>$</b> geolens validate cli/geolens.yaml\n  Manifest valid: cli/geolens.yaml\n\n<b>$</b> geolens --json apply --dry-run\n  ne-110m-countries          create\n  ne-110m-populated-places   create",
       source: "cli/README.md",
       docs: ["Manifest and CI workflow", "https://github.com/geolens-io/geolens-examples/tree/main/cli"],

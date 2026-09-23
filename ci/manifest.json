@@ -11,8 +11,8 @@
     "path": "maplibre/features.html",
     "wait": 8000,
     "requireUrls": [
-      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
-      "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
+      "/collections/39e1319e-54ad-4431-9efc-f5eef7910fdb/items",
+      "/collections/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/items"
     ],
     "minDataResponses": 2,
     "requireColors": [
@@ -24,7 +24,7 @@
     "path": "maplibre/imagery.html",
     "wait": 8000,
     "requireUrls": [
-      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+      "/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/"
     ],
     "minDataResponses": 4
   },
@@ -32,8 +32,8 @@
     "path": "arcgis-js/features.html",
     "wait": 20000,
     "requireUrls": [
-      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
-      "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
+      "/collections/39e1319e-54ad-4431-9efc-f5eef7910fdb/items",
+      "/collections/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/items"
     ],
     "minDataResponses": 2,
     "requireColors": [
@@ -45,7 +45,7 @@
     "path": "arcgis-js/imagery.html",
     "wait": 20000,
     "requireUrls": [
-      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+      "/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/"
     ],
     "minDataResponses": 4
   },
@@ -53,8 +53,8 @@
     "path": "leaflet/features.html",
     "wait": 8000,
     "requireUrls": [
-      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
-      "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
+      "/collections/39e1319e-54ad-4431-9efc-f5eef7910fdb/items",
+      "/collections/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/items"
     ],
     "minDataResponses": 2,
     "requireColors": [
@@ -66,7 +66,7 @@
     "path": "leaflet/imagery.html",
     "wait": 8000,
     "requireUrls": [
-      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+      "/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/"
     ],
     "minDataResponses": 4
   },
@@ -74,8 +74,8 @@
     "path": "openlayers/features.html",
     "wait": 8000,
     "requireUrls": [
-      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items",
-      "/collections/724bf894-dc1a-418c-abc6-555798c44d7c/items"
+      "/collections/39e1319e-54ad-4431-9efc-f5eef7910fdb/items",
+      "/collections/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/items"
     ],
     "minDataResponses": 2,
     "requireColors": [
@@ -87,7 +87,7 @@
     "path": "openlayers/imagery.html",
     "wait": 8000,
     "requireUrls": [
-      "/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/"
+      "/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/"
     ],
     "minDataResponses": 4
   },
@@ -99,14 +99,6 @@
       "/api/tiles/data."
     ],
     "minDataResponses": 3
-  },
-  {
-    "path": "embed/iframe.html",
-    "wait": 24000,
-    "requireUrls": [
-      "/m/NDuwpSJc3yx4Exic5Na48xO-8bpjWiaIofJefpjqfbU"
-    ],
-    "minDataResponses": 10
   },
   {
     "path": "stac/browse.html",
@@ -131,7 +123,7 @@
     "path": "maplibre/features-viewport.html",
     "wait": 10000,
     "requireUrls": [
-      "/collections/6030c57b-ce37-4198-aa1e-be78e0950f53/items"
+      "/collections/c17f7df9-936e-4268-96d3-9e199fe04f81/items"
     ],
     "minDataResponses": 3,
     "requireColors": [
@@ -142,7 +134,7 @@
     "path": "maplibre/pmtiles.html",
     "wait": 8000,
     "requireUrls": [
-      "/collections/de602fbe-8b30-4755-924f-c9e7fd9613b6/items"
+      "/collections/39e1319e-54ad-4431-9efc-f5eef7910fdb/items"
     ],
     "minDataResponses": 1
   },
@@ -150,8 +142,8 @@
     "path": "maplibre/pmtiles-live.html",
     "wait": 8000,
     "requireUrls": [
-      "/api/datasets/dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1/export?format=pmtiles",
-      "/collections/dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1/items"
+      "/api/datasets/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/export?format=pmtiles",
+      "/collections/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/items"
     ],
     "minDataResponses": 1
   }

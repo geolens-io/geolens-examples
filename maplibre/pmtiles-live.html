@@ -23,7 +23,7 @@
   <strong>MapLibre GL JS — PMTiles from a live export URL</strong>
   <p id="status" role="status">Opening the live export…</p>
   <p id="freshness"></p>
-  <p>Meteoritical Society via NASA Open Data · <a href="https://demo.getgeolens.com/datasets/dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1">dataset</a> · <a href="pmtiles.html">committed-file variant</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/pmtiles-live.html">source</a></p>
+  <p>MTA via data.ny.gov · <a href="https://demo.getgeolens.com/datasets/4e7cba4c-4caa-4609-b5c4-3c6cd252697c">dataset</a> · <a href="pmtiles.html">committed-file variant</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/pmtiles-live.html">source</a></p>
 </div>
 <script>
   // The sibling page, pmtiles.html, commits its PMTiles file next to itself:
@@ -43,10 +43,11 @@
   // The trade the two pages make is freshness against custody. A committed
   // file is a snapshot you re-export by hand; this page serves whatever the
   // export route holds, and GeoLens stays in the serving path to do it. The
-  // whole archive is ~630 KB — 1,096 witnessed meteorite falls tiled for the
-  // browser to read a few KB at a time.
+  // whole archive is ~176 KB, the demo's 496 subway stations tiled to z14, and
+  // the browser reads it a few KB at a time. The sibling page's committed file
+  // holds the lines.
   const GEOLENS = "https://demo.getgeolens.com";
-  const DATASET = "dacc5f80-3ace-4cc9-a5ca-d7724a7e4bc1";
+  const DATASET = "4e7cba4c-4caa-4609-b5c4-3c6cd252697c";
   const EXPORT_URL = `${GEOLENS}/api/datasets/${DATASET}/export?format=pmtiles`;
 
   const status = document.getElementById("status");
@@ -87,7 +88,7 @@
     // fact the archive already carries.
     const header = await file.getHeader();
     const meta = await file.getMetadata();
-    const layerId = meta.vector_layers[0].id; // "data.meteorite_observed_falls_meteoritical_society"
+    const layerId = meta.vector_layers[0].id; // "data.nyc_subway_stations_mta"
 
     const map = new maplibregl.Map({
       container: "map",
@@ -96,14 +97,14 @@
       style: {
         version: 8,
         sources: {
-          falls: { type: "vector", url: `pmtiles://${file.source.getKey()}` },
+          stations: { type: "vector", url: `pmtiles://${file.source.getKey()}` },
         },
         layers: [
           { id: "bg", type: "background", paint: { "background-color": "#101418" } },
           {
-            id: "meteorite-falls",
+            id: "subway-stations",
             type: "circle",
-            source: "falls",
+            source: "stations",
             "source-layer": layerId,
             paint: {
               "circle-radius": 3,
@@ -118,7 +119,7 @@
     map.addControl(new maplibregl.NavigationControl());
 
     map.on("data", (e) => {
-      if (!e.tile || e.sourceId !== "falls") return;
+      if (!e.tile || e.sourceId !== "stations") return;
       if (status.className === "err") return;
       status.className = "";
       status.textContent = ranged

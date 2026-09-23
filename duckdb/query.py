@@ -65,8 +65,8 @@ if len(ARGS) == 2 or len(ARGS) > 3:
 # The demo, and the two datasets on it that every number further down was
 # measured against.
 DEMO_URL = "https://demo.getgeolens.com"
-DEMO_LINES_ID = "de602fbe-8b30-4755-924f-c9e7fd9613b6"
-DEMO_STATIONS_ID = "724bf894-dc1a-418c-abc6-555798c44d7c"
+DEMO_LINES_ID = "39e1319e-54ad-4431-9efc-f5eef7910fdb"
+DEMO_STATIONS_ID = "4e7cba4c-4caa-4609-b5c4-3c6cd252697c"
 
 # The variable used to be GEOLENS_URL. A stale export would otherwise fall
 # through to the demo and report the wrong catalog without a word, so refuse

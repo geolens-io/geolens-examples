@@ -124,7 +124,7 @@ The Matterhorn DEM is served as XYZ tiles. In the Browser panel, right-click **X
 | Field | Value |
 |---|---|
 | Name | `Matterhorn DEM (GeoLens demo)` |
-| URL | `https://demo.getgeolens.com/raster-tiles/6f03bafa-34b3-4902-9351-40ce09a8181f/tiles/{z}/{x}/{y}.png` |
+| URL | `https://demo.getgeolens.com/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/{z}/{x}/{y}.png` |
 | Max. Zoom Level | `17` |
 
 Double-click the new entry to add it. The DEM covers a small box around the peak
@@ -164,10 +164,10 @@ To share a QGIS project or a connection URL without putting a key in it, mint a 
 short-lived token for one dataset and paste the URL it returns as the XYZ template:
 
 ```bash
-curl https://demo.getgeolens.com/api/tiles/token/6f03bafa-34b3-4902-9351-40ce09a8181f/
+curl https://demo.getgeolens.com/api/tiles/token/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/
 # {"kind":"raster",
-#  "tile_url":"/raster-tiles/6f03bafa-.../tiles/{z}/{x}/{y}.png?sig=f3e5c4b6...&exp=1787087700&scope=6f03bafa-...&v=1",
-#  "expires_in":894, ...}
+#  "tile_url":"/raster-tiles/d8fd56a9-.../tiles/{z}/{x}/{y}.png?sig=7031d4bd...&exp=1790127900&scope=d8fd56a9-...%3Ap0&v=1&pv=0",
+#  "expires_in":160, ...}
 ```
 
 Prefix `tile_url` with the instance origin and it is a complete XYZ URL. The demo mints one
