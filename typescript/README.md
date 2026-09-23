@@ -88,10 +88,12 @@ to install, the same way the other examples load MapLibre from unpkg.
 const geolens = createGeolensClient({ baseUrl: "https://demo.getgeolens.com/api" });
 ```
 
-One caveat before you build on it: `createGeolensClient` configures a
-module-level singleton and hands it back, so calling it twice reconfigures the
-first client rather than producing a second one. Two instances in one page is
-not a thing the current SDK does.
+From GeoLens 1.18.0 `createGeolensClient` builds a new client on every call
+(geolens#1802), so two instances with different base URLs or keys can live in
+one page. Before that it reconfigured one module-level client and handed that
+back, and a second call changed the first. It still sets that module-level
+default as well, which only matters to a call made without `client`; this page
+passes `client` to every call.
 
 ## What a cross-origin page can read anonymously
 
@@ -105,15 +107,19 @@ Standards routes (the landing page, `/conformance`, everything under
 fetch the advertised template. A catalog that implements OGC API is supposed to
 be reachable by clients it has never heard of.
 
-Native routes (`/search/datasets`, `/datasets/{id}`, `/settings/*`) answer only
-origins the instance lists in `CORS_ALLOWED_ORIGINS`. Cross-origin and unlisted,
-they come back with no CORS header at all and the browser discards the response.
+Native routes (`/datasets/{id}`, `/settings/*`) answer only origins the instance
+lists in `CORS_ALLOWED_ORIGINS`. Cross-origin and unlisted, they come back with no
+CORS header at all and the browser discards the response. A few native routes
+are exceptions: from GeoLens 1.14.1 the catalog search (`/search/datasets`,
+`/search/facets`) answers an anonymous `GET` with the same wildcard as the
+standards routes (geolens#1596), and from 1.16.1 so do dataset exports.
 
 So a browser page on someone else's origin reaches the catalog through the
 standards half. That costs nothing here, because `/search/datasets` and the OGC
-Records items endpoint are the same search behind two doors, and the SDK types
-both. From Node, or from a page the instance serves itself, the native routes
-are available too. `/datasets/{id}` in particular returns `column_info`, the
+Records items endpoint are the same search behind two doors, the SDK types
+both, and the Records door works against releases older than 1.14.1 too. From
+Node, or from a page the instance serves itself, the native routes are
+available too. `/datasets/{id}` in particular returns `column_info`, the
 column-level schema this page infers from a sample feature instead.
 
 ## Authentication

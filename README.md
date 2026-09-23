@@ -57,7 +57,7 @@ The table below is arranged by tool; the numbered steps here trace the platform 
 | [`stac/browse.html`](stac/browse.html) | MapLibre GL JS 5.x | STAC item search over the map view, then the tile asset each item advertises | [Live](https://geolens-io.github.io/geolens-examples/stac/browse.html) |
 | [`python/analyze.py`](python/analyze.py) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | `uv run python/analyze.py` |
 | [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.20.0 (single-file `uv run` script) | SDK catalog search, schema semantics, a server-side CQL2 filter count, export into GeoPandas ([Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/)) | `uv run python/sdk-catalog.py` |
-| [`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb) | leafmap + GeoPandas (Jupyter notebook) | Catalog search, OGC API Features into GeoPandas, a CQL2 filter against the catalog, raster tiles baked by TiTiler | `uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/quickstart.ipynb` |
+| [`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb) | leafmap + GeoPandas (Jupyter notebook) | Catalog search, OGC API Features into GeoPandas, CQL2 filters on the catalog and on a dataset's rows, raster tiles rendered by TiTiler | `uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/quickstart.ipynb` |
 | [`leafmap/samgeo.ipynb`](leafmap/samgeo.ipynb) | leafmap + samgeo (Jupyter notebook) | STAC item search by footprint, the two assets a by-reference import preserves, raster tiles, optional Segment Anything segmentation | `uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/samgeo.ipynb` |
 | [`mcp/`](mcp/) | Any MCP client via the GeoLens MCP server | Catalog search, schema, spatial queries, and tool chaining from an AI assistant ([MCP server guide](https://docs.getgeolens.com/guides/sdk/mcp/)) | `claude mcp add geolens -e GEOLENS_INSTANCE=https://demo.getgeolens.com -- uvx geolens-mcp@1.20.0` |
 | [`qgis/`](qgis/) | QGIS 4.2 | OGC API Features + Records with CQL2, XYZ raster, tile-token auth | `https://demo.getgeolens.com/api/` |
@@ -93,7 +93,7 @@ Dataset IDs and table names in these examples belong to the demo catalog. Agains
 
 CI replays every example except the paused embed ([#60](https://github.com/geolens-io/geolens-examples/issues/60)) against the live demo on every pull request, on each push to `main`, and every morning on a schedule, so an ID that stops resolving turns the build red instead of quietly leaving you with a blank map. Those IDs are named once in [`ci/fixtures.json`](ci/fixtures.json) and probed before the browser sweep runs, so a reset shows up as a red preflight naming the dataset that moved rather than as every example failing at once.
 
-Anonymous cross-origin reads work with no setup: GeoLens answers the standards paths (`/api/collections`, `/api/stac`, conformance) with `Access-Control-Allow-Origin: *` as long as the request carries no credential. Send a credential and that wildcard is gone, so your page's origin has to be listed in the instance's `CORS_ALLOWED_ORIGINS`. A literal `*` there is rejected, since credentialed CORS requires explicit origins.
+Anonymous cross-origin reads work with no setup: GeoLens answers the standards paths (`/api/collections`, `/api/stac`, conformance), and from GeoLens 1.14.1 the native catalog search at `/api/search/datasets/`, with `Access-Control-Allow-Origin: *` as long as the request carries no credential. Send a credential and that wildcard is gone, so your page's origin has to be listed in the instance's `CORS_ALLOWED_ORIGINS`. A literal `*` there is rejected, since credentialed CORS requires explicit origins.
 
 ## Authenticating against your own instance
 
@@ -109,7 +109,7 @@ The `?api_key=` query parameter carries the same key as the header, but from Geo
 
 Prefer the header. A key in a URL ends up in browser history, server access logs, every proxy log along the way, analytics, screenshots, and anything anyone copy-pastes, which is why GeoLens deprecated the query lane in geolens#821 and kept it only for clients that genuinely cannot set a header. Desktop GIS consuming an XYZ template is the case it exists for.
 
-Do not put a long-lived API key in a static HTML file, and do not commit one. Anyone who reads the page source has your key with all of your access until someone notices and revokes it.
+Do not put a long-lived API key in a static HTML file, and do not commit one. Anyone who reads the page source has your key with all of your access until someone notices and revokes it. For a client that only reads, such as a dashboard, a CI check or a notebook, mint the key `read_only`: it authenticates reads and nothing else, so a leak cannot turn into a write ([API keys](https://docs.getgeolens.com/guides/api/auth/#api-keys)).
 
 ### Signed tile tokens
 

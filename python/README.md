@@ -184,9 +184,11 @@ defaulting to `cql2-text`), so the script counts the slice there first with
 `limit=1` and checks that `numberMatched` agrees with what the export handed
 over. `format_` also takes `gpkg`, `parquet`, `shp`, `csv`, `fgb` and `pmtiles`.
 
-String comparisons are the one gap: the identifier check that keeps a `where` clause
-honest reads quoted literals as column names, so `fall = 'Fell'` comes back
-`400 Unknown column: Fell`. Filter on numbers server-side, on strings in pandas.
+From GeoLens 1.19.0 (geolens#1878) string comparisons work the same way:
+`where="fall = 'Fell'"` exports the 1,096 recoveries somebody saw fall, and the
+items route takes the same text as CQL2. Older servers read the quoted value as
+a column name and answer `400 Unknown column: Fell`, so filter strings in pandas
+there.
 
 **Errors arrive typed.** A rejected filter parses into a `ProblemDetail` (RFC 9457),
 so the reason is `response.parsed.detail`, an attribute rather than a blob of JSON
