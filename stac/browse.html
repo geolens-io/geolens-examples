@@ -365,11 +365,13 @@
       const props = item.properties ?? {};
       const asset = item.assets?.raster_tiles;
       const href = asset ? absolute(asset.href, item) : null;
-      // Many items also advertise the COG itself as `data`: a by-reference
-      // import keeps its source catalog's (see the note above draw()), and an
-      // S3-backed instance presigns its own. That is the asset a pixel-reading
-      // client opens, so say it is there.
-      const origin = item.assets?.data ? " · also data (COG)" : "";
+      // Many items also advertise a `data` asset: a by-reference import keeps
+      // its source catalog's (see the note above draw()), and an S3-backed
+      // instance presigns its own COG. That is the asset a pixel-reading client
+      // opens, so say it is there and what the item says it is, rather than
+      // assuming a format from the key.
+      const data = item.assets?.data;
+      const origin = data ? ` · also data, ${data.type ?? "no media type"}` : "";
       const assetNote = !asset
         ? `no raster_tiles asset${origin}`
         : !(href && isHttp(href))

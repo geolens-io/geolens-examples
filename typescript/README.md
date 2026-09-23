@@ -88,12 +88,13 @@ to install, the same way the other examples load MapLibre from unpkg.
 const geolens = createGeolensClient({ baseUrl: "https://demo.getgeolens.com/api" });
 ```
 
-From GeoLens 1.18.0 `createGeolensClient` builds a new client on every call
-(geolens#1802), so two instances with different base URLs or keys can live in
-one page. Before that it reconfigured one module-level client and handed that
-back, and a second call changed the first. It still sets that module-level
-default as well, which only matters to a call made without `client`; this page
-passes `client` to every call.
+From `@geolens/sdk` 1.18.0, `createGeolensClient` builds a new client on every
+call (geolens#1802), so two instances with different base URLs or keys can live
+in one page. That is the SDK's own behaviour and follows the package version you
+load, whatever release the server runs. Before 1.18.0 it reconfigured one
+module-level client and handed that back, so a second call changed the first. It
+still sets that module-level default as well, which only matters to a call made
+without `client`; this page passes `client` to every call.
 
 ## What a cross-origin page can read anonymously
 
