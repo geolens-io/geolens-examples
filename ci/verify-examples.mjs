@@ -93,6 +93,23 @@ const ENGINES = { chromium, firefox, webkit };
 // and headless Firefox on macOS has WebGL, so nothing else changes.
 const launchOptions = (name) =>
   name === "firefox" && process.platform === "linux" && process.env.DISPLAY ? { headless: false } : {};
+// Headless WebKit on Linux can screenshot a WebGL canvas from an older frame
+// than the last one drawn. MapLibre 6 settles in about four frames, each
+// adding tiles, so captures came back missing whole tiles, a different set
+// each run, although the page drew nothing after load (no draw calls from 8 s
+// on, measured in the Playwright 1.62.1 Linux image). MapLibre 5 draws about
+// twelve and was caught less often: on 2026-09-23 vector-tiles.html came back
+// blank on its first attempt on main. preserveDrawingBuffer makes the capture
+// read the last frame drawn; the page itself is unchanged. Whether GNOME Web
+// shows the same thing on screen is not verified.
+const preserveWebglFrames = (name) => name === "webkit" && process.platform === "linux";
+function keepDrawingBuffer() {
+  const real = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (kind, attributes) {
+    const webgl = kind === "webgl" || kind === "webgl2" || kind === "experimental-webgl";
+    return real.call(this, kind, webgl ? { ...attributes, preserveDrawingBuffer: true } : attributes);
+  };
+}
 const BROWSERS = [...new Set((process.env.BROWSERS ?? "chromium").split(",").map((s) => s.trim()).filter(Boolean))];
 {
   const unknown = BROWSERS.filter((name) => !Object.hasOwn(ENGINES, name));
@@ -1180,6 +1197,7 @@ try {
         if (pagesRun > 0) await sleep(PAGE_GAP_MS);
         pagesRun += 1;
         const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+        if (preserveWebglFrames(browserName)) await page.addInitScript(keepDrawingBuffer);
         last = await runOnce(page, scratch, entry).catch((err) => ({
           failures: [`the page run threw: ${String(err).split("\n")[0]}`],
           notes: [],

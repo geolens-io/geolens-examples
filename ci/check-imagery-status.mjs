@@ -6,8 +6,9 @@
 // was never there, and MapLibre reports both exactly as it reports real
 // imagery — same `data` event, same `state: "loaded"`. From v1.14.0 the
 // missing dataset is a 404 there (measured against the live demo 2026-08-18),
-// which reaches the page as an ordinary tile error. Either way a tile answering
-// proves nothing about existence, and the catalog is the signal available.
+// and MapLibre fires no error event for a 404 tile, so the page never hears of
+// it. Either way a tile answering proves nothing about existence, and the
+// catalog is the signal available.
 //
 // That makes *how the page reads the catalog's answer* the whole correctness
 // question, and it is not one the ci/manifest.json sweep can reach: the sweep

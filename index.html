@@ -448,7 +448,7 @@
 
   const EXAMPLES = [
     {
-      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 5",
+      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 6",
       title: "Vector tiles in MapLibre",
       blurb: "Point a vector source at the tile template. GeoLens cuts MVT from PostGIS per request, so the browser pulls geometry for the current view instead of the whole layer.",
       tag: "MVT", kind: "vector",
@@ -458,7 +458,7 @@
       datasets: [LINES],
     },
     {
-      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 5 + pmtiles 4.5",
+      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 6 + pmtiles 4.5",
       title: "PMTiles: tiles from one static file",
       blurb: "A PMTiles export committed next to the page. The pmtiles protocol range-reads only the tiles in view, so after one export no tile server is involved at all.",
       tag: "PMTiles", kind: "vector",
@@ -468,7 +468,7 @@
       datasets: [LINES],
     },
     {
-      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 5 + pmtiles 4.5",
+      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 6 + pmtiles 4.5",
       title: "PMTiles from a live export URL",
       blurb: "The same protocol pointed straight at the export route, no file committed. The export route serves CORS from GeoLens 1.16.1 on, so the browser range-reads the live archive across origins.",
       tag: "PMTiles", kind: "vector",
@@ -478,7 +478,7 @@
       datasets: [STATIONS],
     },
     {
-      audience: "web-developer", group: "features", tool: "MapLibre GL JS 5",
+      audience: "web-developer", group: "features", tool: "MapLibre GL JS 6",
       title: "GeoJSON features in MapLibre",
       blurb: "Two collections read straight into geojson sources. Clicking a station reads attributes the browser already holds, so identify costs no round-trip.",
       tag: "OGC Features", kind: "vector",
@@ -488,7 +488,7 @@
       datasets: [LINES, STATIONS],
     },
     {
-      audience: "web-developer", group: "features", tool: "MapLibre GL JS 5",
+      audience: "web-developer", group: "features", tool: "MapLibre GL JS 6",
       title: "Features by viewport in MapLibre",
       blurb: "Asks for the current view with bbox, follows the paging links to the end, cancels a walk the next pan made stale, and stops at a per-view cap that says on screen when vector tiles should take over.",
       tag: "OGC Features", kind: "vector",
@@ -498,7 +498,7 @@
       datasets: [METEORITES],
     },
     {
-      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 5",
+      audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 6",
       title: "Raster tiles in MapLibre",
       blurb: "A DEM served as XYZ tiles. MapLibre uploads tiles into a WebGL texture, so it needs the instance to send CORS headers — GeoLens does from v1.13.0.",
       tag: "XYZ raster", kind: "raster",
@@ -623,7 +623,7 @@
       datasets: [LINES, STATIONS],
     },
     {
-      audience: "web-developer", group: "search", tool: "MapLibre GL JS 5 · fetch",
+      audience: "web-developer", group: "search", tool: "MapLibre GL JS 6 · fetch",
       title: "Semantic search over the catalog",
       blurb: "Type what the data is about. The query runs against embeddings, so \"every space rock ever recovered on this planet\" finds the meteorite dataset with none of those words in its title. Tick the box and the map's bounds filter the same query by record extent.",
       tag: "Search", kind: "vector",
@@ -633,7 +633,7 @@
       datasets: [],
     },
     {
-      audience: "web-developer", group: "search", tool: "MapLibre GL JS 5",
+      audience: "web-developer", group: "search", tool: "MapLibre GL JS 6",
       title: "STAC search in MapLibre",
       blurb: "Search the STAC API for items covering the current view, list what came back with its footprint and time, and draw the tile asset the item advertises. Nothing about the imagery is hardcoded here.",
       tag: "STAC", kind: "raster",

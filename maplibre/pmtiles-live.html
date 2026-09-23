@@ -5,8 +5,7 @@
   <title>GeoLens + MapLibre: PMTiles from a live export URL</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.css" rel="stylesheet" />
   <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
   <style>
     html, body, #map { margin: 0; height: 100%; }
@@ -25,7 +24,11 @@
   <p id="freshness"></p>
   <p>MTA via data.ny.gov · <a href="https://demo.getgeolens.com/datasets/4e7cba4c-4caa-4609-b5c4-3c6cd252697c">dataset</a> · <a href="pmtiles.html">committed-file variant</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/pmtiles-live.html">source</a></p>
 </div>
-<script>
+<script type="module">
+  // MapLibre GL JS 6 ships as ES modules only, so this page script is a
+  // module and imports the library; there is no `maplibregl` global.
+  import * as maplibregl from "https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs";
+
   // The sibling page, pmtiles.html, commits its PMTiles file next to itself:
   // export once, copy to any static host, GeoLens out of the serving path.
   // This page skips the copy. The pmtiles protocol points straight at the
@@ -148,6 +151,12 @@
       freshness.textContent = `Could not compare against the live catalog (${err.message}).`;
     }
   })().catch((err) => {
+    // MapLibre 6 draws with WebGL2 only. Without it the Map constructor throws
+    // GPUInitializationError, which says nothing about the file.
+    if (err instanceof maplibregl.GPUInitializationError) {
+      fail("This map needs WebGL2, which this browser did not provide. Check that hardware acceleration is on.");
+      return;
+    }
     // A TypeError from fetch with nothing more to say is how every browser
     // words a CORS refusal, which against GeoLens older than 1.16.1 is the
     // expected way for this page to fail.

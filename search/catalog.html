@@ -5,8 +5,7 @@
   <title>GeoLens: semantic + spatial catalog search</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     html, body { margin: 0; height: 100%; }
     body {
@@ -73,7 +72,22 @@
 </div>
 <div id="map"></div>
 
-<script>
+<script type="module">
+  // MapLibre GL JS 6 ships as ES modules only, so this page script is a
+  // module and imports the library; there is no `maplibregl` global.
+  import * as maplibregl from "https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs";
+
+  // MapLibre 6 draws with WebGL2 only. Without it the Map constructor throws
+  // GPUInitializationError, and nothing on the page would say why the map is
+  // missing.
+  addEventListener("error", ({ error }) => {
+    if (!(error instanceof maplibregl.GPUInitializationError)) return;
+    const line = document.getElementById("status");
+    line.hidden = false;
+    line.className = "err";
+    line.textContent = "This map needs WebGL2, which this browser did not provide. Check that hardware acceleration is on.";
+  });
+
   // Point this at your own GeoLens instance to search your own catalog. The
   // demo is anonymous, so this page sends no credential. A private instance
   // needs an X-Api-Key header, which you would add to the fetch below and,

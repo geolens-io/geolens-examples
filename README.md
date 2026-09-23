@@ -39,12 +39,12 @@ The table below is arranged by tool; the numbered steps here trace the platform 
 
 | Example | Tool | Demonstrates | Run it |
 |---|---|---|---|
-| [`maplibre/vector-tiles.html`](maplibre/vector-tiles.html) | MapLibre GL JS 5.x | Vector tiles (MVT) cut per request from PostGIS | [Live](https://geolens-io.github.io/geolens-examples/maplibre/vector-tiles.html) |
-| [`maplibre/features.html`](maplibre/features.html) | MapLibre GL JS 5.x | GeoJSON features, click identify with no round-trip | [Live](https://geolens-io.github.io/geolens-examples/maplibre/features.html) |
-| [`maplibre/features-viewport.html`](maplibre/features-viewport.html) | MapLibre GL JS 5.x | Features by viewport: `bbox`, `rel="next"` paging, cancellation, and the cap where vector tiles take over | [Live](https://geolens-io.github.io/geolens-examples/maplibre/features-viewport.html) |
-| [`maplibre/imagery.html`](maplibre/imagery.html) | MapLibre GL JS 5.x | Raster tiles through a WebGL texture (needs CORS) | [Live](https://geolens-io.github.io/geolens-examples/maplibre/imagery.html) |
-| [`maplibre/pmtiles.html`](maplibre/pmtiles.html) | MapLibre GL JS 5.x + pmtiles 4.5 | A PMTiles export as one committed static file: range reads where the host answers 206, no tile server either way | [Live](https://geolens-io.github.io/geolens-examples/maplibre/pmtiles.html) |
-| [`maplibre/pmtiles-live.html`](maplibre/pmtiles-live.html) | MapLibre GL JS 5.x + pmtiles 4.5 | The same protocol pointed straight at a live export URL, no file committed: cross-origin range reads, served with CORS from GeoLens 1.16.1 on | [Live](https://geolens-io.github.io/geolens-examples/maplibre/pmtiles-live.html) |
+| [`maplibre/vector-tiles.html`](maplibre/vector-tiles.html) | MapLibre GL JS 6.x | Vector tiles (MVT) cut per request from PostGIS | [Live](https://geolens-io.github.io/geolens-examples/maplibre/vector-tiles.html) |
+| [`maplibre/features.html`](maplibre/features.html) | MapLibre GL JS 6.x | GeoJSON features, click identify with no round-trip | [Live](https://geolens-io.github.io/geolens-examples/maplibre/features.html) |
+| [`maplibre/features-viewport.html`](maplibre/features-viewport.html) | MapLibre GL JS 6.x | Features by viewport: `bbox`, `rel="next"` paging, cancellation, and the cap where vector tiles take over | [Live](https://geolens-io.github.io/geolens-examples/maplibre/features-viewport.html) |
+| [`maplibre/imagery.html`](maplibre/imagery.html) | MapLibre GL JS 6.x | Raster tiles through a WebGL texture (needs CORS) | [Live](https://geolens-io.github.io/geolens-examples/maplibre/imagery.html) |
+| [`maplibre/pmtiles.html`](maplibre/pmtiles.html) | MapLibre GL JS 6.x + pmtiles 4.5 | A PMTiles export as one committed static file: range reads where the host answers 206, no tile server either way | [Live](https://geolens-io.github.io/geolens-examples/maplibre/pmtiles.html) |
+| [`maplibre/pmtiles-live.html`](maplibre/pmtiles-live.html) | MapLibre GL JS 6.x + pmtiles 4.5 | The same protocol pointed straight at a live export URL, no file committed: cross-origin range reads, served with CORS from GeoLens 1.16.1 on | [Live](https://geolens-io.github.io/geolens-examples/maplibre/pmtiles-live.html) |
 | [`arcgis-js/features.html`](arcgis-js/features.html) | ArcGIS Maps SDK for JavaScript 5.1 | `OGCFeatureLayer` against the OGC API landing page | [Live](https://geolens-io.github.io/geolens-examples/arcgis-js/features.html) |
 | [`arcgis-js/imagery.html`](arcgis-js/imagery.html) | ArcGIS Maps SDK for JavaScript 5.1 | `WebTileLayer` with Esri's `{level}/{col}/{row}` names | [Live](https://geolens-io.github.io/geolens-examples/arcgis-js/imagery.html) |
 | [`openlayers/features.html`](openlayers/features.html) | OpenLayers 10 | OGC API Features, CRS84 reprojected on read | [Live](https://geolens-io.github.io/geolens-examples/openlayers/features.html) |
@@ -52,9 +52,9 @@ The table below is arranged by tool; the numbered steps here trace the platform 
 | [`leaflet/features.html`](leaflet/features.html) | Leaflet 1.9 | GeoJSON features straight into `L.geoJSON` | [Live](https://geolens-io.github.io/geolens-examples/leaflet/features.html) |
 | [`leaflet/imagery.html`](leaflet/imagery.html) | Leaflet 1.9 | Raster tiles as plain `<img>`, so no CORS needed | [Live](https://geolens-io.github.io/geolens-examples/leaflet/imagery.html) |
 | [`typescript/catalog-map.html`](typescript/catalog-map.html) | `@geolens/sdk` 1.20.0 + MapLibre | Catalog search, schema and freshness, then the tile link the collection advertises ([TypeScript SDK guide](https://docs.getgeolens.com/guides/sdk/typescript/)) | [Live](https://geolens-io.github.io/geolens-examples/typescript/catalog-map.html) |
-| [`search/catalog.html`](search/catalog.html) | MapLibre GL JS 5.x + `fetch` | Semantic catalog search, narrowed to the map view, then drawn | [Live](https://geolens-io.github.io/geolens-examples/search/catalog.html) |
+| [`search/catalog.html`](search/catalog.html) | MapLibre GL JS 6.x + `fetch` | Semantic catalog search, narrowed to the map view, then drawn | [Live](https://geolens-io.github.io/geolens-examples/search/catalog.html) |
 | [`embed/iframe.html`](embed/iframe.html) | No library | A saved GeoLens map in an iframe, styling and legend intact | Paused until the demo has a share link again ([#60](https://github.com/geolens-io/geolens-examples/issues/60)) |
-| [`stac/browse.html`](stac/browse.html) | MapLibre GL JS 5.x | STAC item search over the map view, then the tile asset each item advertises | [Live](https://geolens-io.github.io/geolens-examples/stac/browse.html) |
+| [`stac/browse.html`](stac/browse.html) | MapLibre GL JS 6.x | STAC item search over the map view, then the tile asset each item advertises | [Live](https://geolens-io.github.io/geolens-examples/stac/browse.html) |
 | [`python/analyze.py`](python/analyze.py) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | `uv run python/analyze.py` |
 | [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.20.0 (single-file `uv run` script) | SDK catalog search, schema semantics, a server-side CQL2 filter count, export into GeoPandas ([Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/)) | `uv run python/sdk-catalog.py` |
 | [`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb) | leafmap + GeoPandas (Jupyter notebook) | Catalog search, OGC API Features into GeoPandas, CQL2 filters on the catalog and on a dataset's rows, raster tiles rendered by TiTiler | `uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/quickstart.ipynb` |
@@ -70,7 +70,7 @@ MapLibre examples also work with Mapbox GL JS with minimal changes (both consume
 
 ## Running the browser examples
 
-Each browser example is one static HTML file with no build step: the library loads from a pinned CDN. Open the file directly in a browser, or serve the folder if your browser restricts `file://` pages:
+Each browser example is one static HTML file with no build step: the library loads from a pinned CDN. Serve the folder and open the page from there. Opened from disk, Chrome and Edge can't start MapLibre 6's worker, so vector and GeoJSON layers never draw and the status line says "Worker failed to load". That comes from the `file://` URL, not from CORS. Firefox and Safari draw most pages from disk, but `maplibre/pmtiles.html` reads a file next to itself and needs the server:
 
 ```bash
 python3 -m http.server 8000
