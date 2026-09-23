@@ -50,16 +50,18 @@ await page.route(
 // had already passed (#53).
 const HOSTILE = "</pre><img src=x onerror=void(0)>";
 
-// The stations collection, as the demo serves it, with every name replaced.
-// Every station is hostile, so whichever one the click lands on is.
+// Every feature the page loads arrives as the demo serves it, with its name
+// replaced, so whichever station the click lands on is hostile. Matching every
+// items request rather than the stations id keeps this check out of the id
+// swap after a demo reset.
 let rewritten = 0;
 await page.route(
-  (url) => url.pathname.endsWith("/items") && url.pathname.includes("/api/collections/4e7cba4c-"),
+  (url) => /\/api\/collections\/[^/]+\/items$/.test(url.pathname),
   async (route) => {
     const response = await route.fetch();
     const collection = await response.json();
     for (const feature of collection.features) feature.properties.name = HOSTILE;
-    rewritten = collection.features.length;
+    rewritten += collection.features.length;
     await route.fulfill({ response, json: collection });
   },
 );
@@ -100,7 +102,7 @@ if (rewritten === 0) {
 } else if (!popupText.includes(JSON.stringify(HOSTILE))) {
   failures.push(`the popup does not show the hostile name as text: ${popupText}`);
 } else {
-  console.log(`page popup: showed the hostile name as text, injected 0 elements (${rewritten} stations rewritten)`);
+  console.log(`page popup: showed the hostile name as text, injected 0 elements (${rewritten} features rewritten)`);
 }
 
 // --- 2. Counterfactual: the OLD pattern injects the same payload ----------
