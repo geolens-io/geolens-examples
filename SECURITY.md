@@ -1,6 +1,6 @@
 # Security Policy
 
-This repo holds static example code (HTML files and a single-file Python script) that talks to a GeoLens server over its public API. There's no server, no user data, and no build pipeline of its own here, but two different kinds of report can come out of it, and they go to different places.
+This repo holds example code (static HTML pages, single-file Python scripts, two Jupyter notebooks, a QGIS project, CLI and MCP client configuration, and the CI scripts that check them) that talks to a GeoLens server over its public API. There's no server, no user data, and no build pipeline of its own here, but two different kinds of report can come out of it, and they go to different places.
 
 ## An unsafe pattern in an example
 

@@ -398,9 +398,9 @@ async function checkMaps(name, fx, notes, problems) {
 
 async function checkSearch(name, fx, notes, problems) {
   const { q, limit, recordType } = fx.search;
-  // search/catalog.html cannot use /api/search/ (no CORS header), so it asks
-  // the OGC Records route with the same q and auto-draws the first hit
-  // unfiltered. Probe that route too, and require the same dataset first
+  // search/catalog.html asks the OGC Records route rather than /api/search/
+  // (which only sends CORS from GeoLens 1.14.1) with the same q, and draws the
+  // first hit unfiltered. Probe that route too, and require the same dataset first
   // with a vector_tiles distribution, or the page loads a different layer
   // than its manifest entry names.
   const records = await get(`/api/collections/datasets/items?q=${encodeURIComponent(q)}&limit=10`);

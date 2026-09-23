@@ -40,7 +40,7 @@ is one of them. `Version` can stay on `Maximum` if you prefer: QGIS then tries a
 GetCapabilities first, fails, and falls back to the landing page. Picking `OGC API - Features`
 skips the failed probe.
 
-Press **Connect**. The table fills with every collection the demo publishes, thirty at the time
+Press **Connect**. The table fills with every collection the demo publishes, 29 at the time
 of writing, titled the way the catalog titles them.
 
 ![The connection dialog after Connect: the demo's collections listed by title, name and abstract, including the GeoLens Dataset Catalog](../assets/qgis-collections.jpg)

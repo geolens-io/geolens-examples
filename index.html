@@ -592,7 +592,7 @@
     {
       audience: "data-scientist", tool: "leafmap + GeoPandas · Jupyter notebook",
       title: "GeoLens in a leafmap notebook",
-      blurb: "Search the catalog, load two collections over OGC API Features onto a leafmap map, push a CQL2 filter to the server, and drop raster tiles baked by TiTiler on the same map. No SDK: requests and geopandas read every surface as plain HTTP.",
+      blurb: "Search the catalog, load two collections over OGC API Features onto a leafmap map, push CQL2 filters to the server, and drop raster tiles rendered by TiTiler on the same map. No SDK: requests and geopandas read every surface as plain HTTP.",
       tag: "leafmap", kind: "vector",
       address: "uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/quickstart.ipynb",
       snippet: "CQL2 filter \"title LIKE '%Subway%'\" matched 2 of the catalog's datasets:\n                    title\n   NYC Subway Lines (MTA)\nNYC Subway Stations (MTA)",

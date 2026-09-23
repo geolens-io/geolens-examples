@@ -32,16 +32,16 @@
   // own instance" in the README.
   const GEOLENS = "https://demo.getgeolens.com";
 
-  // Meteorite Landings: 32,186 points spread over the whole planet. The
-  // sibling features.html asks for `?limit=2000` once and keeps the answer,
-  // which is fine for 496 subway stations and wrong here twice over. First,
-  // the browser would hold and draw thirty thousand features to show the
-  // few hundred on screen. Second, that request never returned 2000 rows to
-  // begin with: the demo caps a page at 1000 and silently clamps anything
-  // larger, so `limit=2000` fetches one page of 1000, and a map drawn from
-  // that one page looks complete. This page asks for the current view
-  // instead, `?bbox=<view>&limit=<page>`, and follows the paging links
-  // until the server stops offering one.
+  // Meteorite Landings: 32,186 records, 30,763 of them with a location, spread
+  // over the whole planet. The sibling features.html asks for `?limit=2000`
+  // once and keeps the answer, which is fine for 496 subway stations and wrong
+  // here twice over. First, the browser would hold and draw thirty thousand
+  // features to show the few hundred on screen. Second, that request never
+  // returned 2000 rows to begin with: the demo caps a page at 1000 and
+  // silently clamps anything larger, so `limit=2000` fetches one page of 1000,
+  // and a map drawn from that one page looks complete. This page asks for the
+  // current view instead, `?bbox=<view>&limit=<page>`, and follows the paging
+  // links until the server stops offering one.
   const COLLECTION = "c17f7df9-936e-4268-96d3-9e199fe04f81";
 
   // The demo's largest page. Ask for more and the server clamps to this and

@@ -73,6 +73,10 @@ def main() -> int:
         print(f"\n{NOTEBOOK.name} ran, but the pinned demo no longer advertises "
               "CQL2 support on the datasets collection", file=sys.stderr)
         return 1
+    if "not a dataset's rows" in "".join(printed):
+        print(f"\n{NOTEBOOK.name} ran, but the pinned demo no longer advertises "
+              "CQL2 filters on a dataset's own feature collection", file=sys.stderr)
+        return 1
 
     print(f"\n{NOTEBOOK.name} executed cleanly")
     return 0

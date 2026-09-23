@@ -29,14 +29,16 @@ and run its pip-install cell yourself.
 2. **Load a vector collection.** Two of the demo's NYC subway layers, read
    over OGC API Features straight into GeoPandas, then onto the map.
 3. **Filter server-side with CQL2.** `filter=title LIKE '%Subway%'` against
-   the `datasets` (Records) collection, narrowing the catalog itself before
-   anything downloads. The notebook checks `/api/conformance` for
-   `basic-cql2` first rather than assuming a version, since this instance
-   answers CQL2 on the catalog and not yet on a dataset's own feature
-   collection.
-4. **Raster tiles through TiTiler.** GeoLens bakes an uploaded raster into
-   XYZ tiles once; the notebook points a tile layer at that template, the
-   same URL a browser or QGIS would use.
+   the `datasets` (Records) collection narrows the catalog itself before
+   anything downloads, and `filter=borough = 'Bk'` on the stations collection
+   narrows the rows inside one dataset (GeoLens 1.16.0 or newer). The
+   notebook checks `/api/conformance` for the class each query needs
+   (`basic-cql2`, then Part 3's `features-filter`) rather than assuming a
+   version.
+4. **Raster tiles through TiTiler.** GeoLens stores an uploaded raster as a
+   Cloud-Optimized GeoTIFF (the demo's DEM is a VRT mosaic of 62 of them) and
+   TiTiler renders XYZ tiles from it on request; the notebook points a tile
+   layer at that template, the same URL a browser or QGIS would use.
 5. **Optional: segment the DEM with samgeo.** Off by default
    (`RUN_SEGMENTATION = False`) because it needs `torch` and a
    multi-hundred-megabyte checkpoint. Flip the flag and install

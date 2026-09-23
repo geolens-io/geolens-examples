@@ -98,10 +98,10 @@
   // Two URLs run that same query. `/api/search/datasets/?q=...` is the one the
   // SDKs and the MCP server call, and its own rel=self link points straight at
   // the OGC API Records items endpoint used below. This page calls the Records
-  // one because, as of v1.14.0, the /api/search/ route answers without an
-  // Access-Control-Allow-Origin header, so a browser on another origin gets a
-  // CORS error rather than results. /api/collections/ sends the anonymous
-  // wildcard, so it works from a page like this one with no setup.
+  // one because it is the standards door: /api/collections/ has sent the
+  // anonymous CORS wildcard on every release this repo supports, while
+  // /api/search/ only gained it in GeoLens 1.14.1 (geolens#1596), so an older
+  // instance answers a page on another origin with a CORS error there.
   //
   // Same query from Python, where CORS does not apply — python/sdk-catalog.py:
   //
