@@ -15,7 +15,13 @@ Disagreeing pins fail the build. A demo that is ahead only warns: the demo
 upgrading is not a regression in this repo, it is a note that someone should
 bump the pins and re-run the examples against the new release.
 
-Run with: uv run ci/check-pins.py
+`--bump X.Y.Z` rewrites every pin this script can see to that version and then
+runs the same check, so the bump and the check can never disagree about what a
+pin is. The release dispatch workflow uses it to open the pin-bump pull request,
+with a token that may not change anything under .github/workflows, which is why
+a pin there fails this check.
+
+Run with: uv run ci/check-pins.py [--bump X.Y.Z]
 """
 
 import json
@@ -53,15 +59,21 @@ PATTERNS = [
 ]
 
 
+def scanned() -> list[Path]:
+    """The files pins live in, in path order."""
+    me = Path(__file__).resolve()
+    return [
+        path
+        for path in sorted(REPO.rglob("*"))
+        # this file talks about versions without pinning one
+        if path != me and path.suffix in SUFFIXES and not SKIP & set(path.relative_to(REPO).parts)
+    ]
+
+
 def pins() -> list[tuple[str, str, str]]:
     """Every (location, matched text, version) pin in the repo, in path order."""
     found = []
-    me = Path(__file__).resolve()
-    for path in sorted(REPO.rglob("*")):
-        if path == me:
-            continue  # this file talks about versions without pinning one
-        if path.suffix not in SUFFIXES or SKIP & set(path.relative_to(REPO).parts):
-            continue
+    for path in scanned():
         text = path.read_text(encoding="utf-8", errors="ignore")
         for lineno, line in enumerate(text.splitlines(), 1):
             for pattern in PATTERNS:
@@ -69,6 +81,32 @@ def pins() -> list[tuple[str, str, str]]:
                     location = f"{path.relative_to(REPO)}:{lineno}"
                     found.append((location, match.group(0), match.group(1)))
     return found
+
+
+# The workflow token cannot push a change to these, so the release workflow
+# could never land a bump that touched one.
+UNBUMPABLE = ".github/workflows/"
+
+
+def bump(version: str) -> list[str]:
+    """Rewrite every pin to `version` in place and return the files that changed.
+
+    Only the version inside each match changes, so a display label keeps its
+    backtick and an esm.sh URL keeps its path. Files are read and written with
+    newline="" so their line endings survive.
+    """
+    changed = []
+    for path in scanned():
+        with open(path, encoding="utf-8", newline="") as handle:
+            text = handle.read()
+        new = text
+        for pattern in PATTERNS:
+            new = pattern.sub(lambda m: m.group(0).replace(m.group(1), version), new)
+        if new != text:
+            with open(path, "w", encoding="utf-8", newline="") as handle:
+                handle.write(new)
+            changed.append(str(path.relative_to(REPO)))
+    return changed
 
 
 def demo_version() -> str | None:
@@ -85,6 +123,20 @@ def demo_version() -> str | None:
 
 
 def main() -> int:
+    if sys.argv[1:2] == ["--bump"]:
+        target = sys.argv[2] if len(sys.argv) == 3 else ""
+        # [0-9], not \d, which also matches digits from other scripts.
+        if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", target) is None:
+            print(f"usage: check-pins.py --bump X.Y.Z (got {sys.argv[2:]})")
+            return 2
+        before = sorted({version for _, _, version in pins()})
+        print(f"bumping {', '.join(before) or 'nothing'} to {target}")
+        for name in bump(target):
+            print(f"  bumped {name}")
+    elif sys.argv[1:]:
+        print(f"usage: check-pins.py [--bump X.Y.Z] (got {sys.argv[1:]})")
+        return 2
+
     found = pins()
     if not found:
         print(f"FAIL: no GeoLens client pin matched anywhere under {REPO}")
@@ -92,6 +144,15 @@ def main() -> int:
 
     for location, text, _ in found:
         print(f"  {location}  {text}")
+
+    stuck = [location for location, _, _ in found if location.startswith(UNBUMPABLE)]
+    if stuck:
+        print(
+            f"\nFAIL: {', '.join(stuck)} pin a GeoLens client inside {UNBUMPABLE}, which the release "
+            "workflow's token cannot push to. Read the version from a file outside it, as verify.yml "
+            "does with cli/github-actions.yml."
+        )
+        return 1
 
     versions = {version for _, _, version in found}
     if len(versions) > 1:
@@ -102,7 +163,7 @@ def main() -> int:
     demo = demo_version()
     if demo is None:
         return 0
-    if re.fullmatch(r"\d+\.\d+\.\d+", demo) is None:
+    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", demo) is None:
         print(f"WARNING: demo reports version {demo!r}, which is not X.Y.Z; not compared")
         return 0
 

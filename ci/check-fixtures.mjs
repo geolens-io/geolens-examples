@@ -152,13 +152,38 @@ try {
 }
 console.log(`${DEMO} is healthy, GeoLens ${health.version ?? "(no version reported)"}`);
 
+// A reseed recreates every showcase dataset and map under a new id with the
+// same title, so when an id stops resolving the title usually still does.
+// Looking it up turns "find the new ID" into the exact replacement, which is
+// most of the work of repairing a reset. Best effort: a lookup that fails, or
+// a title that matches none or several, falls back to the plain message.
+const listings = new Map();
+async function newIdFor(path, key, title) {
+  try {
+    if (!listings.has(path)) {
+      listings.set(path, get(path).then((res) => (res.ok ? res.json() : {})).then((body) => body?.[key]));
+    }
+    const entries = await listings.get(path);
+    if (!Array.isArray(entries)) return null;
+    const matches = entries.filter((entry) => entry && (entry.title ?? entry.name) === title);
+    return matches.length === 1 ? matches[0].id ?? null : null;
+  } catch {
+    // A lookup that fails must never cost the verdict it was meant to improve.
+    return null;
+  }
+}
+const replaceHint = (oldId, newId) =>
+  newId
+    ? `Collection ${newId} now has that title: replace ${oldId} with ${newId} across the repo (grep -rl ${oldId}).`
+    : `Find the new ID at ${DEMO}/api/collections and replace ${oldId} across the repo (grep -rl ${oldId}).`;
+
 async function checkCollection(name, fx, notes, problems) {
   const res = await get(`/api/collections/${fx.collection}`);
   if (res.status === 404) {
+    const moved = await newIdFor("/api/collections?limit=200", "collections", fx.title);
     problems.push(
       `fixture ${name} no longer resolves on the demo (404): the demo was probably reset. ` +
-        `Find the new ID at ${DEMO}/api/collections and replace ${fx.collection} across the repo ` +
-        `(grep -rl ${fx.collection}).`,
+        replaceHint(fx.collection, moved),
     );
     return;
   }
@@ -343,10 +368,14 @@ async function checkMaps(name, fx, notes, problems) {
   for (const { title, id } of fx.maps) {
     const res = await get(`/api/maps/${id}`);
     if (res.status === 404) {
+      const moved = await newIdFor("/api/maps/?limit=100", "maps", title);
       problems.push(
         `fixture ${name}: map ${id} ("${title}") no longer resolves anonymously (404): the demo was reset, ` +
-          `or the map stopped being public. Check ${DEMO}/maps; if it is gone, replace ${id} across the repo ` +
-          `(grep -rl ${id}); if it went private, make it public again or drop the link.`,
+          `or the map stopped being public. ` +
+          (moved
+            ? `Map ${moved} now carries that name: replace ${id} with ${moved} across the repo (grep -rl ${id}).`
+            : `Check ${DEMO}/maps; if it is gone, replace ${id} across the repo ` +
+              `(grep -rl ${id}); if it went private, make it public again or drop the link.`),
       );
       continue;
     }

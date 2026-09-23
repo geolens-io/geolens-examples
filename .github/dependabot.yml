@@ -9,12 +9,9 @@
 #
 # Not watched, and still a manual edit:
 #   - playwright@1.62.1, installed by a shell line in verify.yml
-#   - CDN pins in the example pages: maplibre-gl, leaflet, ol, @geolens/sdk
-#   - geolens==1.20.0, a PEP 723 inline dependency in python/sdk-catalog.py
-#   - geolens-mcp@1.20.0, in mcp/clients/*.{json,md} and index.html
-#   - geolens-cli==1.20.0, in verify.yml, cli/README.md and cli/github-actions.yml
+#   - CDN pins in the example pages: maplibre-gl, leaflet, ol, pmtiles
 #   - duckdb==1.5.5, a PEP 723 inline dependency in duckdb/query.py
-#   - the qgis/qgis image digest in .github/workflows/qgis.yml; the
+#   - the qgis/qgis image digests in .github/workflows/qgis.yml; the
 #     github-actions ecosystem bumps `uses:` pins, not `container.image`
 #   - the SHA-pinned actions in cli/github-actions.yml, which is a template for
 #     someone else's repo and so sits outside the directory Dependabot scans
@@ -22,6 +19,12 @@
 # None of those has a manifest for Dependabot to read, and that is deliberate.
 # The examples have no build step, which is most of why they are readable, so
 # adding a package.json to buy automated bumps would cost more than it returns.
+#
+# The GeoLens clients are not on the manual list because each GeoLens release
+# bumps them: release-dispatch.yml runs `ci/check-pins.py --bump` and opens a
+# pull request, which covers geolens==1.20.0 in python/sdk-catalog.py,
+# @geolens/sdk@1.20.0 in typescript/, geolens-mcp@1.20.0 in mcp/clients and
+# index.html, and geolens-cli==1.20.0 in cli/, which verify.yml reads it from.
 
 version: 2
 updates:

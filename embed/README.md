@@ -24,8 +24,8 @@ the map should be, that is what happened, and the code is fine.
 > still describes how the embed works.
 
 CI loads this page against the live demo on pull requests, on pushes to `main`,
-and on a weekly schedule, and fails if the frame stops rendering the map. So a
-revoked link surfaces as a red build rather than as a blank box someone
+and every morning on a schedule, and fails if the frame stops rendering the map.
+So a revoked link surfaces as a red build rather than as a blank box someone
 eventually notices.
 
 What that check does not cover: "Restless Earth" draws seven layers, and GeoLens

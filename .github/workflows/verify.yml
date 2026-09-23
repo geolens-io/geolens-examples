@@ -5,35 +5,47 @@ on:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC — examples rot silently without this
+    # Monday is the full three-engine sweep. The other six mornings sweep
+    # Chromium only, so a demo reset or a broken release shows up within a
+    # day instead of up to a week later. Monday is left out of the daily cron
+    # so the two never start together and cancel each other below.
+    - cron: "0 6 * * 1"
+    - cron: "0 6 * * 0,2-6"
+  # geolens-io/geolens can send this after reseeding the demo, so the fixture
+  # preflight runs the same day the IDs move (geolens-io/geolens#2142).
+  repository_dispatch:
+    types: [demo-reseeded]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 # A superseded run tells you nothing about the head of the branch, so stop it.
+# Keyed by event as well, so a push to main cannot cancel the scheduled or
+# reseed run the alarm job below reads.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   browser:
     name: Browser examples vs live demo
     runs-on: ubuntu-latest
-    # Chromium on every push and pull request; all three engines on the weekly
-    # and manual runs, where a sweep that takes three times as long costs
-    # nobody a review. Actions has no ternary, so both values below use the
-    # `cond && a || b` idiom, which is safe here because neither `a` is empty.
-    # Written once and read by the install and the sweep both, so the engines
-    # installed are the engines swept.
-    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 40 || 15 }}
+    # Chromium on every push, pull request and daily run; all three engines on
+    # the Monday schedule and on manual runs (the release workflow dispatches
+    # one on each pin bump), where a sweep that takes three times as long
+    # costs nobody a review. Actions has no ternary, so both values below use
+    # the `cond && a || b` idiom, which is safe here because neither `a` is
+    # empty. Written once and read by the install and the sweep both, so the
+    # engines installed are the engines swept.
+    timeout-minutes: ${{ (github.event.schedule == '0 6 * * 1' || github.event_name == 'workflow_dispatch') && 40 || 15 }}
     env:
-      BROWSERS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'chromium,firefox,webkit' || 'chromium' }}
+      BROWSERS: ${{ (github.event.schedule == '0 6 * * 1' || github.event_name == 'workflow_dispatch') && 'chromium,firefox,webkit' || 'chromium' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: 24
       # First, and before the browser install: when the demo catalog is reset,
       # every dependent example fails in the sweep below with no sign that the
       # cause was the reset. This names the fixture that moved, and tells a
@@ -116,6 +128,10 @@ jobs:
       # reader's browser.
       - name: Check outbound links
         run: uv run ci/check-links.py
+      # The install line and the claims every GeoLens surface is held to, read
+      # from the contract the docs site publishes.
+      - name: Check the docs contract
+        run: uv run ci/check-contract.py
       - name: Run the OGC analysis
         working-directory: python
         run: |
@@ -145,10 +161,15 @@ jobs:
       # The catalog-as-code example. `apply` is a write and needs a credential,
       # so CI checks the part that runs without one: the manifest still matches
       # the schema this CLI release packages, and that schema still prints.
+      # The CLI version is read from cli/github-actions.yml instead of written
+      # here, because the release workflow bumps pins with a token that may not
+      # edit anything under .github/workflows (ci/check-pins.py enforces it).
       - name: Validate the CLI manifest
         run: |
-          uvx --from geolens-cli==1.20.0 geolens validate cli/geolens.yaml
-          uvx --from geolens-cli==1.20.0 geolens schema >/dev/null
+          cli="$(grep -oE 'geolens-cli==[0-9]+\.[0-9]+\.[0-9]+' cli/github-actions.yml | head -n 1)"
+          test -n "$cli" || { echo "no geolens-cli pin in cli/github-actions.yml" >&2; exit 1; }
+          uvx --from "$cli" geolens validate cli/geolens.yaml
+          uvx --from "$cli" geolens schema >/dev/null
 
   mcp:
     name: MCP server smoke check
@@ -165,3 +186,51 @@ jobs:
           enable-cache: false
       - name: Spawn geolens-mcp against the demo and search
         run: uv run ci/check-mcp.py
+
+  # A red scheduled run used to be a red dot in the Actions tab and nothing
+  # else, which is how the 2026-09-13 demo reset sat unfixed for eight days
+  # after the next morning's run had already caught it. On scheduled and
+  # reseed runs, a failure opens (or comments on) one tracking issue, and the
+  # next green one closes it. Pushes and pull requests are left alone: their
+  # failure is already in front of whoever pushed.
+  alarm:
+    name: Track a red scheduled run
+    needs: [browser, python, mcp]
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'repository_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open, update or close the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TITLE: Scheduled verification is red
+          RESULTS: ${{ toJSON(needs) }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          failed="$(jq -r 'to_entries | map(select(.value.result != "success")) | map(.key) | join(", ")' <<<"$RESULTS")"
+          # No --search: the search index can lag a just-opened issue and a second
+          # one would follow. Open issues here number in the tens.
+          existing="$(gh issue list --state open --limit 200 \
+            --json number,title --jq 'map(select(.title == env.TITLE)) | .[0].number // empty')"
+          if [ -z "$failed" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --comment "Green again: $RUN"
+            fi
+            exit 0
+          fi
+          body="$(printf '%s\n' \
+            "The ${GITHUB_EVENT_NAME} run of **Verify examples** on \`main\` failed in: ${failed}." \
+            "" \
+            "Run: ${RUN}" \
+            "" \
+            "Read the **Preflight the demo fixtures** step first (CLAUDE.md, rule 10). When it names a fixture" \
+            "that moved, the demo was reset and the IDs need swapping; when it exits 75, the demo was down and" \
+            "nothing here is broken. The next green scheduled run closes this issue.")"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$TITLE" --body "$body"
+          fi

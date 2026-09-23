@@ -10,19 +10,19 @@
 
 3. When you bump a GeoLens client pin, bump every pin at once, run `uv run ci/check-pins.py`, and re-run the full sweep against the demo. One pin moved on its own is drift nobody sees until an example stops matching the docs.
 
-4. When you add a new form of pin (a Dockerfile `ARG`, a new file type), add its regex to `PATTERNS` in `ci/check-pins.py` and its suffix to `SUFFIXES` there (a `Dockerfile` has no suffix and is never read). That script is the only registry, and the pin it cannot see is the one that goes stale.
+4. When you add a new form of pin (a Dockerfile `ARG`, a new file type), add its regex to `PATTERNS` in `ci/check-pins.py` and its suffix to `SUFFIXES` there (a `Dockerfile` has no suffix and is never read). That script is the only registry, and the pin it cannot see is the one that goes stale. Never write a pin under `.github/workflows`: the release workflow's token cannot push there, so read the version from a file outside it.
 
-5. When the weekly run prints `WARNING: the demo runs X, this repo pins Y`, treat it as a task: bump, sweep, and read the geolens CHANGELOG for anything that changes what an example claims. Nothing dispatches a release to this repo; that warning is the only signal, and it never fails the build.
+5. When a GeoLens release lands, `release-dispatch.yml` opens (or updates) the `chore/pins-auto` pull request with every pin bumped by `ci/check-pins.py --bump` and, once the packages are published, dispatches the full sweep on it. That pull request is the task: read the geolens CHANGELOG since the old pin for anything that changes what an example claims, push those fixes to the same branch, re-date the verification lines its checklist names, and merge when it is green. If the dispatch never arrives, the scheduled run's `WARNING: the demo runs X, this repo pins Y` is the fallback signal; `uv run ci/check-pins.py --bump X` does the same bump by hand.
 
 6. When you explain server behaviour the docs own (auth order, tile tokens, CORS, paging, manifest schema, export formats, analysis operations), write one sentence and link the `docs.getgeolens.com` page. When you have to say more, it is because the docs lack it: name what you verified against (a `geolens/backend/...` path or an issue number) in the comment, and open a docs PR or issue in `getgeolens.com` with the same text (rule 13).
 
 7. When you add an outbound link to `getgeolens.com`, `docs.getgeolens.com`, or a `github.com/geolens-io/...` blob, tree, issue or pull path, run `uv run ci/check-links.py` afterwards; it checks the route and, on a docs page, the `#anchor`. CI runs it on every pull request and push to `main`; the Outbound links bullet in CONTRIBUTING.md has the details.
 
-8. When you write an install one-liner, a port, `localhost:8080` or OGC wording, copy it from `getgeolens.com/public/docs-contract.json` rather than paraphrasing, and never write one of its `forbidden` patterns. That file is what those facts are checked against in the product READMEs, the marketing pages and the docs, and nothing scans this repo for it.
+8. When you write an install one-liner, a port, `localhost:8080` or OGC wording, copy it from `getgeolens.com/public/docs-contract.json` rather than paraphrasing, and never write one of its `forbidden` patterns. That file is what those facts are checked against in the product READMEs, the marketing pages and the docs; here `ci/check-contract.py` fetches the published copy (`https://getgeolens.com/docs-contract.json`) and fails on a forbidden pattern or an install line that is not the contract's.
 
 9. When you add an example directory or a new kind of example, get the sentence that describes this repo in `geolens/README.md` (and its de/es/fr copies) updated in `geolens` (rule 13). It went stale within two days of the last two example PRs.
 
-10. When every browser example fails at once, read the "Preflight the demo fixtures" step first. Do not swap IDs until it names a fixture that moved; a demo that is down exits 75 and says nothing about this repo.
+10. When every browser example fails at once, or a `Scheduled verification is red` issue opens, read the "Preflight the demo fixtures" step first. After a reset it names the new ID wherever the old title survived; swap exactly those. Do not swap IDs until it names a fixture that moved; a demo that is down exits 75 and says nothing about this repo.
 
 11. When prose needs a version floor, write "v1.13.0 or newer", never `geolens==`, `@geolens/sdk@`, or a backticked client name followed by a version. `ci/check-pins.py` reads those forms as pins and fails on the disagreement.
 

@@ -19,14 +19,26 @@ concurrency:
 
 jobs:
   qgis:
-    name: QGIS providers vs live demo
+    name: QGIS ${{ matrix.qgis }} providers vs live demo
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # The LTR line, pinned by digest so a run is reproducible and a bump is a
-    # reviewed change. To move it: `docker buildx imagetools inspect
-    # qgis/qgis:<tag>` prints the index digest to paste here.
+    # The release qgis/README.md walks through (4.2, Qt6) and the current
+    # long-term release (3.44 LTR, Qt5), each pinned by digest so a run is
+    # reproducible and a bump is a reviewed change. To move one:
+    # `docker buildx imagetools inspect qgis/qgis:<tag>` prints the index digest
+    # to paste here. When QGIS names its next long-term release, move the LTR row.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - qgis: "4.2"
+            key: "4.2"
+            image: qgis/qgis:4.2.2@sha256:6ffe6b31646247f2e179cb2cc32bb4df215eedc99f387ad59a6cc88ebfe23e21
+          - qgis: "3.44 LTR"
+            key: "3.44-ltr"
+            image: qgis/qgis:3.44.14@sha256:681853565ad03722a0cbcba23985fd211ca927bec2b3d389cb07e0e0412e4184
     container:
-      image: qgis/qgis:3.44.13@sha256:59e160b2ea3f881be039ed49936c42e75e8f336688951f22147676db743f4e47
+      image: ${{ matrix.image }}
     env:
       QT_QPA_PLATFORM: offscreen
     steps:
@@ -39,6 +51,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: qgis-render
+          name: qgis-render-${{ matrix.key }}
           path: qgis-features.png
           if-no-files-found: ignore
