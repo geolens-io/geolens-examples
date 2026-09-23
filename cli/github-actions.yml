@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # uvx runs the pinned CLI straight from PyPI, so the repo holding your
       # manifest needs no Python project, no lockfile and no virtualenv for it.
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - name: Validate the manifest
         run: uvx --from geolens-cli==1.20.0 geolens validate geolens.yaml
 
@@ -75,7 +75,7 @@ jobs:
       GEOLENS_TOKEN: ${{ secrets.GEOLENS_PREVIEW_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       # --json goes BEFORE the subcommand. It is a global option, and
       # `geolens apply --json` is an error.
       - name: Preview the apply
@@ -105,7 +105,7 @@ jobs:
       GEOLENS_TOKEN: ${{ secrets.GEOLENS_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       # A run that was queued behind a newer push is stale by the time it gets
       # here; it asks the remote what main points at now and steps aside if
       # that is no longer the commit it was started for.

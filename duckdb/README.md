@@ -199,7 +199,7 @@ script groups on `OGC_FID`, GDAL's row identity.
 ## What CI checks
 
 `.github/workflows/verify.yml` runs `uv run duckdb/query.py` against the live
-demo on every pull request, on pushes to `main`, and weekly. The script exits
+demo on every pull request, on pushes to `main`, and daily. The script exits
 non-zero when the answer is wrong, so the job is a real check rather than a
 demonstration that ran:
 

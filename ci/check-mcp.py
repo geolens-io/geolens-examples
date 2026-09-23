@@ -1,7 +1,9 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "mcp>=1.2,<2",
+#     # <2: v2 replaced ClientSession. >=1.28.1: the floor geolens-mcp declares,
+#     # and the release that fixed the last known 1.x advisory.
+#     "mcp>=1.28.1,<2",
 # ]
 # ///
 """Smoke-check the mcp example: spawn the geolens-mcp server over stdio

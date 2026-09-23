@@ -78,7 +78,7 @@ const ONLY = process.env.ONLY ? process.env.ONLY.split(",").map((s) => s.trim())
 
 // The whole manifest is swept once per engine named here. Every push and pull
 // request sweeps Chromium alone, which is what most readers open the examples
-// in and what the pixel thresholds were calibrated against; the weekly and
+// in and what the pixel thresholds were calibrated against; the Monday and
 // manual runs in verify.yml name all three, so a page that draws in Chromium
 // and stays blank in WebKit or Firefox is caught by the schedule rather than
 // by a reader. Validated up front: a misspelt engine is a usage error, never a
@@ -106,7 +106,7 @@ const BROWSERS = [...new Set((process.env.BROWSERS ?? "chromium").split(",").map
 }
 
 // The demo is one small VM that normally serves almost nothing, and this
-// workflow runs on every push, every PR and weekly. Idling between pages
+// workflow runs on every push, every PR and every morning. Idling between pages
 // spreads the sweep instead of handing the VM a new page the instant the last
 // one closes.
 //
