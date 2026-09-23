@@ -5,8 +5,7 @@
   <title>GeoLens + @geolens/sdk: catalog-driven map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     html, body { margin: 0; height: 100%; }
     body {
@@ -61,12 +60,25 @@
 <script type="module">
   // The SDK ships as ESM, so a pinned esm.sh URL loads it straight into the
   // browser. No bundler, no build step, same as every other example here.
+  // MapLibre GL JS 6 is ESM-only too, and loads the same way.
+  import * as maplibregl from "https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs";
   import {
     createGeolensClient,
     collectionItemsCollectionsDatasetsItemsGet,
     getDatasetCollectionCollectionsDatasetIdGet,
     getCollectionItemsCollectionsDatasetIdItemsGet,
   } from "https://esm.sh/@geolens/sdk@1.20.0";
+
+  // MapLibre 6 draws with WebGL2 only. Without it the Map constructor throws
+  // GPUInitializationError, and nothing on the page would say why the map is
+  // missing.
+  addEventListener("error", ({ error }) => {
+    if (!(error instanceof maplibregl.GPUInitializationError)) return;
+    const line = document.getElementById("tiles");
+    line.hidden = false;
+    line.className = "err";
+    line.textContent = "This map needs WebGL2, which this browser did not provide. Check that hardware acceleration is on.";
+  });
 
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";

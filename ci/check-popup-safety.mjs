@@ -1,14 +1,14 @@
-// Regression check for the maplibre/features.html popup-XSS fix (see PR
-// description). Two things, against a real page load — not a unit test of
-// the fix in isolation:
+// Regression check for the maplibre/features.html popup-XSS fix. Two things,
+// against a real page load rather than a unit test of the fix in isolation:
 //
-//   1. The real click handler still works: click a rendered subway station
-//      and a popup shows readable JSON.
-//   2. The vulnerability is actually closed: replay the OLD `setHTML`
-//      pattern and the NEW `setDOMContent` pattern against a hostile
-//      property value inside the same live map, and assert the OLD one
-//      injects a DOM element while the NEW one injects none. A check that
-//      passes against both is not a counterfactual and proves nothing.
+//   1. The page's own click handler is safe: every station arrives from the
+//      demo with a hostile `name`, a click on a rendered station opens the
+//      page's popup, and it shows the markup as readable JSON text while
+//      injecting no element.
+//   2. The payload is really hostile: the OLD `setHTML` pattern, replayed with
+//      the same properties inside the same map, does inject an element. A
+//      check that passes against both patterns is not a counterfactual and
+//      proves nothing.
 //
 // Usage: node ci/check-popup-safety.mjs   (expects the repo served at BASE)
 import { chromium } from "playwright";
@@ -19,28 +19,50 @@ const browser = await chromium.launch();
 const page = await browser.newPage();
 
 // The page never assigns `map` to `window`, and it shouldn't — this is a
-// copy-paste example, not a test harness. Capture the instance from outside
-// by wrapping the constructor before the page's own script runs.
-await page.addInitScript(() => {
-  let lib;
-  Object.defineProperty(window, "maplibregl", {
-    configurable: true,
-    get() {
-      return lib;
-    },
-    set(realLib) {
-      const RealMap = realLib.Map;
-      class CapturedMap extends RealMap {
-        constructor(options) {
-          super(options);
-          window.__map = this;
-        }
-      }
-      realLib.Map = CapturedMap;
-      lib = realLib;
-    },
-  });
-});
+// copy-paste example, not a test harness. MapLibre 6 is an ES module the page
+// imports, so there is no global to wrap either. Instead the page gets a thin
+// module in the library's place: it re-exports the real one, with Map
+// subclassed to record the instance, and leaves the page's own code untouched.
+// The real module is fetched under a `?real` query so this route skips it.
+const LIBRARY = /\/maplibre-gl@[^/]+\/dist\/maplibre-gl\.mjs$/;
+await page.route(
+  (url) => LIBRARY.test(url.pathname) && url.search === "",
+  (route) => {
+    const real = `${route.request().url()}?real`;
+    route.fulfill({
+      contentType: "text/javascript",
+      headers: { "access-control-allow-origin": "*" },
+      body: [
+        `import * as real from ${JSON.stringify(real)};`,
+        `export * from ${JSON.stringify(real)};`,
+        `export class Map extends real.Map {`,
+        `  constructor(options) { super(options); window.__map = this; }`,
+        `}`,
+        `window.__maplibregl = real;`,
+      ].join("\n"),
+    });
+  },
+);
+
+// The injected element is the evidence, so its handler does nothing. An
+// `alert(1)` here opened a real dialog when the image failed to load, and
+// Playwright dismissing it raced the browser closing, which crashed a run that
+// had already passed (#53).
+const HOSTILE = "</pre><img src=x onerror=void(0)>";
+
+// The stations collection, as the demo serves it, with every name replaced.
+// Every station is hostile, so whichever one the click lands on is.
+let rewritten = 0;
+await page.route(
+  (url) => url.pathname.endsWith("/items") && url.pathname.includes("/api/collections/4e7cba4c-"),
+  async (route) => {
+    const response = await route.fetch();
+    const collection = await response.json();
+    for (const feature of collection.features) feature.properties.name = HOSTILE;
+    rewritten = collection.features.length;
+    await route.fulfill({ response, json: collection });
+  },
+);
 
 const consoleErrors = [];
 page.on("console", (msg) => {
@@ -57,7 +79,7 @@ await page.waitForFunction(
 
 const failures = [];
 
-// --- 1. Real click on a real rendered station shows a readable popup -----
+// --- 1. The page's click handler, on a hostile station -------------------
 const station = await page.evaluate(() => {
   const map = window.__map;
   const [feature] = map.queryRenderedFeatures({ layers: ["subway-stations"] });
@@ -65,50 +87,37 @@ const station = await page.evaluate(() => {
   return { x: point.x, y: point.y };
 });
 await page.mouse.click(station.x, station.y);
-const popupText = await page
-  .locator(".maplibregl-popup-content pre")
-  .first()
-  .textContent({ timeout: 5000 })
-  .catch(() => null);
+const popup = page.locator(".maplibregl-popup-content").first();
+const popupText = await popup.locator("pre").textContent({ timeout: 5000 }).catch(() => null);
+const pageImgCount = popupText === null ? null : await popup.locator("img").count();
 
-if (!popupText || !/^\{\s*\n\s*"/.test(popupText.trim())) {
+if (rewritten === 0) {
+  failures.push("the stations response was never rewritten, so the click tested nothing hostile");
+} else if (!popupText || !/^\{\s*\n\s*"/.test(popupText.trim())) {
   failures.push(`click on a station did not produce readable JSON popup text: ${popupText}`);
+} else if (pageImgCount !== 0) {
+  failures.push(`the page's popup injected ${pageImgCount} element(s) from a station name`);
+} else if (!popupText.includes(JSON.stringify(HOSTILE))) {
+  failures.push(`the popup does not show the hostile name as text: ${popupText}`);
 } else {
-  console.log("click-to-popup: OK —", popupText.split("\n")[0]);
+  console.log(`page popup: showed the hostile name as text, injected 0 elements (${rewritten} stations rewritten)`);
 }
 
-// --- 2. Counterfactual: OLD pattern injects, NEW pattern does not --------
-const hostile = { name: "</pre><img src=x onerror=alert(1)>" };
-const injection = await page.evaluate((hostileProps) => {
+// --- 2. Counterfactual: the OLD pattern injects the same payload ----------
+const oldImgCount = await page.evaluate((name) => {
   const map = window.__map;
-
-  const oldPopup = new maplibregl.Popup()
+  const oldPopup = new window.__maplibregl.Popup()
     .setLngLat(map.getCenter())
-    .setHTML(`<pre>${JSON.stringify(hostileProps, null, 2).slice(0, 500)}</pre>`)
+    .setHTML(`<pre>${JSON.stringify({ name }, null, 2).slice(0, 500)}</pre>`)
     .addTo(map);
-  const oldImgCount = oldPopup.getElement().querySelectorAll("img").length;
+  const count = oldPopup.getElement().querySelectorAll("img").length;
   oldPopup.remove();
+  return count;
+}, HOSTILE);
 
-  const pre = document.createElement("pre");
-  pre.textContent = JSON.stringify(hostileProps, null, 2).slice(0, 500);
-  const newPopup = new maplibregl.Popup()
-    .setLngLat(map.getCenter())
-    .setDOMContent(pre)
-    .addTo(map);
-  const newImgCount = newPopup.getElement().querySelectorAll("img").length;
-  newPopup.remove();
-
-  return { oldImgCount, newImgCount };
-}, hostile);
-
-console.log(
-  `counterfactual: old pattern injected ${injection.oldImgCount} element(s), new pattern injected ${injection.newImgCount}`,
-);
-if (injection.oldImgCount === 0) {
+console.log(`counterfactual: the old setHTML pattern injected ${oldImgCount} element(s)`);
+if (oldImgCount === 0) {
   failures.push("counterfactual is vacuous: the OLD pattern injected 0 elements too");
-}
-if (injection.newImgCount !== 0) {
-  failures.push(`fix did not close the injection: NEW pattern injected ${injection.newImgCount} element(s)`);
 }
 
 if (consoleErrors.length > 0) {
