@@ -19,9 +19,10 @@ name: Release dispatch
 # .github/workflows, so no pin may live there (ci/check-pins.py fails if one
 # does). And a pull request it opens starts no workflows, which is why the
 # sweep is dispatched by hand below. Opening the pull request at all needs
-# "Allow GitHub Actions to create and approve pull requests" in the
-# repository's Actions settings; without it the step summary carries the
-# compare link to open it by hand.
+# "Allow GitHub Actions to create and approve pull requests", which the
+# geolens-io organisation turns off (checked 2026-09-23). While it is off, the
+# workflow opens an issue instead, linking the branch for a person to open the
+# pull request from, and the sweep still runs on the branch.
 on:
   repository_dispatch:
     types: [geolens-release]
@@ -29,6 +30,7 @@ on:
 permissions:
   contents: write # push the bump branch
   pull-requests: write # open, retitle and comment on its pull request
+  issues: write # the fallback issue, when the pull request cannot be opened
   actions: write # dispatch Verify examples on the branch
 
 # Serialised rather than cancelled: two releases landing close together would
@@ -203,9 +205,29 @@ jobs:
             # The branch restarted from main, so whatever is left on the remote
             # is stale and a forced push replaces it.
             git push --force origin "$BRANCH"
-            url="$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE")"
+            if url="$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE")"; then
+              echo "::notice title=Pin-bump pull request opened::${url}"
+            else
+              # The organisation's Actions policy refuses the workflow token a
+              # pull request. One open issue stands in for it, refreshed by
+              # each release until someone opens the pull request.
+              issue="$RUNNER_TEMP/pin-bump-issue.md"
+              {
+                echo "The pins are bumped on \`${BRANCH}\`, but this repository's Actions may not open pull requests, so [open it from the branch](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${BRANCH}?expand=1) with the text below as its description, and close this issue once it merges. Open it before pushing fixes to the branch: while no pull request is open, the next release restarts the branch from main."
+                echo
+                cat "$BODY_FILE"
+              } > "$issue"
+              existing="$(gh issue list --state open --limit 100 --json number,title \
+                --jq 'map(select(.title | startswith("chore(pins): bump client pins to"))) | .[0].number // empty')"
+              if [ -n "$existing" ]; then
+                gh issue edit "$existing" --title "$TITLE" --body-file "$issue" >/dev/null
+                url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/issues/${existing}"
+              else
+                url="$(gh issue create --title "$TITLE" --body-file "$issue")"
+              fi
+              echo "::warning title=Pin-bump pull request not opened::Actions may not open pull requests here; ${url} links the branch instead."
+            fi
             echo "number=${url##*/}" >> "$GITHUB_OUTPUT"
-            echo "::notice title=Pin-bump pull request opened::${url}"
           fi
 
       # The dispatch can arrive before the packages do: publishing to PyPI and
@@ -217,7 +239,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASED: ${{ steps.bump.outputs.released }}
-          PR: ${{ steps.pr.outputs.number }}
+          NUMBER: ${{ steps.pr.outputs.number }}
         run: |
           published() {
             for package in geolens geolens-cli geolens-mcp; do
@@ -233,5 +255,6 @@ jobs:
             fi
             sleep 60
           done
-          gh pr comment "$PR" --body "PyPI or npm still did not serve ${RELEASED} after 30 minutes, so no sweep ran. Once all four packages are published, run \`gh workflow run verify.yml --ref ${BRANCH}\` or push to this branch." >/dev/null
+          # The issues endpoint, so the note lands on the fallback issue too.
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" -f body="PyPI or npm still did not serve ${RELEASED} after 30 minutes, so no sweep ran. Once all four packages are published, run \`gh workflow run verify.yml --ref ${BRANCH}\` or push to the branch." >/dev/null
           echo "- packages not published after 30 minutes; no sweep dispatched" >> "$GITHUB_STEP_SUMMARY"
