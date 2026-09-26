@@ -1,5 +1,5 @@
 {
-  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-09-22, GeoLens 1.20.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM, Upper New York Bay for the Sentinel-2 tile. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
+  "note": "The demo catalog fixtures every example hardcodes or the gallery links, and the semantic invariants ci/check-fixtures.mjs asserts before the browser sweep runs. Verified against https://demo.getgeolens.com/api on 2026-09-26, GeoLens 1.20.0. A tile probe names one z/x/y inside that dataset's footprint: Manhattan for the subway lines, the Matterhorn summit for the DEM, Upper New York Bay for the Sentinel-2 tile. `grep` is the substring that finds this fixture everywhere it is written down in this repo. `computedFrom` records the page layout a bbox was derived from, since a change to that layout moves the box the page requests.",
   "fixtures": {
     "nycSubwayStations": {
       "title": "NYC Subway Stations (MTA)",
@@ -133,6 +133,13 @@
       "minNumberMatched": 20,
       "why": "typescript/catalog-map.html and search/catalog.html read the catalog through this Records collection"
     },
+    "restlessEarthMap": {
+      "title": "Restless Earth",
+      "sharedMap": {
+        "token": "gFbVS2LSnEgE7-irdVYSUnVV-idG6Yj7kWD5s5OiuKI",
+        "layers": 7
+      }
+    },
     "showcaseMaps": {
       "title": "Saved maps the gallery links by UUID",
       "maps": [
@@ -149,7 +156,7 @@
           "id": "05633c96-8c7b-40c0-93eb-fe8f40212e23"
         },
         {
-          "title": "New York From Orbit - Sentinel-2",
+          "title": "New York From Orbit - Sentinel-2, by Reference",
           "id": "71c658e5-d7c0-4b12-8bab-3b4ee6968cd5"
         }
       ],
