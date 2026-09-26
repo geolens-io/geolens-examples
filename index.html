@@ -341,7 +341,7 @@
         climbing routes from OSM.
       </li>
       <li>
-        <a href="https://demo.getgeolens.com/maps/71c658e5-d7c0-4b12-8bab-3b4ee6968cd5">New York From Orbit</a>.
+        <a href="https://demo.getgeolens.com/maps/71c658e5-d7c0-4b12-8bab-3b4ee6968cd5">New York From Orbit - Sentinel-2, by Reference</a>.
         Sentinel-2 scenes read by reference from the AWS open-data archive, nothing downloaded.
       </li>
     </ul>
@@ -655,12 +655,11 @@
     {
       audience: "web-developer", group: "embed", tool: "No library",
       title: "A saved map, embedded",
-      blurb: "The map you styled in the builder, in an iframe on a page that is not GeoLens. It renders itself, so the styling, legend and popups survive. A share token makes a public map reachable without a login. Paused: the 2026-09-13 demo reset removed this map's share token.",
+      blurb: "The map you styled in the builder, in an iframe on a page that is not GeoLens. It renders itself, so the styling, legend and popups survive. A share token makes a public map reachable without a login.",
       tag: "Embed", kind: "tooling",
       address: "/m/{shareToken}?embed=true",
       thumb: "assets/embed-iframe.jpg",
-      source: "embed/iframe.html",
-      docs: ["Why it is paused", "https://github.com/geolens-io/geolens-examples/issues/60"],
+      live: "embed/iframe.html", source: "embed/iframe.html",
       datasets: [],
     },
     {

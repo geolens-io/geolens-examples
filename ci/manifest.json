@@ -1,5 +1,13 @@
 [
   {
+    "path": "embed/iframe.html",
+    "wait": 24000,
+    "requireUrls": [
+      "/m/gFbVS2LSnEgE7-irdVYSUnVV-idG6Yj7kWD5s5OiuKI"
+    ],
+    "minDataResponses": 10
+  },
+  {
     "path": "maplibre/vector-tiles.html",
     "wait": 8000,
     "requireUrls": [
