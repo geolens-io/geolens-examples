@@ -75,7 +75,7 @@
         lidar.on("load", () => {
           if (failed) return;
           map.jumpTo({ center: [-123.067, 44.058], zoom: 16.1, pitch: 60, bearing: -20 });
-          status.textContent = "COPC streamed from GeoLens";
+          status.textContent = "COPC streamed from GeoLens. Ctrl-drag to tilt; points load in more detail as you zoom into the stadium.";
         });
         lidar.on("loaderror", (event) => fail(event.error));
         lidar.loadPointCloud(new URL(detail.pointcloud.url, GEOLENS).href).catch(fail);

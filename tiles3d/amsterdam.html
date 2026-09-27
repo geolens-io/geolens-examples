@@ -63,7 +63,7 @@
         const tileset = await Cesium.Cesium3DTileset.fromUrl(url);
         viewer.scene.primitives.add(tileset);
         await viewer.zoomTo(tileset, new Cesium.HeadingPitchRange(-0.4, -0.6, 1600));
-        status.textContent = "3D Tiles streamed from GeoLens";
+        status.textContent = "3D Tiles streamed from GeoLens. Ctrl-drag or middle-drag to tilt along the canal rings.";
       } catch (error) {
         status.textContent = `3D Tiles failed: ${error.message}`;
         console.error(error);
