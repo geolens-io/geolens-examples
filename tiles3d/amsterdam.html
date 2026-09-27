@@ -61,6 +61,11 @@
         const detail = await dataset();
         const url = new URL(detail.tileset.url, GEOLENS).href;
         const tileset = await Cesium.Cesium3DTileset.fromUrl(url);
+        // A GLB that fails after tileset.json loads is reported here, not thrown.
+        tileset.tileFailed.addEventListener((failure) => {
+          status.textContent = `3D Tiles failed: ${failure.message}`;
+          console.error(failure.message);
+        });
         viewer.scene.primitives.add(tileset);
         await viewer.zoomTo(tileset, new Cesium.HeadingPitchRange(-0.4, -0.6, 1600));
         status.textContent = "3D Tiles streamed from GeoLens. Ctrl-drag or middle-drag to tilt along the canal rings.";
