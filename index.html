@@ -422,14 +422,14 @@
      "Pull features into Python or SQL and analyze them next to everything else you work with."],
   ];
 
-  // Fifteen web-developer cards are too many to scan as one grid, and the
-  // real choice there is two-dimensional: the library is decided before anyone
-  // lands here, the pattern is what they came to pick. So the subheads are the
-  // patterns and the card's meta line keeps naming the library.
+  // Group browser cards by the way data is read. The tool remains in the
+  // card's meta line, where a reader can compare implementations of a pattern.
   const GROUPS = {
     "web-developer": [
       ["tiles", "Draw tiles",
        "Big layers stay on the server and the browser pulls only the tiles in view: MVT for vectors, PNG for rasters."],
+      ["3d", "Explore 3D",
+       "Stream a COPC point cloud or a 3D Tiles building set from a GeoLens catalog record."],
       ["features", "Draw features",
        "GeoJSON with attributes in the browser, read whole or by viewport. The right shape for small or bounded layers."],
       ["search", "Search first",
@@ -476,6 +476,26 @@
       thumb: "assets/maplibre-pmtiles-live.jpg",
       live: "maplibre/pmtiles-live.html", source: "maplibre/pmtiles-live.html",
       datasets: [STATIONS],
+    },
+    {
+      audience: "web-developer", group: "3d", tool: "MapLibre GL JS 6 + maplibre-gl-lidar 0.17",
+      title: "COPC point cloud in MapLibre",
+      blurb: "The page finds Autzen Stadium in the catalog, then passes its COPC URL to the LiDAR control. The browser reads byte ranges from GeoLens as the view moves.",
+      tag: "COPC", kind: "vector",
+      address: "/api/datasets/{id}/copc/{attempt}/data.copc.laz",
+      snippet: "Range: bytes=0-65535",
+      live: "copc/autzen.html", source: "copc/autzen.html",
+      datasets: [], catalog: true,
+    },
+    {
+      audience: "web-developer", group: "3d", tool: "CesiumJS 1.145",
+      title: "3D Tiles buildings in Cesium",
+      blurb: "Cesium loads a four-tile 3DBAG subset from the tileset URL in GeoLens's catalog. The page credits the source and notes the extraction.",
+      tag: "3D Tiles", kind: "raster",
+      address: "/api/datasets/{id}/tiles3d/tileset.json",
+      snippet: "tileset.json → buildings.glb",
+      live: "tiles3d/amsterdam.html", source: "tiles3d/amsterdam.html",
+      datasets: [], catalog: true,
     },
     {
       audience: "web-developer", group: "features", tool: "MapLibre GL JS 6",

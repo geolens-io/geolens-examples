@@ -1,33 +1,19 @@
-// Preflight for the demo fixtures every example in this repo hardcodes.
+// Preflight for the demo content used by the examples.
 //
-// The dataset UUIDs, the qualified table name, the shared-map token and the
-// saved-map IDs here belong to the public demo's catalog, and a demo reset
-// can change all of them. When that happens the browser sweep goes red on
-// every dependent example at once, each one saying "no successful demo
-// response matched required URL ..." — true, and no help: nothing in that
-// output separates a catalog that moved from nine examples that broke on the
-// same afternoon.
+// This preflight checks the catalog records and assets that the examples read.
+// It checks saved IDs and tokens directly, and resolves the newer COPC and 3D
+// Tiles samples by exact title because their public IDs are assigned on import.
+// A demo reset can change these fixtures before any page code changes.
 //
-// So this runs first and answers exactly that question. It asserts the
-// invariants ci/fixtures.json names — the collection is still there, still
-// titled what the examples say, still carries the geometry they draw, its
-// tiles still come back as tiles, the saved map still has the layers the embed
-// page describes, the maps the gallery links still open under the names
-// fixtures.json records — and when one stops holding it says which fixture,
-// what it means, and what to grep for.
+// ci/fixtures.json names each invariant so a failure points to the content
+// that moved or was never deployed, before the browser sweep reports blanks.
 //
-// A demo that cannot answer at all is reported as the demo being down and
-// explicitly not as a fact about this repo. Those two conditions need
-// different people to do different things, and the audit that asked for this
-// file asked for them to be told apart.
+// A demo outage exits 75; a changed fixture exits 1. Those need different
+// fixes, so the caller can distinguish them without parsing the log.
 //
-// ponytail: no fixture schema validation, no per-fixture selector, no retry,
-// no shared HTTP client. Every probe prints the invariant it checked, so a
-// fixtures.json entry missing a key shows up as a short line rather than a
-// silent pass.
-// ponytail: fixtures.json says what the demo must answer, not which files
-// hardcode it. The `grep -rl` in each failure message finds those, and unlike
-// a list of paths in JSON it cannot go stale.
+// fixtures.json says what the demo must answer, rather than listing example
+// files. The probe handles transient HTTP failures separately from a changed
+// fixture, and prints the invariant it reached.
 //
 // Usage: node ci/check-fixtures.mjs
 //   GEOLENS=https://demo.getgeolens.com    instance to probe
@@ -254,6 +240,90 @@ async function checkCollection(name, fx, notes, problems) {
       );
     }
   }
+}
+
+async function checkAssetByTitle(name, fx, notes, problems) {
+  const spec = fx.assetByTitle;
+  if (!["copc", "tiles3d"].includes(spec.kind) || !Number.isInteger(spec.sizeBytes) || spec.sizeBytes < 1 ||
+      !spec.recordType || (spec.kind === "tiles3d" && (!Number.isInteger(spec.tiles) || spec.tiles < 1))) {
+    problems.push(`fixture ${name}: assetByTitle needs a known kind, recordType, positive sizeBytes and (for tiles3d) tile count.`);
+    return;
+  }
+  const search = await get(
+    `/api/collections/datasets/items?q=${encodeURIComponent(fx.title)}&limit=100`,
+    {},
+    async (res) => ({ status: res.status, body: res.ok ? await res.json() : null }),
+  );
+  if (search.status !== 200) {
+    problems.push(`fixture ${name}: catalog search answered ${search.status}, so its public dataset could not be checked.`);
+    return;
+  }
+  const matches = search.body.features.filter((item) => item.properties?.title === fx.title);
+  if (matches.length !== 1) {
+    problems.push(`fixture ${name}: expected one public catalog record titled "${fx.title}", found ${matches.length}.`);
+    return;
+  }
+
+  const id = matches[0].id;
+  const detail = await get(`/api/datasets/${id}`, {}, async (res) => ({ status: res.status, body: res.ok ? await res.json() : null }));
+  if (detail.status !== 200 || detail.body.record_type !== spec.recordType) {
+    problems.push(`fixture ${name}: dataset ${id} answered ${detail.status} with type ${detail.body?.record_type ?? "unknown"}, expected ${spec.recordType}.`);
+    return;
+  }
+  const asset = detail.body[spec.kind === "copc" ? "pointcloud" : "tileset"];
+  if (!asset?.url || asset.size_bytes !== spec.sizeBytes) {
+    problems.push(`fixture ${name}: dataset ${id} has no ${spec.kind} asset of ${spec.sizeBytes} bytes.`);
+    return;
+  }
+  const assetUrl = new URL(asset.url, DEMO);
+  if (assetUrl.host !== DEMO_HOST || !assetUrl.pathname.startsWith(`/api/datasets/${id}/`)) {
+    problems.push(`fixture ${name}: the ${spec.kind} asset URL does not belong to this dataset on the demo.`);
+    return;
+  }
+
+  if (spec.kind === "copc") {
+    const response = await get(assetUrl.href, { headers: { Range: "bytes=0-3" } }, async (res) => ({
+      status: res.status,
+      range: res.headers.get("content-range"),
+      bytes: new Uint8Array(await res.arrayBuffer()),
+    }));
+    if (response.status !== 206 || response.range !== `bytes 0-3/${spec.sizeBytes}` ||
+        new TextDecoder().decode(response.bytes) !== "LASF") {
+      problems.push(`fixture ${name}: COPC byte range did not return 206, Content-Range bytes 0-3/${spec.sizeBytes}, and LASF magic.`);
+      return;
+    }
+    notes.push(`COPC ${id}: ${spec.sizeBytes} bytes, ranged LASF`);
+    return;
+  }
+
+  const response = await get(assetUrl.href, {}, async (res) => ({ status: res.status, body: res.ok ? await res.json() : null }));
+  const children = response.body?.root?.children;
+  if (response.status !== 200 || response.body?.asset?.version !== "1.1" || children?.length !== spec.tiles) {
+    problems.push(`fixture ${name}: 3D Tiles manifest did not return version 1.1 with ${spec.tiles} child tiles.`);
+    return;
+  }
+  for (const child of children) {
+    const uri = child.content?.uri;
+    if (typeof uri !== "string" || !uri.endsWith(".glb")) {
+      problems.push(`fixture ${name}: a building tile has no GLB URI.`);
+      return;
+    }
+    const glbUrl = new URL(uri, assetUrl);
+    if (glbUrl.host !== DEMO_HOST || !glbUrl.pathname.startsWith(`/api/datasets/${id}/tiles3d/`)) {
+      problems.push(`fixture ${name}: building tile ${uri} points outside this dataset.`);
+      return;
+    }
+    const glb = await get(glbUrl.href, {}, async (res) => ({
+      status: res.status,
+      type: res.headers.get("content-type")?.split(";")[0]?.toLowerCase(),
+      magic: new TextDecoder().decode(new Uint8Array(await res.arrayBuffer()).slice(0, 4)),
+    }));
+    if (glb.status !== 200 || glb.type !== "model/gltf-binary" || glb.magic !== "glTF") {
+      problems.push(`fixture ${name}: building tile ${uri} did not return a model/gltf-binary GLB.`);
+      return;
+    }
+  }
+  notes.push(`3D Tiles ${id}: all ${spec.tiles} GLBs served`);
 }
 
 async function checkTile(name, kind, tile, notes, problems) {
@@ -661,7 +731,7 @@ async function checkOneExport(name, fx, ex, notes, problems) {
   notes.push(`${format} export ${ranged}, ${type}`);
 }
 
-const KNOWN = ["collection", "stac", "vectorTile", "rasterTile", "sharedMap", "maps", "search", "export"];
+const KNOWN = ["collection", "assetByTitle", "stac", "vectorTile", "rasterTile", "sharedMap", "maps", "search", "export"];
 const transport = [];
 for (const [name, fx] of Object.entries(fixtures)) {
   const notes = [];
@@ -673,6 +743,7 @@ for (const [name, fx] of Object.entries(fixtures)) {
   }
   try {
     if (fx.collection) await checkCollection(name, fx, notes, problems);
+    if (fx.assetByTitle) await checkAssetByTitle(name, fx, notes, problems);
     if (fx.stac) await checkStac(name, fx, notes, problems);
     if (fx.vectorTile) await checkTile(name, "vector", fx.vectorTile, notes, problems);
     if (fx.rasterTile) await checkTile(name, "raster", fx.rasterTile, notes, problems);
@@ -700,9 +771,8 @@ if (problems.length > 0) {
     `\nFIXTURE PREFLIGHT FAILED (${problems.length} problem(s)):\n` +
       problems.map((p) => `  - ${p}`).join("\n") +
       (transport.length > 0 ? `\n  and ${transport.length} probe(s) never got a usable answer:\n` + transport.map((t) => `  - ${t}`).join("\n") : "") +
-      `\n\nThese are the demo's IDs, not this repo's code. Unless someone edited an example, the examples\n` +
-      `did not break: the demo catalog moved under them, and ci/fixtures.json is where the names it moved\n` +
-      `away from are written down.`,
+      `\n\nThe demo catalog no longer matches these fixtures. Check whether the required content was\n` +
+      `deployed or changed before treating this as a page-rendering failure.`,
   );
   process.exit(1);
 }
