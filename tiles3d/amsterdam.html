@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeoLens 3D Tiles in Cesium</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.145.0/Build/Cesium/Widgets/widgets.css" />
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body { display: flex; flex-direction: column; font: 15px system-ui, sans-serif; background: #101820; color: white; }
+    header { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 10px 16px; }
+    #map { flex: 1; min-height: 300px; }
+    #credit { position: fixed; right: 8px; bottom: 8px; z-index: 2; max-width: min(42ch, 80vw); padding: 5px 8px; border-radius: 3px; background: #101820e8; font-size: 12px; text-align: right; }
+    a { color: #8bd8ff; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Amsterdam canal buildings</strong>
+    <a id="dataset" href="https://demo.getgeolens.com/collections">GeoLens dataset</a>
+    <span id="status" role="status">Loading 3D Tiles…</span>
+  </header>
+  <div id="map" aria-label="3DBAG buildings in Cesium"></div>
+  <aside id="credit"><a href="https://docs.3dbag.nl/en/copyright/">© 3DBAG by tudelft3d and 3DGI</a><br />Extracted four-tile subset of the 20250903 release</aside>
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.145.0/Build/Cesium/Cesium.js"></script>
+  <script>
+    const GEOLENS = "https://demo.getgeolens.com";
+    const TITLE = "Amsterdam Canal Buildings (3DBAG 3D Tiles)";
+    const status = document.querySelector("#status");
+
+    async function dataset() {
+      const search = await fetch(`${GEOLENS}/api/collections/datasets/items?q=${encodeURIComponent(TITLE)}&limit=100`);
+      if (!search.ok) throw new Error(`Catalog HTTP ${search.status}`);
+      const matches = (await search.json()).features.filter((item) => item.properties?.title === TITLE);
+      if (matches.length !== 1) throw new Error(`Expected one public dataset named ${TITLE}; found ${matches.length}`);
+      // The record's own asset link: the dataset detail route doesn't answer
+      // cross-origin reads, the catalog and the tileset do.
+      const href = matches[0].assets?.tileset?.href;
+      if (!href) throw new Error("Dataset has no 3D Tiles asset");
+      document.querySelector("#dataset").href = `${GEOLENS}/datasets/${matches[0].id}`;
+      return href;
+    }
+
+    const viewer = new Cesium.Viewer("map", {
+      baseLayer: false,
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      sceneModePicker: false,
+      timeline: false,
+      animation: false,
+      navigationHelpButton: false,
+      infoBox: false,
+    });
+    viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#cfd5d2");
+
+    (async () => {
+      try {
+        const url = new URL(await dataset(), GEOLENS).href;
+        const tileset = await Cesium.Cesium3DTileset.fromUrl(url);
+        // A GLB that fails after tileset.json loads is reported here, not thrown.
+        let failed = false;
+        tileset.tileFailed.addEventListener((failure) => {
+          failed = true;
+          status.textContent = `3D Tiles failed: ${failure.message}`;
+          console.error(failure.message);
+        });
+        tileset.initialTilesLoaded.addEventListener(() => {
+          if (!failed) {
+            status.textContent = "3D Tiles streamed from GeoLens. Ctrl-drag or middle-drag to tilt along the canal rings.";
+          }
+        });
+        viewer.scene.primitives.add(tileset);
+        await viewer.zoomTo(tileset, new Cesium.HeadingPitchRange(-0.4, -0.6, 1600));
+      } catch (error) {
+        status.textContent = `3D Tiles failed: ${error.message}`;
+        console.error(error);
+      }
+    })();
+  </script>
+</body>
+</html>

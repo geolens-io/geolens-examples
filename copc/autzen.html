@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeoLens COPC in MapLibre</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl-lidar@0.17.1/dist/maplibre-gl-lidar.css" />
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body { display: flex; flex-direction: column; font: 15px system-ui, sans-serif; background: #101820; color: white; }
+    header { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 10px 16px; }
+    #map { flex: 1; min-height: 300px; }
+    a { color: #8bd8ff; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Autzen Stadium point cloud</strong>
+    <a id="dataset" href="https://demo.getgeolens.com/collections">GeoLens dataset</a>
+    <span id="status" role="status">Loading COPC…</span>
+    <small>Source: <a href="https://github.com/PDAL/data/blob/main/LICENSE">PDAL/data, CC BY 4.0</a></small>
+  </header>
+  <div id="map" aria-label="Autzen Stadium LiDAR point cloud"></div>
+  <script type="importmap">
+    {"imports":{"maplibre-gl":"https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs"}}
+  </script>
+  <script type="module">
+    import * as maplibregl from "https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs";
+    import { LidarControl } from "https://esm.sh/maplibre-gl-lidar@0.17.1?external=maplibre-gl";
+
+    const GEOLENS = "https://demo.getgeolens.com";
+    const TITLE = "Autzen Stadium Classified Point Cloud (COPC)";
+    const status = document.querySelector("#status");
+
+    async function dataset() {
+      const search = await fetch(`${GEOLENS}/api/collections/datasets/items?q=${encodeURIComponent(TITLE)}&limit=100`);
+      if (!search.ok) throw new Error(`Catalog HTTP ${search.status}`);
+      const matches = (await search.json()).features.filter((item) => item.properties?.title === TITLE);
+      if (matches.length !== 1) throw new Error(`Expected one public dataset named ${TITLE}; found ${matches.length}`);
+      // The record's own asset link: the dataset detail route doesn't answer
+      // cross-origin reads, the catalog and the COPC file do.
+      const href = matches[0].assets?.pointcloud?.href;
+      if (!href) throw new Error("Dataset has no COPC asset");
+      document.querySelector("#dataset").href = `${GEOLENS}/datasets/${matches[0].id}`;
+      return href;
+    }
+
+    try {
+      const copcUrl = await dataset();
+      const map = new maplibregl.Map({
+        container: "map",
+        style: {
+          version: 8,
+          sources: {},
+          layers: [{ id: "background", type: "background", paint: { "background-color": "#101820" } }],
+        },
+        center: [-123.067, 44.058],
+        zoom: 14.5,
+        pitch: 65,
+        maxPitch: 85,
+      });
+      map.on("load", () => {
+        const lidar = new LidarControl({ collapsed: true, pointSize: 2, colorScheme: "rgb", pickable: true });
+        map.addControl(lidar, "top-right");
+        let failed = false;
+        const fail = (error) => {
+          if (failed) return;
+          failed = true;
+          status.textContent = `COPC failed: ${error?.message ?? "request failed"}`;
+          console.error(error);
+        };
+        lidar.on("load", () => {
+          if (failed) return;
+          map.jumpTo({ center: [-123.067, 44.058], zoom: 16.1, pitch: 60, bearing: -20 });
+          status.textContent = "COPC streamed from GeoLens. Ctrl-drag to tilt; points load in more detail as you zoom into the stadium.";
+        });
+        lidar.on("loaderror", (event) => fail(event.error));
+        lidar.loadPointCloud(new URL(copcUrl, GEOLENS).href).catch(fail);
+      });
+      map.on("error", (error) => {
+        status.textContent = `Map failed: ${error.error?.message ?? "request failed"}`;
+        console.error(error.error ?? error);
+      });
+    } catch (error) {
+      status.textContent = `COPC failed: ${error.message}`;
+      console.error(error);
+    }
+  </script>
+</body>
+</html>

@@ -10,10 +10,9 @@
 //   2. It reached the demo at all, and loaded the data it claims to: at least
 //      one successful demo response, and every `requireUrls` substring shows
 //      up in the URL of one.
-//   3. It got enough of that data: at least `minDataResponses` demo responses
-//      with status 200 for a data URL (items / .pbf / .png). A 204 is the
-//      server saying "no tile here", so 204s are counted and reported but do
-//      not satisfy the minimum.
+//   3. It got enough of that data: at least `minDataResponses` successful
+//      items, tile, GLB or COPC responses. COPC is range-read (206); a 204
+//      means there is no tile at that address and does not count.
 //   4. The data was not empty, per collection: every collection the page
 //      fetched items from produced at least one non-empty body of its own, and
 //      none of them answered 200 with a body that could not be parsed — which
@@ -182,7 +181,8 @@ const DEFAULTS = {
   minColorPixels: 200,
 };
 
-const DATA_URL = /\/items(\?|$)|\.pbf|\.png/;
+const DATA_URL = /\/items(\?|$)|\.pbf|\.png|\.glb|\.copc\.laz/;
+const COPC_URL = /\.copc\.laz(\?|$)/;
 const ITEMS_URL = /\/items(\?|$)/;
 const DEMO_HOST = "demo.getgeolens.com";
 const BASE_HOST = new URL(BASE).host;
@@ -974,7 +974,9 @@ async function runOnce(page, scratch, entry) {
   }
 
   const ok2xx = demoResponses.filter((r) => r.status >= 200 && r.status < 300);
-  const dataResponses = demoResponses.filter((r) => r.status === 200 && DATA_URL.test(r.url));
+  const dataResponses = demoResponses.filter(
+    (r) => DATA_URL.test(r.url) && (r.status === 200 || (r.status === 206 && COPC_URL.test(r.url))),
+  );
   const emptyTiles = demoResponses.filter((r) => r.status === 204).length;
 
   const minDistinct = entry.minDistinctColors ?? DEFAULTS.minDistinctColors;

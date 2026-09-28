@@ -154,5 +154,27 @@
       "/collections/4e7cba4c-4caa-4609-b5c4-3c6cd252697c/items"
     ],
     "minDataResponses": 1
+  },
+  {
+    "path": "copc/autzen.html",
+    "wait": 25000,
+    "requireUrls": [
+      "/api/collections/datasets/items?q=Autzen",
+      "/copc/"
+    ],
+    "minDataResponses": 1
+  },
+  {
+    "path": "tiles3d/amsterdam.html",
+    "wait": 25000,
+    "requireUrls": [
+      "/api/collections/datasets/items?q=Amsterdam",
+      "/tiles3d/tileset.json",
+      "/tiles3d/t/9/428/600.glb",
+      "/tiles3d/t/9/428/602.glb",
+      "/tiles3d/t/9/430/600.glb",
+      "/tiles3d/t/9/430/602.glb"
+    ],
+    "minDataResponses": 4
   }
 ]
