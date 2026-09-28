@@ -34,13 +34,12 @@
       if (!search.ok) throw new Error(`Catalog HTTP ${search.status}`);
       const matches = (await search.json()).features.filter((item) => item.properties?.title === TITLE);
       if (matches.length !== 1) throw new Error(`Expected one public dataset named ${TITLE}; found ${matches.length}`);
-      const id = matches[0].id;
-      const response = await fetch(`${GEOLENS}/api/datasets/${id}`);
-      if (!response.ok) throw new Error(`Dataset HTTP ${response.status}`);
-      const detail = await response.json();
-      if (!detail.tileset?.url) throw new Error("Dataset has no 3D Tiles asset");
-      document.querySelector("#dataset").href = `${GEOLENS}/datasets/${id}`;
-      return detail;
+      // The record's own asset link: the dataset detail route doesn't answer
+      // cross-origin reads, the catalog and the tileset do.
+      const href = matches[0].assets?.tileset?.href;
+      if (!href) throw new Error("Dataset has no 3D Tiles asset");
+      document.querySelector("#dataset").href = `${GEOLENS}/datasets/${matches[0].id}`;
+      return href;
     }
 
     const viewer = new Cesium.Viewer("map", {
@@ -58,8 +57,7 @@
 
     (async () => {
       try {
-        const detail = await dataset();
-        const url = new URL(detail.tileset.url, GEOLENS).href;
+        const url = new URL(await dataset(), GEOLENS).href;
         const tileset = await Cesium.Cesium3DTileset.fromUrl(url);
         // A GLB that fails after tileset.json loads is reported here, not thrown.
         let failed = false;

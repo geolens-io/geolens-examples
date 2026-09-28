@@ -39,17 +39,16 @@
       if (!search.ok) throw new Error(`Catalog HTTP ${search.status}`);
       const matches = (await search.json()).features.filter((item) => item.properties?.title === TITLE);
       if (matches.length !== 1) throw new Error(`Expected one public dataset named ${TITLE}; found ${matches.length}`);
-      const id = matches[0].id;
-      const response = await fetch(`${GEOLENS}/api/datasets/${id}`);
-      if (!response.ok) throw new Error(`Dataset HTTP ${response.status}`);
-      const detail = await response.json();
-      if (!detail.pointcloud?.url) throw new Error("Dataset has no COPC asset");
-      document.querySelector("#dataset").href = `${GEOLENS}/datasets/${id}`;
-      return detail;
+      // The record's own asset link: the dataset detail route doesn't answer
+      // cross-origin reads, the catalog and the COPC file do.
+      const href = matches[0].assets?.pointcloud?.href;
+      if (!href) throw new Error("Dataset has no COPC asset");
+      document.querySelector("#dataset").href = `${GEOLENS}/datasets/${matches[0].id}`;
+      return href;
     }
 
     try {
-      const detail = await dataset();
+      const copcUrl = await dataset();
       const map = new maplibregl.Map({
         container: "map",
         style: {
@@ -78,7 +77,7 @@
           status.textContent = "COPC streamed from GeoLens. Ctrl-drag to tilt; points load in more detail as you zoom into the stadium.";
         });
         lidar.on("loaderror", (event) => fail(event.error));
-        lidar.loadPointCloud(new URL(detail.pointcloud.url, GEOLENS).href).catch(fail);
+        lidar.loadPointCloud(new URL(copcUrl, GEOLENS).href).catch(fail);
       });
       map.on("error", (error) => {
         status.textContent = `Map failed: ${error.error?.message ?? "request failed"}`;
