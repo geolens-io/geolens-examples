@@ -112,7 +112,10 @@ def local_target(url):
 
 def fetch(url, want_body):
     """(status after redirects or a short error, body text or None), with one retry on a transient failure."""
-    request = urllib.request.Request(url, headers=HEADERS)
+    # A github.com page that renders nothing here is asked with HEAD, which
+    # it answers every time; the GET renders the whole blob and 503s.
+    head = not want_body and urllib.parse.urlsplit(url).hostname == "github.com"
+    request = urllib.request.Request(url, headers=HEADERS, method="HEAD" if head else "GET")
     verdict = None
     for attempt in (1, 2):
         gap = RETRY_GAP
