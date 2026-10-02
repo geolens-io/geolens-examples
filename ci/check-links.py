@@ -70,10 +70,13 @@ TRAILING = ".,;:!?*"
 HEADERS = {"User-Agent": "geolens-examples/check-links"}
 TIMEOUT = 20  # seconds per request
 BUDGET = 120  # seconds for the whole run; a hung host should not eat the job
-# One more try after a short gap for the answers that say nothing about the
-# link: a 429, a 5xx, a timeout or a dropped connection. A 404 is asked once,
-# since asking the same wrong question again does not help.
-RETRY_GAP = 2  # seconds, unless Retry-After names a longer one
+# More tries, with a growing gap, for the answers that say nothing about the
+# link: a 429, a 5xx, a timeout or a dropped connection. github.com answers a
+# large blob page such as CHANGELOG.md with a 503 on roughly every other
+# request, so two tries are not enough. A 404 is asked once, since asking the
+# same wrong question again does not help.
+ATTEMPTS = 4
+RETRY_GAP = 2  # seconds, times the attempt number, unless Retry-After names a longer one
 
 
 def links():
@@ -111,11 +114,11 @@ def local_target(url):
 
 
 def fetch(url, want_body):
-    """(status after redirects or a short error, body text or None), with one retry on a transient failure."""
+    """(status after redirects or a short error, body text or None), retrying a transient failure."""
     request = urllib.request.Request(url, headers=HEADERS)
     verdict = None
-    for attempt in (1, 2):
-        gap = RETRY_GAP
+    for attempt in range(1, ATTEMPTS + 1):
+        gap = RETRY_GAP * attempt
         try:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
                 body = response.read().decode("utf-8", errors="ignore") if want_body else None
@@ -129,7 +132,7 @@ def fetch(url, want_body):
         except (urllib.error.URLError, OSError) as err:
             verdict = f"error: {getattr(err, 'reason', err)}"
             again = True  # a timeout, a reset, a DNS hiccup
-        if attempt == 2 or not again:
+        if attempt == ATTEMPTS or not again:
             break
         time.sleep(gap)
     return verdict, None
