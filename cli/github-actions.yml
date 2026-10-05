@@ -98,7 +98,7 @@ jobs:
     if: ${{ github.event_name == 'push' }}
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     environment: catalog
     env:
       GEOLENS_INSTANCE: ${{ secrets.GEOLENS_INSTANCE }}
