@@ -43,7 +43,7 @@ nothing to install and no virtualenv to keep.
 ### `validate`: offline, no instance, no credential
 
 ```bash
-uvx --from geolens-cli==1.21.1 geolens validate cli/geolens.yaml
+uvx --from geolens-cli==1.22.0 geolens validate cli/geolens.yaml
 # Manifest valid: cli/geolens.yaml
 ```
 
@@ -56,7 +56,7 @@ path, which is what an editor wants for completion.
 ### `apply --dry-run`: reaches an instance, writes nothing
 
 ```bash
-uvx --from geolens-cli==1.21.1 geolens --json apply --dry-run cli/geolens.yaml
+uvx --from geolens-cli==1.22.0 geolens --json apply --dry-run cli/geolens.yaml
 ```
 
 The instance matches each entry to an existing dataset by `key`, fingerprints the rest, and answers
@@ -71,7 +71,7 @@ rather than an edit to an old one.
 ### `apply`: the write
 
 ```bash
-uvx --from geolens-cli==1.21.1 geolens --json apply cli/geolens.yaml
+uvx --from geolens-cli==1.22.0 geolens --json apply cli/geolens.yaml
 ```
 
 Same request without `dry_run`. Applying an unchanged entry skips rather than re-importing, so this
@@ -85,6 +85,12 @@ checks it against the file; changing it is what makes apply see an update
 Features service, a registered PostGIS table, a STAC item). A manifest source the server downloaded
 is an ordinary upload once ingested, so refresh refuses it; change a `vector` source's `checksum`,
 or its URI, so apply sees an update.
+
+From GeoLens 1.22.0 an update that needs review, such as a source that drops a column, is held
+rather than published: the run ends `blocked` and the live data stays as it was. A plain `apply`
+returns once the work is queued and exits 0 either way. Add `--wait` to follow each run to its end;
+a blocked one prints why, with the `geolens refresh <dataset> --accept-blocked-run <run-id>` command
+that accepts it, and the command exits 6.
 
 ## Authenticating non-interactively
 
@@ -102,7 +108,7 @@ There is no `GEOLENS_API_KEY`. If an API key is what you have, the CLI takes one
 storage:
 
 ```bash
-echo "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.21.1 geolens login \
+echo "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.22.0 geolens login \
   https://geolens.example.com --api-key - --no-keyring
 ```
 
@@ -119,7 +125,7 @@ here cannot. Applying a manifest is a write, writes need a credential, and the d
 
 ```bash
 GEOLENS_INSTANCE=https://demo.getgeolens.com \
-  uvx --from geolens-cli==1.21.1 geolens apply --dry-run cli/geolens.yaml
+  uvx --from geolens-cli==1.22.0 geolens apply --dry-run cli/geolens.yaml
 # Error: Manifest apply request failed (401): Could not validate credentials
 ```
 
@@ -136,8 +142,8 @@ would change, with `--dry-run`. `apply` runs on a push to `main`, and only there
 its dry run and says so when its secret is missing, so a fork's pull request stays green and honest
 about what it checked. `apply` does the opposite: a push to `main` with `GEOLENS_INSTANCE` or
 `GEOLENS_TOKEN` unset fails on purpose, because green on `main` has to mean the manifest was
-applied, and a `catalog` environment nobody has set up yet must not pass for one. Applies to
-`main` run one at a time, and a run in progress is left to finish rather than cancelled half way.
+applied (the step passes `--wait`, so a run held for review is red too), and a `catalog`
+environment nobody has set up yet must not pass for one. Applies to `main` run one at a time, and a run in progress is left to finish rather than cancelled half way.
 Because GitHub queues runs without promising their order, the apply step also checks that its
 commit is still the tip of `main` before writing, and steps aside if a newer push has landed, so
 the catalog ends up holding the manifest on `main` and not an older one that happened to run last.
