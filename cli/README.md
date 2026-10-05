@@ -86,6 +86,12 @@ Features service, a registered PostGIS table, a STAC item). A manifest source th
 is an ordinary upload once ingested, so refresh refuses it; change a `vector` source's `checksum`,
 or its URI, so apply sees an update.
 
+From GeoLens 1.22.0 an update that needs review, such as a source that drops a column, is held
+rather than published: the run ends `blocked` and the live data stays as it was. A plain `apply`
+returns once the work is queued and exits 0 either way. Add `--wait` to follow each run to its end;
+a blocked one prints why, with the `geolens refresh <dataset> --accept-blocked-run <run-id>` command
+that accepts it, and the command exits 6.
+
 ## Authenticating non-interactively
 
 `geolens login` is interactive and writes to your OS keyring. CI wants neither. The CLI reads two
@@ -136,8 +142,8 @@ would change, with `--dry-run`. `apply` runs on a push to `main`, and only there
 its dry run and says so when its secret is missing, so a fork's pull request stays green and honest
 about what it checked. `apply` does the opposite: a push to `main` with `GEOLENS_INSTANCE` or
 `GEOLENS_TOKEN` unset fails on purpose, because green on `main` has to mean the manifest was
-applied, and a `catalog` environment nobody has set up yet must not pass for one. Applies to
-`main` run one at a time, and a run in progress is left to finish rather than cancelled half way.
+applied (the step passes `--wait`, so a run held for review is red too), and a `catalog`
+environment nobody has set up yet must not pass for one. Applies to `main` run one at a time, and a run in progress is left to finish rather than cancelled half way.
 Because GitHub queues runs without promising their order, the apply step also checks that its
 commit is still the tip of `main` before writing, and steps aside if a newer push has landed, so
 the catalog ends up holding the manifest on `main` and not an older one that happened to run last.

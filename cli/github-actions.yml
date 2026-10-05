@@ -124,7 +124,9 @@ jobs:
             echo "main has moved on to $tip since this run started for $GITHUB_SHA; leaving the apply to the newer run."
             exit 0
           fi
-          uvx --from geolens-cli==1.22.0 geolens --json apply geolens.yaml
+          # --wait follows the run to its end; a replacement held for review
+          # exits 6 instead of leaving the old data live under a green run.
+          uvx --from geolens-cli==1.22.0 geolens --json apply --wait geolens.yaml
       # Red, not a note. The preview job above may skip, because a fork's pull
       # request has no way to reach the instance and validate has already said
       # what it could. A push to main is different: green there has to mean the
