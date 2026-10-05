@@ -168,6 +168,6 @@ least one vector dataset for the picker to fill.
 ## Pinned versions
 
 `@geolens/sdk@1.22.0` (current npm release) and `maplibre-gl@6.11.0`, verified
-against the live demo (serving 1.21.1) on 2026-10-02: SDK loaded from
+against the live demo (serving 1.22.0) on 2026-10-05: SDK loaded from
 esm.sh, all calls 2xx, clean console, tiles rendering for point, line and
 polygon datasets.
