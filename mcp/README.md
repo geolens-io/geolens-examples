@@ -25,7 +25,7 @@ The server is on PyPI, so `uvx` fetches and runs it on demand; there is nothing 
 Python 3.11 or newer. Every example below points at the public demo instance, which serves its
 catalog anonymously, so you can paste any of them as-is and have working tools in about a minute.
 
-Every example also pins `geolens-mcp@1.22.0`, the current release and the version the demo reports.
+Every example also pins `geolens-mcp@1.23.0`, the current release and the version the demo reports.
 The package ships with each GeoLens release, so the version to run is the one matching your
 instance. See [Things that will bite you](#things-that-will-bite-you) for how to move off the pin.
 

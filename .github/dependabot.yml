@@ -22,9 +22,9 @@
 #
 # The GeoLens clients are not on the manual list because each GeoLens release
 # bumps them: release-dispatch.yml runs `ci/check-pins.py --bump` and opens a
-# pull request, which covers geolens==1.22.0 in python/sdk-catalog.py,
-# @geolens/sdk@1.22.0 in typescript/, geolens-mcp@1.22.0 in mcp/clients and
-# index.html, and geolens-cli==1.22.0 in cli/, which verify.yml reads it from.
+# pull request, which covers geolens==1.23.0 in python/sdk-catalog.py,
+# @geolens/sdk@1.23.0 in typescript/, geolens-mcp@1.23.0 in mcp/clients and
+# index.html, and geolens-cli==1.23.0 in cli/, which verify.yml reads it from.
 
 version: 2
 updates:
