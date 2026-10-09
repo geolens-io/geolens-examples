@@ -43,7 +43,7 @@ nothing to install and no virtualenv to keep.
 ### `validate`: offline, no instance, no credential
 
 ```bash
-uvx --from geolens-cli==1.22.0 geolens validate cli/geolens.yaml
+uvx --from geolens-cli==1.23.0 geolens validate cli/geolens.yaml
 # Manifest valid: cli/geolens.yaml
 ```
 
@@ -56,7 +56,7 @@ path, which is what an editor wants for completion.
 ### `apply --dry-run`: reaches an instance, writes nothing
 
 ```bash
-uvx --from geolens-cli==1.22.0 geolens --json apply --dry-run cli/geolens.yaml
+uvx --from geolens-cli==1.23.0 geolens --json apply --dry-run cli/geolens.yaml
 ```
 
 The instance matches each entry to an existing dataset by `key`, fingerprints the rest, and answers
@@ -71,7 +71,7 @@ rather than an edit to an old one.
 ### `apply`: the write
 
 ```bash
-uvx --from geolens-cli==1.22.0 geolens --json apply cli/geolens.yaml
+uvx --from geolens-cli==1.23.0 geolens --json apply cli/geolens.yaml
 ```
 
 Same request without `dry_run`. Applying an unchanged entry skips rather than re-importing, so this
@@ -88,9 +88,11 @@ or its URI, so apply sees an update.
 
 From GeoLens 1.22.0 an update that needs review, such as a source that drops a column, is held
 rather than published: the run ends `blocked` and the live data stays as it was. A plain `apply`
-returns once the work is queued and exits 0 either way. Add `--wait` to follow each run to its end;
-a blocked one prints why, with the `geolens refresh <dataset> --accept-blocked-run <run-id>` command
-that accepts it, and the command exits 6.
+returns once the work is queued and exits 0. The exception, from 1.23.0, is an entry whose earlier
+update is still held: it comes back `blocked` with its run id, nothing is queued, and the command
+exits 6. Add `--wait` to follow each run to its end; a newly held one prints why, with the
+`geolens refresh <dataset> --accept-blocked-run <run-id>` command that accepts it, and the command
+exits 6.
 
 ## Authenticating non-interactively
 
@@ -108,7 +110,7 @@ There is no `GEOLENS_API_KEY`. If an API key is what you have, the CLI takes one
 storage:
 
 ```bash
-echo "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.22.0 geolens login \
+echo "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.23.0 geolens login \
   https://geolens.example.com --api-key - --no-keyring
 ```
 
@@ -125,7 +127,7 @@ here cannot. Applying a manifest is a write, writes need a credential, and the d
 
 ```bash
 GEOLENS_INSTANCE=https://demo.getgeolens.com \
-  uvx --from geolens-cli==1.22.0 geolens apply --dry-run cli/geolens.yaml
+  uvx --from geolens-cli==1.23.0 geolens apply --dry-run cli/geolens.yaml
 # Error: Manifest apply request failed (401): Could not validate credentials
 ```
 
