@@ -88,9 +88,11 @@ or its URI, so apply sees an update.
 
 From GeoLens 1.22.0 an update that needs review, such as a source that drops a column, is held
 rather than published: the run ends `blocked` and the live data stays as it was. A plain `apply`
-returns once the work is queued and exits 0 either way. Add `--wait` to follow each run to its end;
-a blocked one prints why, with the `geolens refresh <dataset> --accept-blocked-run <run-id>` command
-that accepts it, and the command exits 6.
+returns once the work is queued and exits 0. The exception, from 1.23.0, is an entry whose earlier
+update is still held: it comes back `blocked` with its run id, nothing is queued, and the command
+exits 6. Add `--wait` to follow each run to its end; a newly held one prints why, with the
+`geolens refresh <dataset> --accept-blocked-run <run-id>` command that accepts it, and the command
+exits 6.
 
 ## Authenticating non-interactively
 
