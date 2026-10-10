@@ -23,8 +23,13 @@
     <small>Source: <a href="https://github.com/PDAL/data/blob/main/LICENSE">PDAL/data, CC BY 4.0</a></small>
   </header>
   <div id="map" aria-label="Autzen Stadium LiDAR point cloud"></div>
+  <!-- loaders.gl 4.5.4 went out without worker-utils 4.5.4, whose code is unchanged from 4.5.3
+       (visgl/loaders.gl#4208). Drop the worker-utils entry once 4.5.4 is on npm. -->
   <script type="importmap">
-    {"imports":{"maplibre-gl":"https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs"}}
+    {"imports":{
+      "maplibre-gl":"https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs",
+      "https://esm.sh/@loaders.gl/worker-utils@4.5.4/":"https://esm.sh/@loaders.gl/worker-utils@4.5.3/"
+    }}
   </script>
   <script type="module">
     import * as maplibregl from "https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs";
