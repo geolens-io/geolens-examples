@@ -204,3 +204,10 @@ A second path writes a QGIS project of the same three layers. That is how `geole
 made, and passing it again overwrites it.
 
 Set `QGIS_PREFIX_PATH` if your QGIS is somewhere other than an app bundle under `/Applications`.
+
+## Publishing a map into GeoLens
+
+This example reads GeoLens from QGIS. Going the other way, sending datasets and a styled map from
+a desktop GIS into GeoLens, follows the [publish
+contract](https://docs.getgeolens.com/guides/api/publishing-from-desktop-gis/). There is no QGIS
+plugin for it yet.
