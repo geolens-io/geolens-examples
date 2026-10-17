@@ -5,7 +5,7 @@
   <title>GeoLens + @geolens/sdk: catalog-driven map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <link href="https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <link href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css" rel="stylesheet" integrity="sha384-1TZtfVz7qtwR5vD7cMwjGT+9uiK4lqE3pbUOPwYO6OCpb+TYP0S9vLIhG02JCU04" crossorigin="anonymous" />
   <style>
     html, body { margin: 0; height: 100%; }
     body {
@@ -61,7 +61,7 @@
   // The SDK ships as ESM, so a pinned esm.sh URL loads it straight into the
   // browser. No bundler, no build step, same as every other example here.
   // MapLibre GL JS 6 is ESM-only too, and loads the same way.
-  import * as maplibregl from "https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs";
+  import * as maplibregl from "https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs";
   import {
     createGeolensClient,
     collectionItemsCollectionsDatasetsItemsGet,

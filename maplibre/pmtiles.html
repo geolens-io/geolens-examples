@@ -5,8 +5,8 @@
   <title>GeoLens + MapLibre: PMTiles, no tile server</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <link href="https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.css" rel="stylesheet" />
-  <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css" rel="stylesheet" integrity="sha384-1TZtfVz7qtwR5vD7cMwjGT+9uiK4lqE3pbUOPwYO6OCpb+TYP0S9vLIhG02JCU04" crossorigin="anonymous" />
+  <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js" integrity="sha384-pbKNZbDshUsLnZMIVsn/t+j3xEY9PGfuX5Z22l5rcy/obXz3EwaMx1F5d9sRsJMn" crossorigin="anonymous"></script>
   <style>
     html, body, #map { margin: 0; height: 100%; }
     /* Page shell: what this is, whether it loaded, where the data came from. */
@@ -27,7 +27,7 @@
 <script type="module">
   // MapLibre GL JS 6 ships as ES modules only, so this page script is a
   // module and imports the library; there is no `maplibregl` global.
-  import * as maplibregl from "https://unpkg.com/maplibre-gl@6.11.0/dist/maplibre-gl.mjs";
+  import * as maplibregl from "https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs";
 
   // The tiles on this page come from one static file, not from a server that
   // cuts them per request. subway-lines.pmtiles sits next to this page and was
