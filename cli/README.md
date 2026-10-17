@@ -97,15 +97,15 @@ exits 6.
 ## Authenticating non-interactively
 
 `geolens login` is interactive and writes to your OS keyring. CI wants neither. The CLI reads two
-environment variables, and setting both replaces login entirely, so no credential ever touches the
-runner's disk:
+credential and instance variables, and setting both replaces login entirely, so no credential ever
+touches the runner's disk:
 
 | variable | what it does |
 | --- | --- |
 | `GEOLENS_INSTANCE` | The instance URL. The CLI normalizes it and appends `/api` if you left it off. A `--instance` flag beats it. |
 | `GEOLENS_TOKEN` | A bearer token, checked *before* the credentials file and the keyring. |
 
-That is the whole list. `geolens_cli/config.py` reads exactly these two out of the environment.
+That is the whole list. `geolens_cli/config.py` reads only these two for credentials and the instance (`GEOLENS_MANIFEST_APPLY_TIMEOUT` is an `apply` option).
 There is no `GEOLENS_API_KEY`. If an API key is what you have, the CLI takes one only through
 storage:
 
@@ -138,36 +138,47 @@ a server, which is why they are the parts this repo's CI runs on every pull requ
 ## Wiring it into your repo
 
 [`github-actions.yml`](github-actions.yml) is meant to be copied into `.github/workflows/` in the
-repo that holds your manifest. It is three jobs. `validate` runs on every event with no secrets and
+repo that holds your manifest. It is three jobs, plus a `no-preview` job that only reports. `validate` runs on every event with no secrets and
 checks the manifest offline. `preview` runs on pull requests and asks the instance what applying
-would change, with `--dry-run`. `apply` runs on a push to `main`, and only there. `preview` skips
-its dry run and says so when its secret is missing, so a fork's pull request stays green and honest
+would change, with `--dry-run`. `apply` runs on a push to `main`, and only there. A fork's or
+Dependabot's pull request gets no secrets, so it skips `preview` (and its approval gate) and a
+small `no-preview` job says that only offline validation ran; `preview` itself skips its dry run
+and says so when the environment's secrets are missing. Either way the check stays green and honest
 about what it checked. `apply` does the opposite: a push to `main` with `GEOLENS_INSTANCE` or
-`GEOLENS_TOKEN` unset fails on purpose, because green on `main` has to mean the manifest was
+`GEOLENS_API_KEY` unset fails on purpose, because green on `main` has to mean the manifest was
 applied (the step passes `--wait`, so a run held for review is red too), and a `catalog`
-environment nobody has set up yet must not pass for one. Applies to `main` run one at a time, and a run in progress is left to finish rather than cancelled half way.
+environment nobody has set up yet must not pass for one. Applies to `main` run one at a time, and a run in progress is left to finish rather than cancelled half way. A pull request's newer push
+does cancel its older run, which may be sitting at the preview approval.
 Because GitHub queues runs without promising their order, the apply step also checks that its
 commit is still the tip of `main` before writing, and steps aside if a newer push has landed, so
 the catalog ends up holding the manifest on `main` and not an older one that happened to run last.
 
 Why three jobs rather than one: a pull request from a branch in the same repository receives the
-repository's secrets, and it can edit the workflow it runs. A write-capable token in a job that runs
-on pull requests is therefore a token any contributor can read out or use for a real apply. So the
-write token is never in the pull-request path. `preview` uses a separate, low-privilege credential,
-and `apply` runs behind a GitHub environment named `catalog`, whose secrets GitHub hands only to
-runs that target the branch you restrict it to.
+repository's secrets, and it can edit the workflow it runs. A write-capable key in a job that runs
+on pull requests is therefore a key any contributor can read out or use for a real apply. So the
+write key is never in the pull-request path. `preview` has its own key, stored only as a secret of
+an environment named `catalog-preview` that requires reviewers, so a maintainer approves each pull
+request's preview after reading its diff, workflow edits included; a pull request that drops the
+`environment:` line gets no secret at all. Do not restrict that environment to a branch, because
+pull-request runs use `refs/pull/N/merge`. `apply` runs behind an environment named `catalog`,
+whose secrets GitHub hands only to runs that target the branch you restrict it to.
 
 One GitHub Actions detail worth copying rather than rediscovering: the `secrets` context cannot be
 read from an `if:` condition. The secrets go into job-level `env`, and the steps guard on
-`env.GEOLENS_TOKEN != ''`. Writing `if: ${{ secrets.GEOLENS_TOKEN != '' }}` does not work.
+`env.GEOLENS_API_KEY != ''`. Writing `if: ${{ secrets.GEOLENS_API_KEY != '' }}` does not work.
+Each job then stores the key with `geolens login --api-key - --no-keyring` before it runs `apply`,
+because `GEOLENS_TOKEN` is a bearer JWT that expires in 15 minutes and an API key does not.
 
-Three secrets:
+Three secrets (a fork's or Dependabot's pull request receives none, and `no-preview` says it
+checked nothing):
 
 - `GEOLENS_INSTANCE`, a repository secret, for example `https://geolens.example.com`
-- `GEOLENS_PREVIEW_TOKEN`, a repository secret: a bearer token for a user or key allowed to read the
-  catalog and ask for a dry run, and nothing more, since whatever it can do a pull request can do
-- `GEOLENS_TOKEN`, an *environment* secret in an environment named `catalog` restricted to `main`: a
-  bearer token for a user allowed to write to the catalog
+- `GEOLENS_PREVIEW_API_KEY`, an *environment* secret in an environment named `catalog-preview` with
+  required reviewers, not a repository secret. GeoLens has no dry-run-only permission and
+  `--dry-run` is a POST, so it cannot be a `read_only` key, and any key that can preview can also
+  apply. Give it to a user whose write access you accept exposing to an approved pull request
+- `GEOLENS_API_KEY`, an *environment* secret in an environment named `catalog` restricted to `main`:
+  an API key for a user allowed to write to the catalog
 
 ## Editing the manifest
 

@@ -270,7 +270,7 @@ you add a key, the key is wrong, not the server.
 
 ## Versions
 
-`duckdb==1.5.5` is pinned in the script's PEP 723 header. It is the current
+`duckdb==1.5.6` is pinned in the script's PEP 723 header. It is the current
 stable release, and a pin is the first line of defence against an example that
 only worked on the day it was written. The `spatial` and `httpfs` extensions install on first use and are
 cached in `~/.duckdb`, so the first run is slower than the rest.

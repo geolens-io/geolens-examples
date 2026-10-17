@@ -64,14 +64,28 @@ if len(ARGS) == 2 or len(ARGS) > 3:
 if not ARGS and os.environ.get("GEOLENS_URL") and not os.environ.get("GEOLENS_INSTANCE"):
     sys.exit("GEOLENS_URL was renamed to GEOLENS_INSTANCE; export that instead.")
 
+DEMO_URL = "https://demo.getgeolens.com"
+
 # GEOLENS_INSTANCE is the site root; the requests below add /api. An empty
 # value (an unset CI secret, usually) falls back to the demo like an unset one.
-BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_INSTANCE") or "https://demo.getgeolens.com"
+BASE_URL = (ARGS[0] if ARGS else os.environ.get("GEOLENS_INSTANCE") or DEMO_URL).rstrip("/")
 
 # Collection ids are dataset UUIDs. Find them at GET /api/collections, or in
 # the web UI under a dataset's "Share / API" panel.
-LINES_ID = ARGS[1] if len(ARGS) == 3 else "39e1319e-54ad-4431-9efc-f5eef7910fdb"
-STATIONS_ID = ARGS[2] if len(ARGS) == 3 else "4e7cba4c-4caa-4609-b5c4-3c6cd252697c"
+DEMO_LINES_ID = "39e1319e-54ad-4431-9efc-f5eef7910fdb"
+DEMO_STATIONS_ID = "4e7cba4c-4caa-4609-b5c4-3c6cd252697c"
+LINES_ID = ARGS[1] if len(ARGS) == 3 else DEMO_LINES_ID
+STATIONS_ID = ARGS[2] if len(ARGS) == 3 else DEMO_STATIONS_ID
+
+# The counts below were measured on the demo's two datasets, so they are only
+# asserted when this run reads exactly those. The comparison is literal: any
+# other target skips them rather than assert about data this script cannot
+# confirm is the demo's.
+ON_DEMO_DATA = (
+    BASE_URL == DEMO_URL and LINES_ID == DEMO_LINES_ID and STATIONS_ID == DEMO_STATIONS_ID
+)
+EXPECT_LINES = 29
+EXPECT_STATIONS = 496
 
 # Public datasets need no credentials. For a private dataset, send an API key
 # in the X-Api-Key header. GeoLens also accepts ?api_key= in the query string,
@@ -262,6 +276,10 @@ def main() -> int:
         lines = fetch_collection(client, LINES_ID)
         stations = fetch_collection(client, STATIONS_ID)
 
+    if lines.empty or stations.empty:
+        print(f"FAILED: read {len(lines)} lines and {len(stations)} stations; both must be non-empty.")
+        return 1
+
     # Project once, then every length and distance below is in metres.
     lines_m = lines.to_crs(METRIC_CRS)
     stations_m = stations.to_crs(METRIC_CRS)
@@ -345,6 +363,23 @@ def main() -> int:
     draw_map(lines_m, stations_m, out)
     print(f"  wrote {out}")
     print()
+
+    problems = []
+    if ON_DEMO_DATA:
+        if len(lines) != EXPECT_LINES:
+            problems.append(f"lines: read {len(lines)}, expected {EXPECT_LINES}")
+        if len(stations) != EXPECT_STATIONS:
+            problems.append(f"stations: read {len(stations)}, expected {EXPECT_STATIONS}")
+    if problems:
+        print("FAILED: this run does not match what the example describes.")
+        for problem in problems:
+            print(f"  - {problem}")
+        print(f"  If the counts moved, check {BASE_URL}/api/collections: the demo gets reset.")
+        return 1
+    if ON_DEMO_DATA:
+        print(f"  OK: {len(lines)} lines, {len(stations)} stations.")
+    else:
+        print(f"  OK: {len(lines)} lines, {len(stations)} stations. Demo count checks skipped.")
     return 0
 
 

@@ -23,11 +23,12 @@ permissions:
 # runs on pull_request is a token any contributor can read out. So:
 #
 #   validate  every event, no secrets, offline
-#   preview   pull requests only, with a separate low-privilege token you are
-#             willing to expose to PR runs (a read-only key, or a dedicated
-#             user whose only right is to ask "what would this change?")
+#   preview   pull requests only, behind a `catalog-preview` environment with
+#             required reviewers, holding its own API key as an environment
+#             secret. A maintainer approves each run after reading the PR's
+#             diff, workflow edits included.
 #   apply     pushes to main only, behind a GitHub environment, which is where
-#             the write token lives as an environment secret; a run that is
+#             the write API key lives as an environment secret; a run that is
 #             not on main never sees it, whatever the workflow file says
 #
 # One apply at a time per catalog. Two pushes to main in quick succession
@@ -35,10 +36,12 @@ permissions:
 # is deliberate: stopping an apply half way is worse than letting it finish.
 # The group serialises runs but GitHub does not promise their order, so the
 # apply step also checks it is still the tip of main before writing; together
-# the two mean the manifest on the catalog is the one on main.
+# the two mean the manifest on the catalog is the one on main. A pull
+# request's newer push does cancel its older run: that run may be waiting for
+# a preview approval, and would hold the group until someone dealt with it.
 concurrency:
   group: geolens-catalog-${{ github.event_name == 'push' && 'main' || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Offline, and unconditional. A missing `publication.intent` or a key that
@@ -51,48 +54,82 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # uvx runs the pinned CLI straight from PyPI, so the repo holding your
       # manifest needs no Python project, no lockfile and no virtualenv for it.
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - name: Validate the manifest
         run: uvx --from geolens-cli==1.25.1 geolens validate geolens.yaml
 
   # The plan step. --dry-run reaches the instance, matches every entry by key
   # and reports create/update/skip without writing anything, which is the
   # answer a reviewer wants to "what does merging this do?". It runs with
-  # GEOLENS_PREVIEW_TOKEN, not the write token: whatever this credential can
-  # do, a pull request can do.
+  # GEOLENS_PREVIEW_API_KEY, not the write key. GeoLens has no dry-run-only
+  # permission and --dry-run is a POST, so a read_only key cannot preview and
+  # any key that can preview can also apply. Give it to a user whose write
+  # access you accept exposing to an approved pull request.
+  # A same-repo PR can edit this workflow and print the key, and an API key
+  # does not expire. So the key lives only as a secret of the
+  # `catalog-preview` environment, never as a repository secret. Create that
+  # environment with required reviewers: each PR's preview waits for a
+  # maintainer, who reads the diff (this file included) before approving. A PR
+  # that drops the `environment:` line below gets no secret at all. Do not add
+  # a branch restriction; PR runs use refs/pull/N/merge. A fork PR gets no
+  # secrets and falls through to the "nothing was previewed" step.
   # The `secrets` context cannot be read from an `if:`, so the secrets land in
-  # job-level env and the steps test `env` instead. That is also exactly how
-  # the CLI wants them: GEOLENS_INSTANCE and GEOLENS_TOKEN are the only two
-  # variables it reads, and setting them replaces `geolens login` entirely, so
-  # no credential is ever written to the runner's disk.
+  # job-level env and the steps test `env` instead.
+  # GEOLENS_TOKEN is not used: the CLI sends it as a bearer JWT, which expires
+  # after 15 minutes. An API key goes in X-Api-Key and does not, so each job
+  # stores it with `geolens login --api-key -` (stdin keeps it out of argv;
+  # --no-keyring writes a credentials file on the throwaway runner).
+  # Only same-repo pull requests reach the approval gate. A fork's or
+  # Dependabot's pull request gets no secrets, so gating it would only leave a
+  # check waiting for an approval that can preview nothing.
   preview:
-    if: ${{ github.event_name == 'pull_request' }}
+    if: >-
+      ${{ github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.user.login != 'dependabot[bot]' }}
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: catalog-preview
     env:
       GEOLENS_INSTANCE: ${{ secrets.GEOLENS_INSTANCE }}
-      GEOLENS_TOKEN: ${{ secrets.GEOLENS_PREVIEW_TOKEN }}
+      GEOLENS_API_KEY: ${{ secrets.GEOLENS_PREVIEW_API_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       # --json goes BEFORE the subcommand. It is a global option, and
       # `geolens apply --json` is an error.
       - name: Preview the apply
-        if: ${{ env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
-        run: uvx --from geolens-cli==1.25.1 geolens --json apply --dry-run geolens.yaml
-      # A fork holds no secrets, so the step above skips and this job goes
-      # green having previewed nothing. Say that out loud, or a green check
-      # reads as "the instance agreed" when nobody asked it.
+        if: ${{ env.GEOLENS_INSTANCE != '' && env.GEOLENS_API_KEY != '' }}
+        run: |
+          printf '%s' "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.25.1 geolens login "$GEOLENS_INSTANCE" --api-key - --no-keyring
+          uvx --from geolens-cli==1.25.1 geolens --json apply --dry-run geolens.yaml
+      # With the environment's secrets unset the step above skips and this
+      # job goes green having previewed nothing. Say that out loud, or a green
+      # check reads as "the instance agreed" when nobody asked it.
       - name: Report that nothing was previewed
-        if: ${{ env.GEOLENS_INSTANCE == '' || env.GEOLENS_TOKEN == '' }}
-        run: echo "GEOLENS_INSTANCE or GEOLENS_PREVIEW_TOKEN is unset, so no dry run happened; only offline validation ran."
+        if: ${{ env.GEOLENS_INSTANCE == '' || env.GEOLENS_API_KEY == '' }}
+        run: echo "GEOLENS_INSTANCE or GEOLENS_PREVIEW_API_KEY is unset, so no dry run happened; only offline validation ran."
+
+  # The pull requests `preview` leaves out, outside any environment, so they
+  # finish without waiting for anyone and still say what they checked.
+  no-preview:
+    if: >-
+      ${{ github.event_name == 'pull_request' &&
+          (github.event.pull_request.head.repo.full_name != github.repository ||
+           github.event.pull_request.user.login == 'dependabot[bot]') }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Report that nothing was previewed
+        run: echo "A fork's or Dependabot's pull request gets no preview credential, so no dry run happened; only offline validation ran."
 
   # The write, and only from main, so the catalog tracks the reviewed branch
   # and no pull request can move it on its own. Applying an unchanged entry is
   # a skip, so re-running this is cheap rather than a re-import.
-  # `environment: catalog` is what keeps GEOLENS_TOKEN out of every other run:
-  # create the environment in the repo settings, put the token there rather
+  # `environment: catalog` is what keeps GEOLENS_API_KEY out of every other run:
+  # create the environment in the repo settings, put the key there rather
   # than in repository secrets, and restrict it to the main branch.
   apply:
     if: ${{ github.event_name == 'push' }}
@@ -102,15 +139,15 @@ jobs:
     environment: catalog
     env:
       GEOLENS_INSTANCE: ${{ secrets.GEOLENS_INSTANCE }}
-      GEOLENS_TOKEN: ${{ secrets.GEOLENS_TOKEN }}
+      GEOLENS_API_KEY: ${{ secrets.GEOLENS_API_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       # A run that was queued behind a newer push is stale by the time it gets
       # here; it asks the remote what main points at now and steps aside if
       # that is no longer the commit it was started for.
       - name: Apply the manifest
-        if: ${{ env.GEOLENS_INSTANCE != '' && env.GEOLENS_TOKEN != '' }}
+        if: ${{ env.GEOLENS_INSTANCE != '' && env.GEOLENS_API_KEY != '' }}
         shell: bash
         run: |
           # `$(a | b)` takes b's exit status, so an ls-remote failure would
@@ -126,6 +163,7 @@ jobs:
           fi
           # --wait follows the run to its end; a replacement held for review
           # exits 6 instead of leaving the old data live under a green run.
+          printf '%s' "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.25.1 geolens login "$GEOLENS_INSTANCE" --api-key - --no-keyring
           uvx --from geolens-cli==1.25.1 geolens --json apply --wait geolens.yaml
       # Red, not a note. The preview job above may skip, because a fork's pull
       # request has no way to reach the instance and validate has already said
@@ -133,7 +171,7 @@ jobs:
       # catalog now holds this manifest, and a `catalog` environment that was
       # never set up must not read as an apply that happened.
       - name: Fail because nothing was applied
-        if: ${{ env.GEOLENS_INSTANCE == '' || env.GEOLENS_TOKEN == '' }}
+        if: ${{ env.GEOLENS_INSTANCE == '' || env.GEOLENS_API_KEY == '' }}
         run: |
-          echo "GEOLENS_INSTANCE and GEOLENS_TOKEN are required for main." >&2
+          echo "GEOLENS_INSTANCE and GEOLENS_API_KEY are required for main." >&2
           exit 1
