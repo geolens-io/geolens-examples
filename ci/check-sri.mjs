@@ -84,7 +84,12 @@ for (const file of pages(ROOT)) {
 
   for (const [, body] of html.matchAll(/<script type="importmap">([\s\S]*?)<\/script>/g)) {
     const map = JSON.parse(body);
-    for (const url of Object.values(map.imports ?? {}).filter((u) => CDN.test(u))) {
+    const before = JSON.stringify(map);
+    const urls = [
+      ...Object.values(map.imports ?? {}),
+      ...Object.values(map.scopes ?? {}).flatMap((scope) => Object.values(scope)),
+    ].filter((u) => CDN.test(u));
+    for (const url of new Set(urls)) {
       let want;
       try {
         want = await sha384(url);
@@ -92,28 +97,25 @@ for (const file of pages(ROOT)) {
         fail(file, url, `could not be fetched (${error.message})`);
         continue;
       }
-      const have = map.integrity?.[url];
       if (write) {
         map.integrity = { ...map.integrity, [url]: want };
         continue;
       }
+      const have = map.integrity?.[url];
       if (!have) fail(file, url, "has no import map integrity entry");
       else if (have !== want) fail(file, url, `import map integrity is ${have}, the CDN serves ${want}`);
     }
-    if (write) {
-      const imports = Object.entries(map.imports).map(([k, v]) => `      ${JSON.stringify(k)}:${JSON.stringify(v)}`);
-      const integrity = Object.entries(map.integrity ?? {}).map(([k, v]) => `      ${JSON.stringify(k)}:${JSON.stringify(v)}`);
-      const next = `\n    {"imports":{\n${imports.join(",\n")}\n    }${integrity.length ? `,\n    "integrity":{\n${integrity.join(",\n")}\n    }` : ""}}\n  `;
-      html = html.replace(body, next);
+    if (write && JSON.stringify(map) !== before) {
+      html = html.replace(body, () => `\n${JSON.stringify(map, null, 2).replace(/^/gm, "    ")}\n  `);
     }
   }
 
   if (write && html !== original) writeFileSync(file, html);
 }
 
-if (write) process.exit(0);
 if (failures.length) {
   console.error(`SRI check failed:\n${failures.map((f) => `  ${f}`).join("\n")}`);
   process.exit(1);
 }
-console.log(`SRI ok: ${hashes.size} CDN files match their integrity hashes`);
+if (write) console.log(`Hashes written for ${hashes.size} CDN files`);
+else console.log(`SRI ok: ${hashes.size} CDN files match their integrity hashes`);
