@@ -1,8 +1,8 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     # <2: v2 replaced ClientSession. >=1.28.1: the floor geolens-mcp declares,
-#     # and the release that fixed the last known 1.x advisory.
+#     # <2: v2 replaced ClientSession. >=1.28.1: the release that fixed the last
+#     # known 1.x advisory.
 #     "mcp>=1.28.1,<2",
 # ]
 # ///
