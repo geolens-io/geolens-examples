@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "duckdb==1.5.5",
+#     "duckdb==1.5.6",
 # ]
 # ///
 """Query a live GeoLens instance with SQL, from DuckDB, over HTTP.
@@ -26,8 +26,9 @@ created; DuckDB reads both sources over HTTP as it evaluates the query.
 The point of the example is that GeoLens has two read surfaces with different
 shapes, and DuckDB can treat both as tables:
 
-    read_parquet()  the bulk export. Columnar, so DuckDB fetches byte ranges
-                    for the columns a query names and skips the rest.
+    read_parquet()  the bulk export. Columnar, so a warm export is read by
+                    byte range for the columns a query names; a cold one is
+                    served whole.
     ST_Read()       the standards endpoint. GeoJSON, read whole, which is what
                     a format with no index and no column boundaries costs.
 
@@ -249,6 +250,9 @@ def connect() -> duckdb.DuckDBPyConnection:
     # Both download on first use and are cached in ~/.duckdb after that.
     con.execute("INSTALL spatial; LOAD spatial;")
     con.execute("INSTALL httpfs; LOAD httpfs;")
+    # GeoLens coordinates are lon/lat; without this ST_Transform treats the
+    # EPSG:4326 axis order as lat/lon and swaps them.
+    con.execute("SET geometry_always_xy = true;")
     if API_KEY:
         con.execute(
             "CREATE SECRET geolens (TYPE http, SCOPE $scope, "
@@ -268,7 +272,7 @@ def http_cost(con: duckdb.DuckDBPyConnection) -> str:
     answers HEAD with a Content-Length. DuckDB cannot address ranges into a
     file whose size it does not know, so against a cold artifact it streams
     the whole 3.3 MB and the column-pruning below buys nothing. Warm, the same
-    query reads two ranges and about 16 KB. Both were observed on the demo on
+    query can read two ranges and about 16 KB. Both were observed on the demo on
     2026-08-19, minutes apart.
 
     Returns a description rather than raising, since this is commentary and
@@ -333,7 +337,7 @@ def main() -> int:
     # The lines export is 3.3 MB, and 99.5% of that is the geometry column.
     # This query never names it, so DuckDB reads the Parquet footer, works out
     # where the `service` column lives, and fetches that range and nothing
-    # else: a HEAD and two ranged reads, about 16 KB.
+    # else when the export is warm: a HEAD and two ranged reads, about 16 KB.
     #
     # This is the whole reason to point SQL at an export instead of curl-ing
     # it to disk first: you can ask what is in a dataset for the price of its
@@ -350,7 +354,7 @@ def main() -> int:
             {"url": LINES_PARQUET},
         ),
     )
-    services = con.sql("SELECT count(*) FROM service_names").fetchone()[0]
+    services = con.execute("SELECT count(*) FROM service_names").fetchone()[0]
 
     # ----------------------------------------------------------------------
     # 2. Both reads, projected once, as tables
@@ -398,8 +402,8 @@ def main() -> int:
 
     geometry_cost = measured(con, load_lines, load_stations)
 
-    n_lines = con.sql("SELECT count(*) FROM lines").fetchone()[0]
-    n_stations = con.sql("SELECT count(*) FROM stations").fetchone()[0]
+    n_lines = con.execute("SELECT count(*) FROM lines").fetchone()[0]
+    n_stations = con.execute("SELECT count(*) FROM stations").fetchone()[0]
 
     # ----------------------------------------------------------------------
     # 3. The spatial join, across both sources, in one statement
@@ -448,12 +452,12 @@ def main() -> int:
         LIMIT 6
     """).fetchall()
 
-    pairs = con.sql("SELECT count(*) FROM passes").fetchone()[0]
+    pairs = con.execute("SELECT count(*) FROM passes").fetchone()[0]
 
     # The check the CRS comment above promised: where did the coordinates
     # actually land? Absolute, so it is not fooled by two layers being wrong
     # in the same direction.
-    extent = con.sql("""
+    extent = con.execute("""
         SELECT min(ST_X(ST_Centroid(geom))), max(ST_X(ST_Centroid(geom))),
                min(ST_Y(ST_Centroid(geom))), max(ST_Y(ST_Centroid(geom)))
         FROM stations
@@ -462,14 +466,14 @@ def main() -> int:
     # ST_Distance to the nearest line, per station, and every one of them has
     # to be close to something. This one proves the two reads register against
     # each other, which is a different question from the extent check above.
-    on_line = con.sql(f"""
+    on_line = con.execute(f"""
         SELECT count(*) FROM (
             SELECT s.station_id, min(ST_Distance(s.geom, l.geom)) AS m
             FROM stations s CROSS JOIN lines l
             GROUP BY 1
         ) WHERE m <= {ON_LINE_M}
     """).fetchone()[0]
-    furthest = con.sql("""
+    furthest = con.execute("""
         SELECT s.stop_name, min(ST_Distance(s.geom, l.geom)) AS m
         FROM stations s CROSS JOIN lines l
         GROUP BY s.station_id, 1
@@ -490,8 +494,8 @@ def main() -> int:
     print("  over the wire, as DuckDB logged it")
     print(f"    naming one column   {catalog_cost}")
     print(f"    naming the geometry {geometry_cost}")
-    print("    Ranged reads are the interesting case: the query that never")
-    print("    names the geometry pulls about 16 KB out of a 3.3 MB export.")
+    print("    Ranged reads are the interesting case: on a warm export the query")
+    print("    that never names the geometry pulls about 16 KB of 3.3 MB.")
     print("    They need a length to range into, and only an export GeoLens")
     print("    has already built answers HEAD with one, so a cold artifact")
     print("    reads whole and the first run of the day can show either.")
@@ -502,7 +506,7 @@ def main() -> int:
         print(f"  {label:<26}{runs_past:>5} {no_stop:>8}  {routes}")
     print()
     print(f"  {pairs:,} station/service pairs run within {NEAR_M} m of each other, against")
-    total_stops = con.sql("SELECT count(*) FROM stops WHERE route <> ''").fetchone()[0]
+    total_stops = con.execute("SELECT count(*) FROM stops WHERE route <> ''").fetchone()[0]
     print(f"  {total_stops:,} that actually stop. Proximity is not service: the four-track")
     print("  trunks carry expresses straight past the local platforms they share")
     print("  a right-of-way with, and this query counts those.")
