@@ -35,7 +35,8 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SKIP = new Set([".git", ".claude", "node_modules", "assets", "diagnostics"]);
-const CDN_HOST = /unpkg\.com|cdn\.jsdelivr\.net/i;
+const CDN_HOSTNAMES = new Set(["unpkg.com", "cdn.jsdelivr.net"]);
+const isCdnHost = (host) => CDN_HOSTNAMES.has(host.toLowerCase());
 const CDN_URL = /^https:\/\/(?:unpkg\.com|cdn\.jsdelivr\.net)\/[^\s"']+$/;
 const CDN = /^https:\/\/(?:unpkg\.com|cdn\.jsdelivr\.net)\//;
 
@@ -123,11 +124,11 @@ export async function processHtml(html, { write, hashOf }) {
       note(tag, `uses an HTML entity this check cannot decode in its URL; write the URL plainly`);
       continue;
     }
-    if (resolved && CDN_HOST.test(resolved) && /[%&\\]/.test(raw)) {
+    if (resolved && isCdnHost(resolved) && /[%&\\]/.test(raw)) {
       note(tag, `has a percent-encoded, entity-encoded or backslashed CDN URL; write it plainly`);
       continue;
     }
-    if (!CDN_HOST.test(tag) && !(resolved && CDN_HOST.test(resolved))) continue;
+    if (!resolved || !isCdnHost(resolved)) continue;
     const parsed = parseTag(tag);
     const urlName = isScript ? "src" : "href";
     if (!parsed || parsed.name !== (isScript ? "script" : "link")) {
@@ -186,7 +187,7 @@ export async function processHtml(html, { write, hashOf }) {
     const urls = [
       ...Object.values(map.imports ?? {}),
       ...Object.values(map.scopes ?? {}).flatMap((scope) => Object.values(scope)),
-    ].filter((u) => CDN_HOST.test(u));
+    ].filter((u) => isCdnHost(resolvedHost(String(u)) ?? ""));
     for (const url of new Set(urls)) {
       if (!CDN.test(url)) {
         note(url, "in the import map must be an https URL on the CDN");
@@ -217,8 +218,6 @@ export async function processHtml(html, { write, hashOf }) {
   return { html, problems, handled };
 }
 
-
-const CDN_HOSTNAMES = new Set(["unpkg.com", "cdn.jsdelivr.net"]);
 
 // What the browser made of the page: scripting off, every request but the page
 // itself aborted. Runs in the page, so it can only return plain data.
@@ -403,6 +402,10 @@ async function selfTest() {
 
   const plain = `<script src="/local.js"></script><script type='module'>import "x"</script><script type="module" src="https://js.arcgis.com/5.1/"></script>`;
   expect("non-CDN tags are ignored", (await processHtml(plain, { write: false, hashOf })).problems.length === 0);
+  for (const other of ["https://notunpkg.com/x@1.0.0/x.js", "https://example.org/unpkg.com/x.js", "https://cdn.jsdelivr.net.example.org/x.js"]) {
+    const page = `<script src="${other}"></script>`;
+    expect(`a host that only contains a CDN name is out of scope (${other})`, (await processHtml(page, { write: false, hashOf })).problems.length === 0);
+  }
   const cdnModule = `<script type="module" src="https://unpkg.com/x@1.0.0/x.mjs"></script>`;
   for (const enc of ["https://unpkg%2ecom/x@1.0.0/x.js", "https://unpkg&#46;com/x@1.0.0/x.js", "https://unpkg&percnt;2ecom/x@1.0.0/x.js", "https://unpkg&period;com/x@1.0.0/x.js"]) {
     const page = `<script src="${enc}"></script>`;
@@ -446,6 +449,8 @@ async function selfTest() {
     for (const [name, body] of Object.entries(dom)) {
       expect(`DOM: rejects ${name}`, (await scan(body)).length > 0);
     }
+    const quoted = doc(`<script data-note=">" src="${js}"></script>`);
+    expect("DOM: --write fails on a tag it cannot maintain", (await checkPage(browser, quoted, { write: true, hashOf })).problems.length > 0);
     expect(
       "DOM: ignores a non-CDN asset",
       (await scan(`<script src="/local.js"></script><script type="module" src="https://js.arcgis.com/5.1/"></script>`)).length === 0,
@@ -460,19 +465,28 @@ async function selfTest() {
   console.log("SRI self-test ok");
 }
 
+// One page, both passes. With `write`, the rewritten page is what gets
+// verified, so a tag `--write` could not maintain still fails.
+export async function checkPage(browser, original, { write, hashOf }) {
+  const first = await processHtml(original, { write, hashOf });
+  const html = write ? first.html : original;
+  const final = write ? await processHtml(html, { write: false, hashOf }) : first;
+  const problems = new Set([...first.problems, ...final.problems]);
+  for (const problem of await domProblems(browser, html, final.handled, hashOf)) problems.add(problem);
+  return { html, problems: [...problems] };
+}
+
 async function main() {
   const write = process.argv.includes("--write");
   const failures = [];
-  const browser = write ? null : await launchBrowser();
+  const browser = await launchBrowser();
   for (const file of pages(ROOT)) {
     const original = readFileSync(file, "utf8");
-    const { html, problems, handled } = await processHtml(original, { write, hashOf: sha384 });
-    const all = new Set(problems);
-    if (browser) for (const problem of await domProblems(browser, original, handled, sha384)) all.add(problem);
-    for (const problem of all) failures.push(`${relative(ROOT, file)}: ${problem}`);
+    const { html, problems } = await checkPage(browser, original, { write, hashOf: sha384 });
+    for (const problem of problems) failures.push(`${relative(ROOT, file)}: ${problem}`);
     if (write && html !== original) writeFileSync(file, html);
   }
-  await browser?.close();
+  await browser.close();
 
   if (failures.length) {
     console.error(`SRI check failed:\n${failures.map((f) => `  ${f}`).join("\n")}`);
