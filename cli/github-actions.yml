@@ -23,10 +23,10 @@ permissions:
 # runs on pull_request is a token any contributor can read out. So:
 #
 #   validate  every event, no secrets, offline
-#   preview   pull requests only, with a separate low-privilege API key you are
-#             willing to expose to PR runs. Not a read_only key: --dry-run is
-#             a POST, which read_only keys refuse. Use a key that belongs to a
-#             dedicated low-privilege user.
+#   preview   pull requests only, behind a `catalog-preview` environment with
+#             required reviewers, holding its own API key as an environment
+#             secret. A maintainer approves each run after reading the PR's
+#             diff, workflow edits included.
 #   apply     pushes to main only, behind a GitHub environment, which is where
 #             the write API key lives as an environment secret; a run that is
 #             not on main never sees it, whatever the workflow file says
@@ -59,9 +59,18 @@ jobs:
   # The plan step. --dry-run reaches the instance, matches every entry by key
   # and reports create/update/skip without writing anything, which is the
   # answer a reviewer wants to "what does merging this do?". It runs with
-  # GEOLENS_PREVIEW_API_KEY, not the write key: whatever this credential can
-  # do, a pull request can do. It must not be a read_only key, because
-  # --dry-run is a POST; use a key that belongs to a low-privilege user.
+  # GEOLENS_PREVIEW_API_KEY, not the write key. GeoLens has no dry-run-only
+  # permission and --dry-run is a POST, so a read_only key cannot preview and
+  # any key that can preview can also apply. Give it to a user whose write
+  # access you accept exposing to an approved pull request.
+  # A same-repo PR can edit this workflow and print the key, and an API key
+  # does not expire. So the key lives only as a secret of the
+  # `catalog-preview` environment, never as a repository secret. Create that
+  # environment with required reviewers: each PR's preview waits for a
+  # maintainer, who reads the diff (this file included) before approving. A PR
+  # that drops the `environment:` line below gets no secret at all. Do not add
+  # a branch restriction; PR runs use refs/pull/N/merge. A fork PR gets no
+  # secrets and falls through to the "nothing was previewed" step.
   # The `secrets` context cannot be read from an `if:`, so the secrets land in
   # job-level env and the steps test `env` instead.
   # GEOLENS_TOKEN is not used: the CLI sends it as a bearer JWT, which expires
@@ -73,6 +82,7 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: catalog-preview
     env:
       GEOLENS_INSTANCE: ${{ secrets.GEOLENS_INSTANCE }}
       GEOLENS_API_KEY: ${{ secrets.GEOLENS_PREVIEW_API_KEY }}

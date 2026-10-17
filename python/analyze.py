@@ -68,7 +68,7 @@ DEMO_URL = "https://demo.getgeolens.com"
 
 # GEOLENS_INSTANCE is the site root; the requests below add /api. An empty
 # value (an unset CI secret, usually) falls back to the demo like an unset one.
-BASE_URL = ARGS[0] if ARGS else os.environ.get("GEOLENS_INSTANCE") or DEMO_URL
+BASE_URL = (ARGS[0] if ARGS else os.environ.get("GEOLENS_INSTANCE") or DEMO_URL).rstrip("/")
 
 # Collection ids are dataset UUIDs. Find them at GET /api/collections, or in
 # the web UI under a dataset's "Share / API" panel.
@@ -276,6 +276,10 @@ def main() -> int:
         lines = fetch_collection(client, LINES_ID)
         stations = fetch_collection(client, STATIONS_ID)
 
+    if lines.empty or stations.empty:
+        print(f"FAILED: read {len(lines)} lines and {len(stations)} stations; both must be non-empty.")
+        return 1
+
     # Project once, then every length and distance below is in metres.
     lines_m = lines.to_crs(METRIC_CRS)
     stations_m = stations.to_crs(METRIC_CRS)
@@ -361,8 +365,6 @@ def main() -> int:
     print()
 
     problems = []
-    if not len(lines) or not len(stations):
-        problems.append(f"read {len(lines)} lines and {len(stations)} stations; both must be non-empty")
     if ON_DEMO_DATA:
         if len(lines) != EXPECT_LINES:
             problems.append(f"lines: read {len(lines)}, expected {EXPECT_LINES}")

@@ -26,8 +26,9 @@ created; DuckDB reads both sources over HTTP as it evaluates the query.
 The point of the example is that GeoLens has two read surfaces with different
 shapes, and DuckDB can treat both as tables:
 
-    read_parquet()  the bulk export. Columnar, so a warm export is read by
-                    byte range for the columns a query names; a cold one is
+    read_parquet()  the bulk export. Columnar, so a query can read
+                    byte ranges for the columns it names when the export is
+                    warm and the server honours Range; otherwise it is
                     served whole.
     ST_Read()       the standards endpoint. GeoJSON, read whole, which is what
                     a format with no index and no column boundaries costs.
@@ -337,7 +338,8 @@ def main() -> int:
     # The lines export is 3.3 MB, and 99.5% of that is the geometry column.
     # This query never names it, so DuckDB reads the Parquet footer, works out
     # where the `service` column lives, and fetches that range and nothing
-    # else when the export is warm: a HEAD and two ranged reads, about 16 KB.
+    # else when the export is warm and Range is honoured: a HEAD and two
+    # ranged reads, about 16 KB.
     #
     # This is the whole reason to point SQL at an export instead of curl-ing
     # it to disk first: you can ask what is in a dataset for the price of its

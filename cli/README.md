@@ -153,9 +153,12 @@ the catalog ends up holding the manifest on `main` and not an older one that hap
 Why three jobs rather than one: a pull request from a branch in the same repository receives the
 repository's secrets, and it can edit the workflow it runs. A write-capable key in a job that runs
 on pull requests is therefore a key any contributor can read out or use for a real apply. So the
-write key is never in the pull-request path. `preview` uses a separate, low-privilege credential,
-and `apply` runs behind a GitHub environment named `catalog`, whose secrets GitHub hands only to
-runs that target the branch you restrict it to.
+write key is never in the pull-request path. `preview` has its own key, stored only as a secret of
+an environment named `catalog-preview` that requires reviewers, so a maintainer approves each pull
+request's preview after reading its diff, workflow edits included; a pull request that drops the
+`environment:` line gets no secret at all. Do not restrict that environment to a branch, because
+pull-request runs use `refs/pull/N/merge`. `apply` runs behind an environment named `catalog`,
+whose secrets GitHub hands only to runs that target the branch you restrict it to.
 
 One GitHub Actions detail worth copying rather than rediscovering: the `secrets` context cannot be
 read from an `if:` condition. The secrets go into job-level `env`, and the steps guard on
@@ -163,12 +166,13 @@ read from an `if:` condition. The secrets go into job-level `env`, and the steps
 Each job then stores the key with `geolens login --api-key - --no-keyring` before it runs `apply`,
 because `GEOLENS_TOKEN` is a bearer JWT that expires in 15 minutes and an API key does not.
 
-Three secrets:
+Three secrets (a fork's pull request receives none, and `preview` says it checked nothing):
 
 - `GEOLENS_INSTANCE`, a repository secret, for example `https://geolens.example.com`
-- `GEOLENS_PREVIEW_API_KEY`, a repository secret: an API key for a low-privilege user, allowed to ask
-  for a dry run and nothing more, since whatever it can do a pull request can do. Not a `read_only`
-  key, because `--dry-run` is a POST
+- `GEOLENS_PREVIEW_API_KEY`, an *environment* secret in an environment named `catalog-preview` with
+  required reviewers, not a repository secret. GeoLens has no dry-run-only permission and
+  `--dry-run` is a POST, so it cannot be a `read_only` key, and any key that can preview can also
+  apply. Give it to a user whose write access you accept exposing to an approved pull request
 - `GEOLENS_API_KEY`, an *environment* secret in an environment named `catalog` restricted to `main`:
   an API key for a user allowed to write to the catalog
 
