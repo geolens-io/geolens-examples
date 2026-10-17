@@ -162,7 +162,7 @@
       "/api/collections/datasets/items?q=Autzen",
       "/copc/"
     ],
-    "minDataResponses": 1
+    "minDataResponses": 10
   },
   {
     "path": "tiles3d/amsterdam.html",

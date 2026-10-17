@@ -33,10 +33,10 @@ jobs:
         include:
           - qgis: "4.2"
             key: "4.2"
-            image: qgis/qgis:4.2.2@sha256:6ffe6b31646247f2e179cb2cc32bb4df215eedc99f387ad59a6cc88ebfe23e21
+            image: qgis/qgis:4.2.3@sha256:8996496c15887a8fae0da05fa38103093ddbf104525bcbd67bf733a914fb1444
           - qgis: "3.44 LTR"
             key: "3.44-ltr"
-            image: qgis/qgis:3.44.14@sha256:681853565ad03722a0cbcba23985fd211ca927bec2b3d389cb07e0e0412e4184
+            image: qgis/qgis:3.44.15@sha256:bacafbaf899bb2af5d99dd8a138e0438733aac252ddd5f29d089ad34641bb059
     container:
       image: ${{ matrix.image }}
     env:
@@ -45,6 +45,8 @@ jobs:
       # The image ships no git, so checkout falls back to downloading the tree
       # over the REST API. Fine here: nothing in the job reads history.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Open the demo's layers in QGIS and render them
         run: python3 qgis/verify.py qgis-features.png
       - name: Upload the render

@@ -9,8 +9,10 @@
 #
 # Not watched, and still a manual edit:
 #   - playwright@1.62.1, installed by a shell line in verify.yml
-#   - CDN pins in the example pages: maplibre-gl, leaflet, ol, pmtiles
-#   - duckdb==1.5.5, a PEP 723 inline dependency in duckdb/query.py
+#   - CDN pins in the example pages (maplibre-gl, leaflet, ol, pmtiles, cesium,
+#     maplibre-gl-lidar via esm.sh), and the floating ArcGIS SDK
+#   - the PEP 723 inline dependencies of the Python scripts (duckdb, geopandas,
+#     httpx, matplotlib, leafmap, nbclient, requests, mcp ...)
 #   - the qgis/qgis image digests in .github/workflows/qgis.yml; the
 #     github-actions ecosystem bumps `uses:` pins, not `container.image`
 #   - the SHA-pinned actions in cli/github-actions.yml, which is a template for
