@@ -34,12 +34,14 @@ function* pages(dir) {
 
 const attr = (tag, name) => tag.match(new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`))?.[1];
 
+// A stalled CDN fails here per URL instead of running into the job timeout.
+const DEADLINE = AbortSignal.timeout(120_000);
 const hashes = new Map();
 async function sha384(url) {
   if (!hashes.has(url)) {
     hashes.set(
       url,
-      fetch(url).then(async (res) => {
+      fetch(url, { signal: AbortSignal.any([AbortSignal.timeout(20_000), DEADLINE]) }).then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = Buffer.from(await res.arrayBuffer());
         return `sha384-${createHash("sha384").update(body).digest("base64")}`;
