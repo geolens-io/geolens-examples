@@ -73,6 +73,23 @@ function parseTag(tag) {
 
 const get = (parsed, name) => parsed.attrs.filter((a) => a.name === name);
 
+// The host a browser would load an attribute value from: numeric and the
+// common named entities decoded, then the WHATWG URL parser, which also
+// percent-decodes the host. Relative URLs resolve to a non-CDN base.
+const NAMED = { amp: "&", period: ".", sol: "/", colon: ":", quot: '"', apos: "'" };
+function resolvedHost(value) {
+  const decoded = value
+    .replace(/&#x([0-9a-f]+);?/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);?/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&([a-z]+);/gi, (m, n) => NAMED[n.toLowerCase()] ?? m)
+    .trim();
+  try {
+    return new URL(decoded, "https://local.invalid/").hostname;
+  } catch {
+    return "";
+  }
+}
+
 // Returns the page with hashes written (write mode) and the problems found.
 // `hashOf` is injected so the self-test needs no network.
 export async function processHtml(html, { write, hashOf }) {
@@ -84,14 +101,16 @@ export async function processHtml(html, { write, hashOf }) {
     const tag = m[0];
     const isScript = /^<script/i.test(tag);
     if (isScript && /importmap/i.test(tag)) continue;
-    // A browser decodes `unpkg%2ecom` or `unpkg&#46;com` to a CDN host that the
-    // raw-text test below would miss, so an encoded URL is refused outright.
+    // A browser decodes `unpkg%2ecom` or `unpkg&#46;com` to a CDN host the raw
+    // test below would miss. Resolve the URL as a browser would; only a URL that
+    // lands on a CDN host has to be written plainly.
     const raw = tag.match(/\s(?:src|href)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i)?.[1] ?? "";
-    if (/[%&\\]/.test(raw)) {
-      note(tag, `has a percent-encoded, entity-encoded or backslashed URL; write it plainly`);
+    const resolved = resolvedHost(raw.replace(/^["']|["']$/g, ""));
+    if (resolved && CDN_HOST.test(resolved) && /[%&\\]/.test(raw)) {
+      note(tag, `has a percent-encoded, entity-encoded or backslashed CDN URL; write it plainly`);
       continue;
     }
-    if (!CDN_HOST.test(tag)) continue;
+    if (!CDN_HOST.test(tag) && !(resolved && CDN_HOST.test(resolved))) continue;
     const parsed = parseTag(tag);
     const urlName = isScript ? "src" : "href";
     if (!parsed || parsed.name !== (isScript ? "script" : "link")) {
@@ -255,6 +274,10 @@ async function selfTest() {
   for (const enc of ["https://unpkg%2ecom/x@1.0.0/x.js", "https://unpkg&#46;com/x@1.0.0/x.js"]) {
     const page = `<script src="${enc}"></script>`;
     expect(`an encoded CDN host is refused (${enc})`, (await processHtml(page, { write: false, hashOf })).problems.length > 0);
+  }
+  for (const local of ["/local.js?a=1&amp;b=2", "/assets/report%20viewer.js", "https://example.org/x.js?a=1&b=2"]) {
+    const page = `<script src="${local}"></script>`;
+    expect(`an encoded non-CDN URL is out of scope (${local})`, (await processHtml(page, { write: false, hashOf })).problems.length === 0);
   }
   expect("a CDN module script needs integrity too", (await processHtml(cdnModule, { write: false, hashOf })).problems.length > 0);
 
