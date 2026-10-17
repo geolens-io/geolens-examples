@@ -101,6 +101,22 @@ function resolvedHost(value) {
   }
 }
 
+// Comments and the text inside script, style, textarea and template elements
+// are blanked (same length, so offsets still match the page): a tag-shaped
+// string there is not something the browser loads, and --write must not edit it.
+function maskInert(html) {
+  const blank = (text) => text.replace(/[^\n]/g, " ");
+  return html
+    .replace(/<!--[\s\S]*?-->/g, blank)
+    .replace(/(<(script|style|textarea|template)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi, (_, open, _name, body, close) => open + blank(body) + close);
+}
+
+// The value of a start tag's type attribute, whatever the quoting.
+const typeOf = (tag) => {
+  const m = tag.match(/\stype\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
+  return (m?.[1] ?? m?.[2] ?? m?.[3] ?? "").trim().toLowerCase();
+};
+
 // Returns the page with hashes written (write mode) and the problems found.
 // `hashOf` is injected so the self-test needs no network.
 export async function processHtml(html, { write, hashOf }) {
@@ -111,10 +127,11 @@ export async function processHtml(html, { write, hashOf }) {
   const handled = new Set();
   const note = (url, why) => problems.push(`${url} ${why}`);
 
-  for (const m of html.matchAll(/<(?:script|link)\b[^>]*>/gi)) {
+  const masked = maskInert(html);
+  for (const m of masked.matchAll(/<(?:script|link)\b[^>]*>/gi)) {
     const tag = m[0];
     const isScript = /^<script/i.test(tag);
-    if (isScript && /importmap/i.test(tag)) continue;
+    if (isScript && typeOf(tag) === "importmap") continue;
     // A browser decodes `unpkg%2ecom` or `unpkg&#46;com` to a CDN host the raw
     // test below would miss. Resolve the URL as a browser would; only a URL that
     // lands on a CDN host has to be written plainly.
@@ -161,7 +178,7 @@ export async function processHtml(html, { write, hashOf }) {
       const attrs = [...kept, { name: "integrity", value: want }, { name: "crossorigin", value: "anonymous" }]
         .map((a) => (a.value === undefined ? a.name : `${a.name}="${a.value}"`))
         .join(" ");
-      edits.push([tag, `<${parsed.name} ${attrs}${parsed.selfClose ? " /" : ""}>`]);
+      edits.push([m.index, m.index + tag.length, `<${parsed.name} ${attrs}${parsed.selfClose ? " /" : ""}>`]);
       continue;
     }
     if (!integrity.length) note(url, "has no integrity attribute");
@@ -169,16 +186,19 @@ export async function processHtml(html, { write, hashOf }) {
     if (crossorigin[0]?.value !== "anonymous") note(url, 'needs crossorigin="anonymous"');
   }
 
-  for (const m of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
-    if (!/importmap/i.test(m[0].slice(0, m[0].indexOf(">") + 1))) continue;
+  for (const m of masked.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
     const openTag = m[0].slice(0, m[0].indexOf(">") + 1);
+    if (typeOf(openTag) !== "importmap") continue;
+    // The masked copy blanked the JSON; read it from the page itself.
+    const bodyStart = m.index + openTag.length;
+    const body = html.slice(bodyStart, bodyStart + m[1].length);
     if (openTag !== '<script type="importmap">') {
       note(openTag, 'is an import map this check cannot parse; write it exactly as <script type="importmap">');
       continue;
     }
     let map;
     try {
-      map = JSON.parse(m[1]);
+      map = JSON.parse(body);
     } catch (error) {
       note(openTag, `holds JSON that does not parse (${error.message})`);
       continue;
@@ -210,11 +230,11 @@ export async function processHtml(html, { write, hashOf }) {
       else if (have !== want) note(url, `import map integrity is ${have}, the CDN serves ${want}`);
     }
     if (write && JSON.stringify(map) !== before) {
-      edits.push([m[1], `\n${JSON.stringify(map, null, 2).replace(/^/gm, "    ")}\n  `]);
+      edits.push([bodyStart, bodyStart + body.length, `\n${JSON.stringify(map, null, 2).replace(/^/gm, "    ")}\n  `]);
     }
   }
 
-  for (const [from, to] of edits) html = html.replace(from, () => to);
+  for (const [start, end, to] of edits.sort((a, b) => b[0] - a[0])) html = html.slice(0, start) + to + html.slice(end);
   return { html, problems, handled };
 }
 
@@ -402,6 +422,12 @@ async function selfTest() {
 
   const plain = `<script src="/local.js"></script><script type='module'>import "x"</script><script type="module" src="https://js.arcgis.com/5.1/"></script>`;
   expect("non-CDN tags are ignored", (await processHtml(plain, { write: false, hashOf })).problems.length === 0);
+  const inert = `<!-- <script src="https://unpkg.com/x@1.0.0/old.js"></script> --><script>const snippet = '<script src="https://unpkg.com/x@1.0.0/x.js"><\\/script>';</script>`;
+  expect("tags inside comments and inline scripts are out of scope", (await processHtml(inert, { write: false, hashOf })).problems.length === 0);
+  expect("--write leaves comments and inline scripts alone", (await processHtml(inert, { write: true, hashOf })).html === inert);
+  const named = `<script src="https://unpkg.com/x@1.0.0/importmap.js" integrity="${STUB}" crossorigin="anonymous"></script>`;
+  expect("a script whose URL says importmap is not an import map", (await processHtml(named, { write: false, hashOf })).problems.length === 0);
+  expect("a script whose URL says importmap is still hash-checked", (await processHtml(named.replace(STUB, "sha384-OLD"), { write: false, hashOf })).problems.length > 0);
   for (const other of ["https://notunpkg.com/x@1.0.0/x.js", "https://example.org/unpkg.com/x.js", "https://cdn.jsdelivr.net.example.org/x.js"]) {
     const page = `<script src="${other}"></script>`;
     expect(`a host that only contains a CDN name is out of scope (${other})`, (await processHtml(page, { write: false, hashOf })).problems.length === 0);
