@@ -245,14 +245,16 @@ jobs:
         run: |
           published() {
             for package in geolens geolens-cli geolens-mcp; do
-              curl -sf -o /dev/null "https://pypi.org/pypi/${package}/${RELEASED}/json" || return 1
+              curl -sf --max-time 20 -o /dev/null "https://pypi.org/pypi/${package}/${RELEASED}/json" || return 1
             done
-            curl -sf -o /dev/null "https://registry.npmjs.org/@geolens/sdk/${RELEASED}" || return 1
-            demo="$(curl -sf -A 'geolens-examples-release-dispatch' https://demo.getgeolens.com/api/health \
+            curl -sf --max-time 20 -o /dev/null "https://registry.npmjs.org/@geolens/sdk/${RELEASED}" || return 1
+            demo="$(curl -sf --max-time 20 -A 'geolens-examples-release-dispatch' https://demo.getgeolens.com/api/health \
               | python3 -c 'import json, sys; print(json.load(sys.stdin).get("version", ""))')" || return 1
             [ "$demo" = "$RELEASED" ]
           }
-          for _ in $(seq 1 30); do
+          # A deadline rather than a count, so stalled probes can't stretch it.
+          deadline=$((SECONDS + 1800))
+          while [ "$SECONDS" -lt "$deadline" ]; do
             if published; then
               gh workflow run verify.yml --ref "$BRANCH"
               echo "- packages published; Verify examples dispatched on ${BRANCH}" >> "$GITHUB_STEP_SUMMARY"
