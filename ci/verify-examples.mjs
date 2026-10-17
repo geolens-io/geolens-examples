@@ -811,6 +811,10 @@ async function pixelStats(scratch, png, requireColors = []) {
   }, [`data:image/png;base64,${png.toString("base64")}`, requireColors]);
 }
 
+// A page streaming point-cloud nodes can keep the main thread busy for longer
+// than Playwright's 30 s default before it yields a frame to capture.
+const SCREENSHOT_TIMEOUT_MS = 60_000;
+
 // One check for all nine pages, because the thing they have in common is the
 // only thing worth asserting generically: a map that failed to draw is a flat
 // fill of the page background, and a map that drew is not.
@@ -827,6 +831,7 @@ async function renderProof(page, scratch, entry) {
   const width = Math.round(VIEWPORT.width * cropFraction);
   const height = Math.round(VIEWPORT.height * cropFraction);
   const crop = await page.screenshot({
+    timeout: SCREENSHOT_TIMEOUT_MS,
     clip: {
       x: (VIEWPORT.width - width) / 2,
       y: (VIEWPORT.height - height) / 2,
@@ -1086,7 +1091,7 @@ async function runOnce(page, scratch, entry) {
   // Called only on the final failing attempt, while the page is still open.
   const collect = async () => ({
     "crop.png": crop,
-    "screenshot.png": await page.screenshot({ fullPage: false }),
+    "screenshot.png": await page.screenshot({ fullPage: false, timeout: SCREENSHOT_TIMEOUT_MS }),
     "page.html": await page.content(),
     "console.log": consoleMessages.join("\n") || "(no console output)",
     "requests.txt":

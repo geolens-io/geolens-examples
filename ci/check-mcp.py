@@ -1,9 +1,9 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     # <2: v2 replaced ClientSession. >=1.28.1: the release that fixed the last
-#     # known 1.x advisory.
-#     "mcp>=1.28.1,<2",
+#     # Matches the range geolens-mcp declares for itself. 2.x exposes result
+#     # fields in snake_case (`is_error`); the 1.x camelCase attributes are gone.
+#     "mcp>=2.3.0,<3",
 # ]
 # ///
 """Smoke-check the mcp example: spawn the geolens-mcp server over stdio
@@ -114,11 +114,11 @@ async def check(spec: str) -> None:
             result = await session.call_tool(
                 "search_datasets", {"query": "subway", "limit": 1}
             )
-            assert not result.isError, f"search_datasets errored: {result.content}"
+            assert not result.is_error, f"search_datasets errored: {result.content}"
             assert result.content, "search_datasets returned no content"
 
             # Judge the result set, not the envelope. A query matching nothing
-            # comes back isError=False with truthy content carrying
+            # comes back is_error=False with truthy content carrying
             # numberReturned 0 and an empty features list, so asserting on
             # content alone passes against an empty catalog, a broken search
             # index, or the dataset having been removed. Verified against the

@@ -233,7 +233,9 @@ jobs:
       # The dispatch can arrive before the packages do: publishing to PyPI and
       # npm waits on a reviewer in geolens's release. A sweep started too early
       # fails on an install and says nothing about the examples, so wait for
-      # all four, and say what to run if they are still not there.
+      # all four, and say what to run if they are still not there. The demo is
+      # redeployed separately and can lag the release, so it must also report
+      # the released version before the sweep starts.
       - name: Wait for the packages, then run the sweep on the branch
         if: steps.bump.outputs.released != ''
         env:
@@ -243,11 +245,16 @@ jobs:
         run: |
           published() {
             for package in geolens geolens-cli geolens-mcp; do
-              curl -sf -o /dev/null "https://pypi.org/pypi/${package}/${RELEASED}/json" || return 1
+              curl -sf --max-time 20 -o /dev/null "https://pypi.org/pypi/${package}/${RELEASED}/json" || return 1
             done
-            curl -sf -o /dev/null "https://registry.npmjs.org/@geolens/sdk/${RELEASED}"
+            curl -sf --max-time 20 -o /dev/null "https://registry.npmjs.org/@geolens/sdk/${RELEASED}" || return 1
+            demo="$(curl -sf --max-time 20 -A 'geolens-examples-release-dispatch' https://demo.getgeolens.com/api/health \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin).get("version", ""))')" || return 1
+            [ "$demo" = "$RELEASED" ]
           }
-          for _ in $(seq 1 30); do
+          # A deadline rather than a count, so stalled probes can't stretch it.
+          deadline=$((SECONDS + 1800))
+          while [ "$SECONDS" -lt "$deadline" ]; do
             if published; then
               gh workflow run verify.yml --ref "$BRANCH"
               echo "- packages published; Verify examples dispatched on ${BRANCH}" >> "$GITHUB_STEP_SUMMARY"
@@ -256,5 +263,5 @@ jobs:
             sleep 60
           done
           # The issues endpoint, so the note lands on the fallback issue too.
-          gh api "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" -f body="PyPI or npm still did not serve ${RELEASED} after 30 minutes, so no sweep ran. Once all four packages are published, run \`gh workflow run verify.yml --ref ${BRANCH}\` or push to the branch." >/dev/null
-          echo "- packages not published after 30 minutes; no sweep dispatched" >> "$GITHUB_STEP_SUMMARY"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/${NUMBER}/comments" -f body="PyPI, npm or the demo still did not serve ${RELEASED} after 30 minutes, so no sweep ran. Once all four packages are published and the demo reports ${RELEASED}, run \`gh workflow run verify.yml --ref ${BRANCH}\` or push to the branch." >/dev/null
+          echo "- packages or demo not at ${RELEASED} after 30 minutes; no sweep dispatched" >> "$GITHUB_STEP_SUMMARY"

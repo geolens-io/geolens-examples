@@ -34,7 +34,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 HEALTH = "https://demo.getgeolens.com/api/health"
 
-SUFFIXES = {".py", ".md", ".html", ".json", ".yml", ".yaml", ".mjs", ".js", ".ts"}
+SUFFIXES = {".py", ".md", ".html", ".json", ".yml", ".yaml", ".mjs", ".js", ".ts", ".ipynb"}
 # Skipped by path *relative to the repo*, so a checkout under a directory that
 # happens to be called assets or node_modules is still scanned. .claude holds
 # local agent worktrees and ci/diagnostics holds pages saved from failed local
