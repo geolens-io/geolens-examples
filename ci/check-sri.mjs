@@ -36,7 +36,8 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SKIP = new Set([".git", ".claude", "node_modules", "assets", "diagnostics"]);
 const CDN_HOSTNAMES = new Set(["unpkg.com", "cdn.jsdelivr.net"]);
-const isCdnHost = (host) => CDN_HOSTNAMES.has(host.toLowerCase());
+// A trailing dot is the absolute DNS spelling of the same host.
+const isCdnHost = (host) => CDN_HOSTNAMES.has(host.toLowerCase().replace(/\.$/, ""));
 const CDN_URL = /^https:\/\/(?:unpkg\.com|cdn\.jsdelivr\.net)\/[^\s"']+$/;
 const CDN = /^https:\/\/(?:unpkg\.com|cdn\.jsdelivr\.net)\//;
 
@@ -283,7 +284,7 @@ function readDom() {
 
 const inScope = (url) => {
   try {
-    return CDN_HOSTNAMES.has(new URL(url).hostname);
+    return isCdnHost(new URL(url).hostname);
   } catch {
     return false;
   }
@@ -428,6 +429,8 @@ async function selfTest() {
   const named = `<script src="https://unpkg.com/x@1.0.0/importmap.js" integrity="${STUB}" crossorigin="anonymous"></script>`;
   expect("a script whose URL says importmap is not an import map", (await processHtml(named, { write: false, hashOf })).problems.length === 0);
   expect("a script whose URL says importmap is still hash-checked", (await processHtml(named.replace(STUB, "sha384-OLD"), { write: false, hashOf })).problems.length > 0);
+  const dotted = `<script src="https://unpkg.com./x@1.0.0/x.js"></script>`;
+  expect("a trailing-dot CDN host is in scope", (await processHtml(dotted, { write: false, hashOf })).problems.length > 0);
   for (const other of ["https://notunpkg.com/x@1.0.0/x.js", "https://example.org/unpkg.com/x.js", "https://cdn.jsdelivr.net.example.org/x.js"]) {
     const page = `<script src="${other}"></script>`;
     expect(`a host that only contains a CDN name is out of scope (${other})`, (await processHtml(page, { write: false, hashOf })).problems.length === 0);
@@ -470,6 +473,7 @@ async function selfTest() {
       "single-quoted attributes": `<script src='${js}' integrity='${STUB}' crossorigin='anonymous'></script>`,
       "a missing crossorigin": `<script src="${js}" integrity="${STUB}"></script>`,
       "a stale integrity": `<link href="${css}" rel="stylesheet" integrity="sha384-OLD" crossorigin="anonymous">`,
+      "a trailing-dot CDN host": `<script src="https://unpkg.com./lib@1.0.0/lib.js" integrity="${STUB}" crossorigin="anonymous"></script>`,
       "a scoped import map URL without integrity": `<script type="importmap">{"imports":{},"scopes":{"/s/":{"b":"${css}"}}}</script>`,
     };
     for (const [name, body] of Object.entries(dom)) {
