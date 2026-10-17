@@ -36,10 +36,12 @@ permissions:
 # is deliberate: stopping an apply half way is worse than letting it finish.
 # The group serialises runs but GitHub does not promise their order, so the
 # apply step also checks it is still the tip of main before writing; together
-# the two mean the manifest on the catalog is the one on main.
+# the two mean the manifest on the catalog is the one on main. A pull
+# request's newer push does cancel its older run: that run may be waiting for
+# a preview approval, and would hold the group until someone dealt with it.
 concurrency:
   group: geolens-catalog-${{ github.event_name == 'push' && 'main' || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Offline, and unconditional. A missing `publication.intent` or a key that
@@ -77,8 +79,14 @@ jobs:
   # after 15 minutes. An API key goes in X-Api-Key and does not, so each job
   # stores it with `geolens login --api-key -` (stdin keeps it out of argv;
   # --no-keyring writes a credentials file on the throwaway runner).
+  # Only same-repo pull requests reach the approval gate. A fork's or
+  # Dependabot's pull request gets no secrets, so gating it would only leave a
+  # check waiting for an approval that can preview nothing.
   preview:
-    if: ${{ github.event_name == 'pull_request' }}
+    if: >-
+      ${{ github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.user.login != 'dependabot[bot]' }}
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -96,12 +104,26 @@ jobs:
         run: |
           printf '%s' "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.25.1 geolens login "$GEOLENS_INSTANCE" --api-key - --no-keyring
           uvx --from geolens-cli==1.25.1 geolens --json apply --dry-run geolens.yaml
-      # A fork holds no secrets, so the step above skips and this job goes
-      # green having previewed nothing. Say that out loud, or a green check
-      # reads as "the instance agreed" when nobody asked it.
+      # With the environment's secrets unset the step above skips and this
+      # job goes green having previewed nothing. Say that out loud, or a green
+      # check reads as "the instance agreed" when nobody asked it.
       - name: Report that nothing was previewed
         if: ${{ env.GEOLENS_INSTANCE == '' || env.GEOLENS_API_KEY == '' }}
         run: echo "GEOLENS_INSTANCE or GEOLENS_PREVIEW_API_KEY is unset, so no dry run happened; only offline validation ran."
+
+  # The pull requests `preview` leaves out, outside any environment, so they
+  # finish without waiting for anyone and still say what they checked.
+  no-preview:
+    if: >-
+      ${{ github.event_name == 'pull_request' &&
+          (github.event.pull_request.head.repo.full_name != github.repository ||
+           github.event.pull_request.user.login == 'dependabot[bot]') }}
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Report that nothing was previewed
+        run: echo "A fork's or Dependabot's pull request gets no preview credential, so no dry run happened; only offline validation ran."
 
   # The write, and only from main, so the catalog tracks the reviewed branch
   # and no pull request can move it on its own. Applying an unchanged entry is

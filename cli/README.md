@@ -138,14 +138,17 @@ a server, which is why they are the parts this repo's CI runs on every pull requ
 ## Wiring it into your repo
 
 [`github-actions.yml`](github-actions.yml) is meant to be copied into `.github/workflows/` in the
-repo that holds your manifest. It is three jobs. `validate` runs on every event with no secrets and
+repo that holds your manifest. It is three jobs, plus a `no-preview` job that only reports. `validate` runs on every event with no secrets and
 checks the manifest offline. `preview` runs on pull requests and asks the instance what applying
-would change, with `--dry-run`. `apply` runs on a push to `main`, and only there. `preview` skips
-its dry run and says so when its secret is missing, so a fork's pull request stays green and honest
+would change, with `--dry-run`. `apply` runs on a push to `main`, and only there. A fork's or
+Dependabot's pull request gets no secrets, so it skips `preview` (and its approval gate) and a
+small `no-preview` job says that only offline validation ran; `preview` itself skips its dry run
+and says so when the environment's secrets are missing. Either way the check stays green and honest
 about what it checked. `apply` does the opposite: a push to `main` with `GEOLENS_INSTANCE` or
 `GEOLENS_API_KEY` unset fails on purpose, because green on `main` has to mean the manifest was
 applied (the step passes `--wait`, so a run held for review is red too), and a `catalog`
-environment nobody has set up yet must not pass for one. Applies to `main` run one at a time, and a run in progress is left to finish rather than cancelled half way.
+environment nobody has set up yet must not pass for one. Applies to `main` run one at a time, and a run in progress is left to finish rather than cancelled half way. A pull request's newer push
+does cancel its older run, which may be sitting at the preview approval.
 Because GitHub queues runs without promising their order, the apply step also checks that its
 commit is still the tip of `main` before writing, and steps aside if a newer push has landed, so
 the catalog ends up holding the manifest on `main` and not an older one that happened to run last.
@@ -166,7 +169,8 @@ read from an `if:` condition. The secrets go into job-level `env`, and the steps
 Each job then stores the key with `geolens login --api-key - --no-keyring` before it runs `apply`,
 because `GEOLENS_TOKEN` is a bearer JWT that expires in 15 minutes and an API key does not.
 
-Three secrets (a fork's pull request receives none, and `preview` says it checked nothing):
+Three secrets (a fork's or Dependabot's pull request receives none, and `no-preview` says it
+checked nothing):
 
 - `GEOLENS_INSTANCE`, a repository secret, for example `https://geolens.example.com`
 - `GEOLENS_PREVIEW_API_KEY`, an *environment* secret in an environment named `catalog-preview` with
