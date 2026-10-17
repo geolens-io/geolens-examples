@@ -48,7 +48,7 @@ async function sha384(url) {
   if (!hashes.has(url)) {
     hashes.set(
       url,
-      fetch(url, { signal: AbortSignal.any([AbortSignal.timeout(20_000), DEADLINE]) }).then(async (res) => {
+      fetch(url, { redirect: "error", signal: AbortSignal.any([AbortSignal.timeout(20_000), DEADLINE]) }).then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const body = Buffer.from(await res.arrayBuffer());
         return `sha384-${createHash("sha384").update(body).digest("base64")}`;
@@ -84,6 +84,13 @@ export async function processHtml(html, { write, hashOf }) {
     const tag = m[0];
     const isScript = /^<script/i.test(tag);
     if (isScript && /importmap/i.test(tag)) continue;
+    // A browser decodes `unpkg%2ecom` or `unpkg&#46;com` to a CDN host that the
+    // raw-text test below would miss, so an encoded URL is refused outright.
+    const raw = tag.match(/\s(?:src|href)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i)?.[1] ?? "";
+    if (/[%&\\]/.test(raw)) {
+      note(tag, `has a percent-encoded, entity-encoded or backslashed URL; write it plainly`);
+      continue;
+    }
     if (!CDN_HOST.test(tag)) continue;
     const parsed = parseTag(tag);
     const urlName = isScript ? "src" : "href";
@@ -245,6 +252,10 @@ async function selfTest() {
   const plain = `<script src="/local.js"></script><script type='module'>import "x"</script><script type="module" src="https://js.arcgis.com/5.1/"></script>`;
   expect("non-CDN tags are ignored", (await processHtml(plain, { write: false, hashOf })).problems.length === 0);
   const cdnModule = `<script type="module" src="https://unpkg.com/x@1.0.0/x.mjs"></script>`;
+  for (const enc of ["https://unpkg%2ecom/x@1.0.0/x.js", "https://unpkg&#46;com/x@1.0.0/x.js"]) {
+    const page = `<script src="${enc}"></script>`;
+    expect(`an encoded CDN host is refused (${enc})`, (await processHtml(page, { write: false, hashOf })).problems.length > 0);
+  }
   expect("a CDN module script needs integrity too", (await processHtml(cdnModule, { write: false, hashOf })).problems.length > 0);
 
   if (bad) process.exit(1);
