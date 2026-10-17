@@ -11,16 +11,23 @@
 // anything a library fetches for itself (workers, Cesium assets). CONTRIBUTING
 // says so.
 //
-// Discovery fails closed. Any <script> or <link> start tag that mentions a CDN
-// host must be written in the one form this script parses: lowercase tag and
-// attribute names, double-quoted values, an https URL, and at most one
-// `integrity` and one `crossorigin`. Single quotes, unquoted values,
-// protocol-relative URLs and the like are reported instead of skipped, and
-// `--write` never edits a tag it cannot parse. The same goes for an import map.
+// Verification reads each page the way a browser does. Chromium parses the
+// file with scripting off and no network, and the check looks at the DOM it
+// built: every script `src`, link `href` and import map URL resolved to its
+// absolute form, with the `integrity` and `crossorigin` the browser would act
+// on (the first duplicate attribute wins, as in a browser). Anything that
+// resolves to a CDN host has to carry a matching hash, however it is spelled.
+// The DOM comes from the Playwright install the verify job already makes.
+//
+// `--write` edits text, so it only touches tags in one strict form: lowercase
+// tag and attribute names, double-quoted values, an https URL, and at most one
+// `integrity` and one `crossorigin`. A CDN asset the browser finds in any other
+// spelling is reported as needing that form, and `--write` never edits a tag or
+// import map it cannot parse.
 //
 // Usage: node ci/check-sri.mjs              verify every page
 //        node ci/check-sri.mjs --write      add or refresh the hashes in place
-//        node ci/check-sri.mjs --self-test  check the discovery rules offline
+//        node ci/check-sri.mjs --self-test  check the rules offline
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
@@ -98,6 +105,9 @@ function resolvedHost(value) {
 export async function processHtml(html, { write, hashOf }) {
   const problems = [];
   const edits = [];
+  // Absolute URLs this pass read in the strict form, so the DOM pass can tell
+  // which CDN assets the text rules cannot maintain.
+  const handled = new Set();
   const note = (url, why) => problems.push(`${url} ${why}`);
 
   for (const m of html.matchAll(/<(?:script|link)\b[^>]*>/gi)) {
@@ -135,6 +145,7 @@ export async function processHtml(html, { write, hashOf }) {
       note(url, `repeats integrity or crossorigin; ${FORM}`);
       continue;
     }
+    handled.add(new URL(url).href);
     let want;
     try {
       want = await hashOf(url);
@@ -181,6 +192,7 @@ export async function processHtml(html, { write, hashOf }) {
         note(url, "in the import map must be an https URL on the CDN");
         continue;
       }
+      handled.add(new URL(url).href);
       let want;
       try {
         want = await hashOf(url);
@@ -202,7 +214,121 @@ export async function processHtml(html, { write, hashOf }) {
   }
 
   for (const [from, to] of edits) html = html.replace(from, () => to);
-  return { html, problems };
+  return { html, problems, handled };
+}
+
+
+const CDN_HOSTNAMES = new Set(["unpkg.com", "cdn.jsdelivr.net"]);
+
+// What the browser made of the page: scripting off, every request but the page
+// itself aborted. Runs in the page, so it can only return plain data.
+function readDom() {
+  const assets = [];
+  for (const el of document.querySelectorAll("script[src], link[href]")) {
+    const isScript = el.localName === "script";
+    assets.push({
+      tag: isScript ? "script" : "link",
+      url: isScript ? el.src : el.href,
+      integrity: el.getAttribute("integrity"),
+      crossOrigin: el.crossOrigin,
+    });
+  }
+  const maps = [];
+  for (const el of document.querySelectorAll("script")) {
+    if (el.type.trim().toLowerCase() !== "importmap") continue;
+    try {
+      const map = JSON.parse(el.textContent);
+      const resolve = (value) => new URL(value, document.baseURI).href;
+      const integrity = {};
+      for (const [key, value] of Object.entries(map.integrity ?? {})) {
+        try {
+          integrity[resolve(key)] = value;
+        } catch {}
+      }
+      const urls = [];
+      for (const value of [
+        ...Object.values(map.imports ?? {}),
+        ...Object.values(map.scopes ?? {}).flatMap((scope) => Object.values(scope)),
+      ]) {
+        try {
+          urls.push(resolve(value));
+        } catch {}
+      }
+      maps.push({ urls, integrity });
+    } catch (error) {
+      maps.push({ error: String(error.message ?? error), urls: [], integrity: {} });
+    }
+  }
+  return { assets, maps };
+}
+
+const inScope = (url) => {
+  try {
+    return CDN_HOSTNAMES.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+};
+
+// Problems the browser's reading of `html` has, given the URLs the text pass
+// handled in the strict form.
+async function domProblems(browser, html, handled, hashOf) {
+  const origin = "http://sri.invalid/";
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const problems = [];
+  const note = (url, why) => problems.push(`${url} ${why}`);
+  try {
+    await context.route("**/*", (route) =>
+      route.request().url() === `${origin}page.html`
+        ? route.fulfill({ contentType: "text/html", body: html })
+        : route.abort(),
+    );
+    const page = await context.newPage();
+    await page.goto(`${origin}page.html`);
+    const { assets, maps } = await page.evaluate(readDom);
+
+    const check = async (url) => {
+      if (!url.startsWith("https://")) {
+        note(url, "is a CDN URL that is not https");
+        return null;
+      }
+      if (!handled.has(url)) {
+        note(url, `is a CDN asset in a spelling this check cannot maintain; ${FORM}`);
+      }
+      try {
+        return await hashOf(url);
+      } catch (error) {
+        note(url, `could not be fetched (${error.message})`);
+        return null;
+      }
+    };
+
+    for (const asset of assets.filter((a) => inScope(a.url))) {
+      const want = await check(asset.url);
+      if (want === null) continue;
+      if (asset.integrity === null) note(asset.url, "has no integrity attribute");
+      else if (asset.integrity !== want) note(asset.url, `integrity is ${asset.integrity}, the CDN serves ${want}`);
+      if (asset.crossOrigin !== "anonymous") note(asset.url, 'needs crossorigin="anonymous"');
+    }
+    for (const map of maps) {
+      if (map.error) note("import map", `holds JSON that does not parse (${map.error})`);
+      for (const url of new Set(map.urls.filter(inScope))) {
+        const want = await check(url);
+        if (want === null) continue;
+        const have = map.integrity[url];
+        if (!have) note(url, "has no import map integrity entry");
+        else if (have !== want) note(url, `import map integrity is ${have}, the CDN serves ${want}`);
+      }
+    }
+  } finally {
+    await context.close();
+  }
+  return problems;
+}
+
+async function launchBrowser() {
+  const { chromium } = await import("playwright");
+  return chromium.launch();
 }
 
 async function selfTest() {
@@ -288,27 +414,72 @@ async function selfTest() {
   }
   expect("a CDN module script needs integrity too", (await processHtml(cdnModule, { write: false, hashOf })).problems.length > 0);
 
-  if (bad) process.exit(1);
+  let browser;
+  try {
+    browser = await launchBrowser();
+  } catch (error) {
+    if (process.env.CI) throw error;
+    console.warn(`  skipping the DOM cases: playwright is not available (${error.message.split("\n")[0]})`);
+  }
+  if (browser) {
+    const doc = (body) => `<!doctype html><html><head><meta charset="utf-8">${body}</head><body></body></html>`;
+    const scan = async (body) => {
+      const { problems, handled } = await processHtml(doc(body), { write: false, hashOf });
+      return [...problems, ...(await domProblems(browser, doc(body), handled, hashOf))];
+    };
+    const link = `<link href="${css}" rel="stylesheet" integrity="${STUB}" crossorigin="anonymous">`;
+    const clean = `${link}<script type="importmap">{"imports":{"a":"${js}"},"integrity":{"${js}":"${STUB}"}}</script>${good}`;
+    expect("DOM: a clean canonical page passes", (await scan(clean)).length === 0);
+    const dom = {
+      "a quoted > inside an attribute": `<script data-note=">" src="${js}"></script>`,
+      "an import map with an encoded host and no integrity": `<script type="importmap">{"imports":{"a":"https://unpkg%2ecom/lib@1.0.0/lib.js"}}</script>`,
+      "an import map with an encoded host and an integrity entry": `<script type="importmap">{"imports":{"a":"https://unpkg%2ecom/lib@1.0.0/lib.js"},"integrity":{"https://unpkg.com/lib@1.0.0/lib.js":"${STUB}"}}</script>`,
+      "an entity-encoded host": `<script src="https://unpkg&#46;com/lib@1.0.0/lib.js" integrity="${STUB}" crossorigin="anonymous"></script>`,
+      "a stale first integrity before a correct one": `<script src="${js}" integrity="sha384-OLD" integrity="${STUB}" crossorigin="anonymous"></script>`,
+      "uppercase tag and attributes": `<SCRIPT SRC="${js}" INTEGRITY="${STUB}" CROSSORIGIN="anonymous"></SCRIPT>`,
+      "a protocol-relative URL": `<script src="//unpkg.com/lib@1.0.0/lib.js" integrity="${STUB}" crossorigin="anonymous"></script>`,
+      "single-quoted attributes": `<script src='${js}' integrity='${STUB}' crossorigin='anonymous'></script>`,
+      "a missing crossorigin": `<script src="${js}" integrity="${STUB}"></script>`,
+      "a stale integrity": `<link href="${css}" rel="stylesheet" integrity="sha384-OLD" crossorigin="anonymous">`,
+      "a scoped import map URL without integrity": `<script type="importmap">{"imports":{},"scopes":{"/s/":{"b":"${css}"}}}</script>`,
+    };
+    for (const [name, body] of Object.entries(dom)) {
+      expect(`DOM: rejects ${name}`, (await scan(body)).length > 0);
+    }
+    expect(
+      "DOM: ignores a non-CDN asset",
+      (await scan(`<script src="/local.js"></script><script type="module" src="https://js.arcgis.com/5.1/"></script>`)).length === 0,
+    );
+    await browser.close();
+  }
+
+  if (bad) {
+    process.exitCode = 1;
+    return;
+  }
   console.log("SRI self-test ok");
 }
 
-if (process.argv.includes("--self-test")) {
-  await selfTest();
-  process.exit(0);
+async function main() {
+  const write = process.argv.includes("--write");
+  const failures = [];
+  const browser = write ? null : await launchBrowser();
+  for (const file of pages(ROOT)) {
+    const original = readFileSync(file, "utf8");
+    const { html, problems, handled } = await processHtml(original, { write, hashOf: sha384 });
+    const all = new Set(problems);
+    if (browser) for (const problem of await domProblems(browser, original, handled, sha384)) all.add(problem);
+    for (const problem of all) failures.push(`${relative(ROOT, file)}: ${problem}`);
+    if (write && html !== original) writeFileSync(file, html);
+  }
+  await browser?.close();
+
+  if (failures.length) {
+    console.error(`SRI check failed:\n${failures.map((f) => `  ${f}`).join("\n")}`);
+    // exit() would cut off stderr when it is a pipe.
+    process.exitCode = 1;
+  } else if (write) console.log(`Hashes written for ${hashes.size} CDN files`);
+  else console.log(`SRI ok: ${hashes.size} CDN files match their integrity hashes`);
 }
 
-const write = process.argv.includes("--write");
-const failures = [];
-for (const file of pages(ROOT)) {
-  const original = readFileSync(file, "utf8");
-  const { html, problems } = await processHtml(original, { write, hashOf: sha384 });
-  for (const problem of problems) failures.push(`${relative(ROOT, file)}: ${problem}`);
-  if (write && html !== original) writeFileSync(file, html);
-}
-
-if (failures.length) {
-  console.error(`SRI check failed:\n${failures.map((f) => `  ${f}`).join("\n")}`);
-  process.exit(1);
-}
-if (write) console.log(`Hashes written for ${hashes.size} CDN files`);
-else console.log(`SRI ok: ${hashes.size} CDN files match their integrity hashes`);
+await (process.argv.includes("--self-test") ? selfTest() : main());
