@@ -6,8 +6,8 @@
 // can carry hashes for module files too (the browser applies them to the
 // static `import` of that same URL), so each CDN URL it maps needs one.
 //
-// What is left out, on purpose: `<script type="module" src>` (floating
-// js.arcgis.com/5.1/ has no fixed bytes to hash), esm.sh module graphs, and
+// What is left out, on purpose: the floating js.arcgis.com/5.1/ loader (no
+// fixed bytes to hash; it is not on a pinned CDN host), esm.sh module graphs, and
 // anything a library fetches for itself (workers, Cesium assets). CONTRIBUTING
 // says so.
 //
@@ -97,7 +97,6 @@ export async function processHtml(html, { write, hashOf }) {
       note(tag, `needs exactly one double-quoted https ${urlName} on the CDN; ${FORM}`);
       continue;
     }
-    if (isScript && get(parsed, "type").some((a) => a.value === "module")) continue;
     const [integrity, crossorigin] = [get(parsed, "integrity"), get(parsed, "crossorigin")];
     if (integrity.length > 1 || crossorigin.length > 1) {
       note(url, `repeats integrity or crossorigin; ${FORM}`);
@@ -245,6 +244,8 @@ async function selfTest() {
 
   const plain = `<script src="/local.js"></script><script type='module'>import "x"</script><script type="module" src="https://js.arcgis.com/5.1/"></script>`;
   expect("non-CDN tags are ignored", (await processHtml(plain, { write: false, hashOf })).problems.length === 0);
+  const cdnModule = `<script type="module" src="https://unpkg.com/x@1.0.0/x.mjs"></script>`;
+  expect("a CDN module script needs integrity too", (await processHtml(cdnModule, { write: false, hashOf })).problems.length > 0);
 
   if (bad) process.exit(1);
   console.log("SRI self-test ok");
