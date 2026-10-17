@@ -75,14 +75,17 @@ const get = (parsed, name) => parsed.attrs.filter((a) => a.name === name);
 
 // The host a browser would load an attribute value from: numeric and the
 // common named entities decoded, then the WHATWG URL parser, which also
-// percent-decodes the host. Relative URLs resolve to a non-CDN base.
+// percent-decodes the host. Relative URLs resolve to a non-CDN base. Any other
+// named entity returns null: the check can't tell where the URL points, so the
+// caller refuses it rather than guess.
 const NAMED = { amp: "&", period: ".", sol: "/", colon: ":", quot: '"', apos: "'" };
 function resolvedHost(value) {
   const decoded = value
     .replace(/&#x([0-9a-f]+);?/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
     .replace(/&#(\d+);?/g, (_, d) => String.fromCodePoint(Number(d)))
-    .replace(/&([a-z]+);/gi, (m, n) => NAMED[n.toLowerCase()] ?? m)
+    .replace(/&([a-z][a-z0-9]*);/gi, (m, n) => NAMED[n.toLowerCase()] ?? "\0")
     .trim();
+  if (decoded.includes("\0")) return null;
   try {
     return new URL(decoded, "https://local.invalid/").hostname;
   } catch {
@@ -106,6 +109,10 @@ export async function processHtml(html, { write, hashOf }) {
     // lands on a CDN host has to be written plainly.
     const raw = tag.match(/\s(?:src|href)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i)?.[1] ?? "";
     const resolved = resolvedHost(raw.replace(/^["']|["']$/g, ""));
+    if (resolved === null) {
+      note(tag, `uses an HTML entity this check cannot decode in its URL; write the URL plainly`);
+      continue;
+    }
     if (resolved && CDN_HOST.test(resolved) && /[%&\\]/.test(raw)) {
       note(tag, `has a percent-encoded, entity-encoded or backslashed CDN URL; write it plainly`);
       continue;
@@ -271,7 +278,7 @@ async function selfTest() {
   const plain = `<script src="/local.js"></script><script type='module'>import "x"</script><script type="module" src="https://js.arcgis.com/5.1/"></script>`;
   expect("non-CDN tags are ignored", (await processHtml(plain, { write: false, hashOf })).problems.length === 0);
   const cdnModule = `<script type="module" src="https://unpkg.com/x@1.0.0/x.mjs"></script>`;
-  for (const enc of ["https://unpkg%2ecom/x@1.0.0/x.js", "https://unpkg&#46;com/x@1.0.0/x.js"]) {
+  for (const enc of ["https://unpkg%2ecom/x@1.0.0/x.js", "https://unpkg&#46;com/x@1.0.0/x.js", "https://unpkg&percnt;2ecom/x@1.0.0/x.js", "https://unpkg&period;com/x@1.0.0/x.js"]) {
     const page = `<script src="${enc}"></script>`;
     expect(`an encoded CDN host is refused (${enc})`, (await processHtml(page, { write: false, hashOf })).problems.length > 0);
   }
