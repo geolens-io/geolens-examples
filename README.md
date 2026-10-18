@@ -128,7 +128,7 @@ curl https://demo.getgeolens.com/api/tiles/token/d8fd56a9-d12f-4dbb-af8b-81a7289
 
 Two properties decide whether this fits your page.
 
-Minting is itself authorized. A public, published dataset hands a token to anyone, which is why the `curl` above works signed out. A private one answers an anonymous mint with 401, so a page holding no credential cannot mint its own token and something server-side has to hold the key and pass tokens down. A scoped token does not remove the need for a credential. It keeps the credential out of the browser.
+Minting is itself authorized. A public, published dataset hands a token to anyone, which is why the `curl` above works signed out. From GeoLens 1.26.0 a private one answers an anonymous mint with 404 "Dataset not found", the same as an id that does not exist (earlier releases answered 401; a credential that does not resolve still gets 401), so a page holding no credential cannot mint its own token and something server-side has to hold the key and pass tokens down. A scoped token does not remove the need for a credential. It keeps the credential out of the browser.
 
 Tokens expire and clients do not renew them on their own. MapLibre keeps requesting whatever template you handed it, so a page that stays open has to re-mint and reset the source URL before `exp` passes. From GeoLens 1.19.0 a token also stops working within a minute of its dataset being unpublished or made private, whatever time it had left ([tile endpoints](https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints)).
 
