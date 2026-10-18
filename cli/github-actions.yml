@@ -56,7 +56,7 @@ jobs:
       # manifest needs no Python project, no lockfile and no virtualenv for it.
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - name: Validate the manifest
-        run: uvx --from geolens-cli==1.25.1 geolens validate geolens.yaml
+        run: uvx --from geolens-cli==1.26.0 geolens validate geolens.yaml
 
   # The plan step. --dry-run reaches the instance, matches every entry by key
   # and reports create/update/skip without writing anything, which is the
@@ -102,8 +102,8 @@ jobs:
       - name: Preview the apply
         if: ${{ env.GEOLENS_INSTANCE != '' && env.GEOLENS_API_KEY != '' }}
         run: |
-          printf '%s' "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.25.1 geolens login "$GEOLENS_INSTANCE" --api-key - --no-keyring
-          uvx --from geolens-cli==1.25.1 geolens --json apply --dry-run geolens.yaml
+          printf '%s' "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.26.0 geolens login "$GEOLENS_INSTANCE" --api-key - --no-keyring
+          uvx --from geolens-cli==1.26.0 geolens --json apply --dry-run geolens.yaml
       # With the environment's secrets unset the step above skips and this
       # job goes green having previewed nothing. Say that out loud, or a green
       # check reads as "the instance agreed" when nobody asked it.
@@ -163,8 +163,8 @@ jobs:
           fi
           # --wait follows the run to its end; a replacement held for review
           # exits 6 instead of leaving the old data live under a green run.
-          printf '%s' "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.25.1 geolens login "$GEOLENS_INSTANCE" --api-key - --no-keyring
-          uvx --from geolens-cli==1.25.1 geolens --json apply --wait geolens.yaml
+          printf '%s' "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.26.0 geolens login "$GEOLENS_INSTANCE" --api-key - --no-keyring
+          uvx --from geolens-cli==1.26.0 geolens --json apply --wait geolens.yaml
       # Red, not a note. The preview job above may skip, because a fork's pull
       # request has no way to reach the instance and validate has already said
       # what it could. A push to main is different: green there has to mean the
