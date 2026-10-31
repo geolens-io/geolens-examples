@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "geolens==1.28.0",
+#     "geolens==1.29.0",
 #     "geopandas==1.1.4",
 # ]
 # ///
