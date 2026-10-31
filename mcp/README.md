@@ -113,9 +113,9 @@ limits are in [Using query](https://docs.getgeolens.com/guides/sdk/mcp/#using-qu
 
 ## How it actually behaves
 
-Captured on 2026-09-22 by driving the wheel `geolens-mcp` published as version 1.20.0 over stdio
+Captured on 2026-10-31 by driving the wheel `geolens-mcp` published as version 1.29.0 over stdio
 with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported itself
-healthy at 1.20.0). Output is real and trimmed for width. The ids and counts below are whatever the demo held at capture time;
+healthy at 1.29.0). Output is real and trimmed for width. The ids and counts below are whatever the demo held at capture time;
 read the transcript for shape, not for literal values.
 
 Tool discovery, straight after `initialize`:
@@ -126,29 +126,39 @@ Tool discovery, straight after `initialize`:
 - get_dataset_schema: Get a dataset's schema and source trust metadata.
 - get_features: Get GeoJSON features for a dataset (bounded).
 - list_maps: List saved maps (read-only metadata: id, name, visibility, layer count).
-- get_map: Get one saved map's full metadata, including its layers, view state, …
+- get_map: Get a summary of one saved map: name, description, visibility, view state, …
 - query: Run one read-only SQL SELECT against accessible datasets.
 ```
 
-`search_datasets(query="new york city buildings", limit=3)` returns a GeoJSON FeatureCollection
-where each feature is a dataset record. The feature `id` is the dataset id you pass to every other
-tool:
+`search_datasets(query="new york city buildings", limit=3)` returns a compact FeatureCollection
+where each feature is a trimmed dataset record: an `id`, a `bbox` and a fixed set of `properties`,
+with no geometry. The feature `id` is the dataset id you pass to every other tool. The query also
+matched a 3D Tiles dataset, which has no geometry type or feature count:
 
 ```json
-{ "numberMatched": 4, "numberReturned": 3 }
+{ "numberMatched": 6, "numberReturned": 3 }
 
-{ "id": "a0fce5fd-3ab1-496a-a8c6-97bbb53e48f9", "title": "Manhattan Building Heights",
-  "record_type": "vector_dataset", "source_freshness": "unknown",
-  "feature_count": 22325 }
-{ "id": "4e7cba4c-4caa-4609-b5c4-3c6cd252697c", "title": "NYC Subway Stations (MTA)",
-  "record_type": "vector_dataset", "feature_count": 496 }
-{ "id": "39e1319e-54ad-4431-9efc-f5eef7910fdb", "title": "NYC Subway Lines (MTA)",
-  "record_type": "vector_dataset", "feature_count": 29 }
+{ "id": "a0fce5fd-3ab1-496a-a8c6-97bbb53e48f9", "bbox": [-74.019, 40.700, -73.965, 40.770],
+  "properties": { "title": "Manhattan Building Heights", "record_type": "vector_dataset",
+    "geometry_type": "MULTIPOLYGON", "feature_count": 22325, "crs": "EPSG:4326",
+    "keywords": ["heights", "3d", "nyc", "buildings", "manhattan"],
+    "description": "NYC building footprints (Lower + Midtown Manhattan) with …",
+    "source_origin": "upload", "source_freshness": "unknown", … } }
+{ "id": "268d9dc8-d4a1-42fa-a435-63f8acb8988d",
+  "properties": { "title": "Amsterdam Canal Buildings (3DBAG 3D Tiles)",
+    "record_type": "tiles3d_dataset", "geometry_type": null, "feature_count": null, … } }
+{ "id": "4e7cba4c-4caa-4609-b5c4-3c6cd252697c",
+  "properties": { "title": "NYC Subway Stations (MTA)", "record_type": "vector_dataset",
+    "geometry_type": "MULTIPOINT", "feature_count": 496, … } }
 ```
 
+The trust fields (`source_health`, `source_health_detail`, `last_checked_at`, `last_refreshed_at`)
+ride along on every record. Search does not probe sources, so `source_health` reads `unknown` here
+and `last_checked_at` is null; `get_dataset_schema` is where the trust metadata is filled in.
+
 `get_dataset_schema` on the subway dataset. Note `srid` and `table_name`, and that `column_info`
-carries optional slots (`semantic_role`, `domain_type`, `sample_values`, `stats`) that are null unless
-the instance has profiled the dataset:
+carries optional slots (`semantic_role`, `domain_type`, `sample_values`, `stats`, `source_name`) that
+are null unless the instance has profiled the dataset:
 
 ```json
 { "title": "NYC Subway Lines (MTA)", "geometry_type": "MULTILINESTRING",
@@ -160,22 +170,23 @@ the instance has profiled the dataset:
   "origin": "upload", "source_format": "geojson", "visibility": "public",
   "license": "MTA open data (data.ny.gov)",
   "source_organization": "MTA via NY State Open Data",
-  "source_health": "unknown", "source_freshness": "unknown" }
+  "source_health": "unknown", "source_freshness": "unknown", … }
 
 "column_info": [
   { "name": "service", "type": "character varying", "semantic_role": null,
-    "domain_type": null, "sample_values": null, "stats": null },
+    "domain_type": null, "sample_values": null, "stats": null, "source_name": null },
   { "name": "service_name", "type": "character varying", "semantic_role": null,
-    "domain_type": null, "sample_values": null, "stats": null }
+    "domain_type": null, "sample_values": null, "stats": null, "source_name": null }
 ]
 ```
 
-`get_features` on the buildings dataset with `bbox="-74.02,40.70,-74.00,40.72"` and `limit=2`. The
-`numberMatched` count is what makes this answerable. 1,422 of the 22,325 buildings fall in that box,
-and the assistant learns that without reading them:
+`get_features` on the buildings dataset with `bbox="-74.02,40.70,-74.00,40.72"` and `limit=2`. This
+one is not trimmed: it returns the OGC items FeatureCollection, geometry included, with a `next`
+link for paging. The `numberMatched` count is what makes this answerable. 1,422 of the 22,325
+buildings fall in that box, and the assistant learns that without reading them:
 
 ```json
-{ "type": "FeatureCollection", "numberMatched": 1422, "numberReturned": 2 }
+{ "type": "FeatureCollection", "numberMatched": 1422, "numberReturned": 2, "links": […] }
 
 { "id": 47, "geometry": { "type": "MultiPolygon", … },
   "properties": { "height_roof": 147, "construction_year": 1920, "era": "1900-1929", … } }
@@ -184,15 +195,18 @@ and the assistant learns that without reading them:
 ```
 
 Each building carries nine property keys. A wider dataset makes a stronger case for keeping `limit`
-small, since every key of every feature lands in the context window.
+small, since every key of every feature lands in the context window, and so does every coordinate.
 
-The full chain from prompt 5, four calls end to end:
+The full chain from prompt 5, four calls end to end. `list_maps` returns `{ "maps": [...], "total": 1 }`
+with one metadata row per map, and `get_map` returns the map's view state, basemap and layer list
+(`dataset_id`, `dataset_name`, `dataset_table_name`, `visible` and so on) without styling or column info:
 
 ```
 1. list_maps(search="hurricane exposure")
    → "Hurricane Exposure - Which Coasts the Major Storms Reach"  6a33241c-…
 2. get_map("6a33241c-…")
    → 3 layers → dataset ids 45f93e29-…, 65f399d2-…, a3cc6ee2-…
+     dashboard_widget_count: 0
 3. get_dataset_schema("45f93e29-…")
    → "Hurricane Exposure by Coastal Region", MULTIPOLYGON, 289 features,
      columns: region, source_count

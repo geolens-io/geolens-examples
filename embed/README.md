@@ -59,6 +59,7 @@ Read by the viewer at `frontend/src/pages/PublicViewerPage.tsx`:
 | `legend=true` / `legend=false` | Shows or hides the layer legend. Defaults to off when `embed=true`, on otherwise. |
 | `center=lng,lat` | Overrides the map's saved centre. Silently ignored if out of range. |
 | `zoom=<0-24>` | Overrides the saved zoom. |
+| `dashboard=collapsed` | Opens the map with its dashboard panel collapsed. The reader can still open it. Has no effect on a map without a dashboard. |
 | `et=<embedToken>` | A scoped embed token, for maps with private layers. Viewer only; the API takes it as a header. See below. |
 
 `embed=true` also turns on a small GeoLens badge over the map, which is the
@@ -129,8 +130,12 @@ time, so a layer added afterwards is not covered by a token minted before it.
 Tokens default to a 30-day expiry and one active token per map. Custom expiries
 and `allowed_origins` domain-locking are Enterprise features.
 
-Holding a token grants read access to exactly those datasets through the tile
-and feature endpoints, via the `X-Embed-Token` header. The header is the only
+Holding a token grants read access to exactly those datasets, via the
+`X-Embed-Token` header. It reads them through the tile and feature endpoints,
+the dashboard aggregate endpoint (`POST /datasets/{id}/aggregate`) and, while the
+map's "Readers can open the attribute table" setting is on,
+`GET /datasets/{id}/rows/`. All of these keep to the dataset's `tile_columns`
+allowlist when it has one. The header is the only
 way in. No tile or feature route reads a token from the query string, so
 `/api/tiles/data.foo/12/1/1.pbf?et=<token>` gets you nothing. `et=` is a viewer
 parameter rather than an API one: the `/m/` page reads it client-side and sends

@@ -189,7 +189,7 @@ or you get a new dataset next to the old one. See
 [Manifest schema (v1)](https://docs.getgeolens.com/guides/cli/#manifest-schema-v1) for the full
 field list. Only one `sources` entry per dataset is allowed by the schema, and the source URI must
 end in something the ingest path recognises: `zip`, `gpkg`, `geojson`, `json`, `csv`, `xlsx`, `xls`,
-`fgb`, `kml` or `kmz` for `vector`, and `tif` or `tiff` for `raster_cog`.
+`fgb`, `kml`, `kmz` or `parquet` (GeoParquet) for `vector`, and `tif` or `tiff` for `raster_cog`.
 
 `publication.intent` is deliberately not a fixed enum. The valid values come from the workflow
 statuses your deployment defines, validated server-side when you apply. The community default runs
