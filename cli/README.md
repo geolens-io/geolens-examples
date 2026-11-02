@@ -43,7 +43,7 @@ nothing to install and no virtualenv to keep.
 ### `validate`: offline, no instance, no credential
 
 ```bash
-uvx --from geolens-cli==1.29.1 geolens validate cli/geolens.yaml
+uvx --from geolens-cli==1.29.2 geolens validate cli/geolens.yaml
 # Manifest valid: cli/geolens.yaml
 ```
 
@@ -56,14 +56,17 @@ path, which is what an editor wants for completion.
 ### `apply --dry-run`: reaches an instance, writes nothing
 
 ```bash
-uvx --from geolens-cli==1.29.1 geolens --json apply --dry-run cli/geolens.yaml
+uvx --from geolens-cli==1.29.2 geolens --json apply --dry-run cli/geolens.yaml
 ```
 
 The instance matches each entry to an existing dataset by `key`, fingerprints the rest, and answers
 with a `create` / `update` / `skip` per entry. That is the review-time answer to "what does merging
 this branch actually change?", and it is the reason `key` is worth thinking about once: it is the
 identity across every future apply, so an entry whose key changes reads as a brand new dataset
-rather than an edit to an old one.
+rather than an edit to an old one. From GeoLens 1.29.2 a key acts only on a dataset the applying
+account owns. Issue both CI keys (`GEOLENS_PREVIEW_API_KEY` and `GEOLENS_API_KEY`, below) from the
+account that first applied the manifest, or transfer the datasets to it; otherwise the preview and
+the apply can disagree.
 
 `--json` goes *before* the subcommand. It is a global option, so `geolens --json apply` works and
 `geolens apply --json` is an error.
@@ -71,7 +74,7 @@ rather than an edit to an old one.
 ### `apply`: the write
 
 ```bash
-uvx --from geolens-cli==1.29.1 geolens --json apply cli/geolens.yaml
+uvx --from geolens-cli==1.29.2 geolens --json apply cli/geolens.yaml
 ```
 
 Same request without `dry_run`. Applying an unchanged entry skips rather than re-importing, so this
@@ -110,7 +113,7 @@ There is no `GEOLENS_API_KEY`. If an API key is what you have, the CLI takes one
 storage:
 
 ```bash
-echo "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.29.1 geolens login \
+echo "$GEOLENS_API_KEY" | uvx --from geolens-cli==1.29.2 geolens login \
   https://geolens.example.com --api-key - --no-keyring
 ```
 
@@ -127,7 +130,7 @@ here cannot. Applying a manifest is a write, writes need a credential, and the d
 
 ```bash
 GEOLENS_INSTANCE=https://demo.getgeolens.com \
-  uvx --from geolens-cli==1.29.1 geolens apply --dry-run cli/geolens.yaml
+  uvx --from geolens-cli==1.29.2 geolens apply --dry-run cli/geolens.yaml
 # Error: Manifest apply request failed (401): Could not validate credentials
 ```
 

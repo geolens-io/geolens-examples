@@ -74,7 +74,7 @@ they are called.
 browser directly:
 
 ```js
-import { createGeolensClient } from "https://esm.sh/@geolens/sdk@1.29.1";
+import { createGeolensClient } from "https://esm.sh/@geolens/sdk@1.29.2";
 ```
 
 Pin the version. A floating specifier makes the page's behavior a function of
@@ -167,7 +167,7 @@ least one vector dataset for the picker to fill.
 
 ## Pinned versions
 
-`@geolens/sdk@1.29.1` (current npm release) and `maplibre-gl@6.14.0`, verified
-against the live demo (serving 1.29.1) on 2026-10-31: SDK loaded from
+`@geolens/sdk@1.29.2` (current npm release) and `maplibre-gl@6.14.0`, verified
+against the live demo (serving 1.29.2) on 2026-11-01: SDK loaded from
 esm.sh, all calls 2xx, clean console, tiles rendering for point, line and
 polygon datasets.
