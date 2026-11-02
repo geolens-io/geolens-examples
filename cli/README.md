@@ -63,7 +63,8 @@ The instance matches each entry to an existing dataset by `key`, fingerprints th
 with a `create` / `update` / `skip` per entry. That is the review-time answer to "what does merging
 this branch actually change?", and it is the reason `key` is worth thinking about once: it is the
 identity across every future apply, so an entry whose key changes reads as a brand new dataset
-rather than an edit to an old one.
+rather than an edit to an old one. From GeoLens 1.29.2 a key acts only on a dataset the applying
+account owns, so run CI as the account that first applied the manifest, or transfer the datasets to it.
 
 `--json` goes *before* the subcommand. It is a global option, so `geolens --json apply` works and
 `geolens apply --json` is an error.
