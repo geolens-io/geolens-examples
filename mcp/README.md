@@ -6,12 +6,13 @@ reference; this page covers setup, client configs, and real transcripts.
 `geolens-mcp` is a read-only [MCP](https://modelcontextprotocol.io) server that puts a GeoLens
 catalog inside any MCP client's session: Claude Code, Claude Desktop, Cursor, Codex, or one you
 wrote yourself. Once it is registered, you stop context-switching to a GIS client to answer "what
-data do we even have for this?" You ask the assistant, and it goes and looks. It gets six tools:
+data do we even have for this?" You ask the assistant, and it goes and looks. It gets nine tools:
 `search_datasets` (free-text catalog search), `get_dataset_schema` (columns, geometry type,
 SRID, feature count, extent, and source-trust metadata), `get_features` (bounded GeoJSON, with an
-optional bbox filter), `list_maps` and `get_map` (saved maps, their layers and view state), and
-`query` (one SQL `SELECT` through the backend's read-only sandbox). The first five work against a
-public instance with no credentials at all; `query` needs an API key, which is the main thing to
+optional bbox filter), `list_maps` and `get_map` (saved maps, their layers and view state), `list_stories` and
+`get_story` (published stories and their chapters), `aggregate` (counts, statistics and breakdowns
+without writing SQL), and `query` (one SQL `SELECT` through the backend's read-only sandbox). The
+first eight work against a public instance with no credentials at all; `query` needs an API key, which is the main thing to
 know before you start.
 
 Nothing here can write. The discovery tools are `GET`s, and `query` is a `POST` only in the HTTP
@@ -25,7 +26,7 @@ The server is on PyPI, so `uvx` fetches and runs it on demand; there is nothing 
 Python 3.11 or newer. Every example below points at the public demo instance, which serves its
 catalog anonymously, so you can paste any of them as-is and have working tools in about a minute.
 
-Every example also pins `geolens-mcp@1.29.2`, the current release and the version the demo reports.
+Every example also pins `geolens-mcp@1.30.0`, the current release and the version the demo reports.
 The package ships with each GeoLens release, so the version to run is the one matching your
 instance. See [Things that will bite you](#things-that-will-bite-you) for how to move off the pin.
 
@@ -113,9 +114,9 @@ limits are in [Using query](https://docs.getgeolens.com/guides/sdk/mcp/#using-qu
 
 ## How it actually behaves
 
-Captured on 2026-10-31 by driving the wheel `geolens-mcp` published as version 1.29.0 over stdio
+Captured on 2026-11-07 by driving the wheel `geolens-mcp` published as version 1.30.0 over stdio
 with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported itself
-healthy at 1.29.0). Output is real and trimmed for width. The ids and counts below are whatever the demo held at capture time;
+healthy at 1.30.0). Output is real and trimmed for width. The ids and counts below are whatever the demo held at capture time;
 read the transcript for shape, not for literal values.
 
 Tool discovery, straight after `initialize`:
@@ -127,6 +128,9 @@ Tool discovery, straight after `initialize`:
 - get_features: Get GeoJSON features for a dataset (bounded).
 - list_maps: List saved maps (read-only metadata: id, name, visibility, layer count).
 - get_map: Get a summary of one saved map: name, description, visibility, view state, …
+- list_stories: List published stories you can read (read-only metadata: id, title, …
+- get_story: Get one story's published version: title, summary, visibility and the …
+- aggregate: Compute an exact aggregate over a dataset's rows: counts, summaries and …
 - query: Run one read-only SQL SELECT against accessible datasets.
 ```
 
@@ -247,7 +251,7 @@ Anonymous access sees published public data only. If the assistant comes back sa
 no datasets, check `GEOLENS_API_KEY` before you go looking at the catalog.
 
 `query` needs both an API key and a user with the AI-chat permission. Without them you get the 401
-above, while the other five tools keep working. A session where "search works but query doesn't" is
+above, while the other eight tools keep working. A session where "search works but query doesn't" is
 a credential problem, not a broken install.
 
 The version pin will go stale, and that is the trade. Without it, `uvx geolens-mcp` resolves the

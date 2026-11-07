@@ -42,6 +42,9 @@ EXPECTED_TOOLS = {
     "get_features",
     "list_maps",
     "get_map",
+    "list_stories",
+    "get_story",
+    "aggregate",
     "query",
 }
 
