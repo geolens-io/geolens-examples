@@ -47,9 +47,9 @@ and run its pip-install cell yourself.
 ## samgeo.ipynb: what it does
 
 1. **Find imagery by footprint.** `GET /api/stac/search` with a `bbox`
-   against `geolens-unassigned` (published rasters not yet filed under a
-   collection) returns whichever Sentinel-2 tiles overlap it, the STAC
-   Item Search a desktop client or `pystac-client` would run.
+   returns every raster in the catalog that overlaps it, the STAC Item
+   Search a desktop client or `pystac-client` would run, and the notebook
+   keeps the one Sentinel-2 tile among them.
 2. **Read both assets a by-reference import preserves.** The matched item
    carries GeoLens's own `raster_tiles` template alongside a `data` asset
    that still points at the origin catalog's COG, untouched: proof that
