@@ -73,6 +73,16 @@
   // and the client never holds the rest. See maplibre/vector-tiles.html.
   const MAX_FEATURES = 5000;
 
+  // Below this zoom the page stops walking features and shows server-side
+  // clusters instead: one vector tile per view from
+  //   /api/tiles/clusters/data.<table_name>/{z}/{x}/{y}.pbf
+  // The layer inside is named after the table. A clustered point carries
+  // `point_count`; a lone point carries neither, so it counts as one. The
+  // route also takes a CQL2 `filter` (the same expression the items `filter`
+  // takes) to cluster only the matching points.
+  const TABLE = "data.meteorite_landings_meteoritical_society";
+  const CLUSTER_BELOW_ZOOM = 5;
+
   // moveend fires per gesture, and a scroll-wheel zoom is a burst of them.
   // A short timer collapses the burst into one request for the view where
   // the user stopped.
@@ -87,13 +97,29 @@
       sources: {
         // Starts empty; loadView() replaces the data on every settled view.
         meteorites: { type: "geojson", data: { type: "FeatureCollection", features: [] } },
+        clusters: { type: "vector", tiles: [`${GEOLENS}/api/tiles/clusters/${TABLE}/{z}/{x}/{y}.pbf`] },
       },
       layers: [
         { id: "bg", type: "background", paint: { "background-color": "#101418" } },
         {
+          id: "clusters",
+          type: "circle",
+          source: "clusters",
+          "source-layer": TABLE,
+          maxzoom: CLUSTER_BELOW_ZOOM,
+          paint: {
+            "circle-radius": ["step", ["coalesce", ["get", "point_count"], 1], 3, 10, 6, 100, 10, 1000, 15],
+            "circle-color": "#ffd166",
+            "circle-opacity": 0.8,
+            "circle-stroke-color": "#101418",
+            "circle-stroke-width": 1,
+          },
+        },
+        {
           id: "meteorites",
           type: "circle",
           source: "meteorites",
+          minzoom: CLUSTER_BELOW_ZOOM,
           paint: {
             "circle-radius": 3,
             "circle-color": "#ffd166",
@@ -132,6 +158,13 @@
   async function loadView() {
     const mine = ++seq;
     inflight?.abort();
+    if (map.getZoom() < CLUSTER_BELOW_ZOOM) {
+      // The cluster layer draws this view; nothing to hold in the browser.
+      map.getSource("meteorites").setData({ type: "FeatureCollection", features: [] });
+      status.className = "";
+      status.textContent = "Server-side clusters at this zoom. Zoom in to load the features themselves.";
+      return;
+    }
     inflight = new AbortController();
     const { signal } = inflight;
 

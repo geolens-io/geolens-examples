@@ -114,9 +114,9 @@ limits are in [Using query](https://docs.getgeolens.com/guides/sdk/mcp/#using-qu
 
 ## How it actually behaves
 
-Captured on 2026-11-07 by driving the wheel `geolens-mcp` published as version 1.30.0 over stdio
+Captured on 2026-11-10 by driving the wheel `geolens-mcp` published as version 1.31.0 over stdio
 with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported itself
-healthy at 1.30.0). Output is real and trimmed for width. The ids and counts below are whatever the demo held at capture time;
+healthy at 1.31.0). Output is real and trimmed for width. The ids and counts below are whatever the demo held at capture time;
 read the transcript for shape, not for literal values.
 
 Tool discovery, straight after `initialize`:
@@ -140,7 +140,7 @@ with no geometry. The feature `id` is the dataset id you pass to every other too
 matched a 3D Tiles dataset, which has no geometry type or feature count:
 
 ```json
-{ "numberMatched": 6, "numberReturned": 3 }
+{ "numberMatched": 10, "numberReturned": 3 }
 
 { "id": "a0fce5fd-3ab1-496a-a8c6-97bbb53e48f9", "bbox": [-74.019, 40.700, -73.965, 40.770],
   "properties": { "title": "Manhattan Building Heights", "record_type": "vector_dataset",

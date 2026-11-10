@@ -1,11 +1,13 @@
-// Regression check for the maplibre/features.html popup-XSS fix. Two things,
+// Regression check for the maplibre/features.html popup-XSS fix, and for its
+// keyboard path to the same details. Three things,
 // against a real page load rather than a unit test of the fix in isolation:
 //
 //   1. The page's own click handler is safe: every station arrives from the
 //      demo with a hostile `name`, a click on a rendered station opens the
 //      page's popup, and it shows the markup as readable JSON text while
 //      injecting no element.
-//   2. The payload is really hostile: the OLD `setHTML` pattern, replayed with
+//   2. The station picker opens the same details with keys alone.
+//   3. The payload is really hostile: the OLD `setHTML` pattern, replayed with
 //      the same properties inside the same map, does inject an element. A
 //      check that passes against both patterns is not a counterfactual and
 //      proves nothing.
@@ -103,6 +105,26 @@ if (rewritten === 0) {
   failures.push(`the popup does not show the hostile name as text: ${popupText}`);
 } else {
   console.log(`page popup: showed the hostile name as text, injected 0 elements (${rewritten} features rewritten)`);
+}
+
+// --- 1b. The same details from the keyboard -----------------------------
+// A canvas click is unreachable without a mouse, so the page also offers a
+// native <select>. Drive it with keys only and expect another popup carrying
+// the same hostile name as text.
+await page.waitForFunction(() => !document.getElementById("station-picker")?.disabled, { timeout: 15000 });
+const before = await page.locator(".maplibregl-popup").count();
+await page.focus("#station-picker");
+// Type-ahead picks an option on a closed select; ArrowDown opens the native
+// menu instead on macOS, where headless Chromium never commits a choice.
+await page.keyboard.type("Chambers");
+const keyPopup = page.locator(".maplibregl-popup-content").last();
+const keyText = await keyPopup.locator("pre").textContent({ timeout: 5000 }).catch(() => null);
+if ((await page.locator(".maplibregl-popup").count()) <= before || !keyText?.includes(JSON.stringify(HOSTILE))) {
+  failures.push(`choosing a station with the keyboard did not open its details: ${keyText}`);
+} else if ((await keyPopup.locator("img").count()) !== 0) {
+  failures.push("the keyboard path injected an element from a station name");
+} else {
+  console.log("keyboard path: the station picker opened the same details as text");
 }
 
 // --- 2. Counterfactual: the OLD pattern injects the same payload ----------
