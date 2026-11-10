@@ -122,24 +122,82 @@ const typeOf = (tag) => {
   return (m?.[1] ?? m?.[2] ?? m?.[3] ?? "").trim().toLowerCase();
 };
 
-// Literal CDN URLs an inline script imports: `from "u"`, `import "u"`,
-// `import("u")`. Comments are dropped first so a commented-out import is not
-// demanded. Other hosts are not this check's business.
-const IMPORT_URL = /\b(?:from|import)\s*(["'])([^"'\s]+)\1|\bimport\s*\(\s*(["'])([^"'\s]+)\3\s*[,)]/g;
+// Specifiers an inline script imports that resolve to a CDN host: `from "u"`,
+// `import "u"`, `import("u")`. A small lexer walks the code, so quoted
+// strings, template literals and comments are skipped rather than matched.
+// Known gap: a regex literal that contains a quote or comment opener can
+// confuse it. Specifiers are resolved against an https base, so `//unpkg.com/x`
+// is found too; the caller refuses any that is not a canonical https URL.
+function importSpecifiers(code) {
+  const tokens = [];
+  const n = code.length;
+  for (let i = 0; i < n; ) {
+    const c = code[i];
+    if (c === "/" && code[i + 1] === "/") {
+      while (i < n && code[i] !== "\n") i++;
+    } else if (c === "/" && code[i + 1] === "*") {
+      const end = code.indexOf("*/", i + 2);
+      i = end < 0 ? n : end + 2;
+    } else if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < n && code[j] !== c && code[j] !== "\n") j += code[j] === "\\" ? 2 : 1;
+      tokens.push({ str: code.slice(i + 1, j) });
+      i = j + 1;
+    } else if (c === "`") {
+      i = skipTemplate(code, i);
+      tokens.push({ str: null });
+    } else if (/[\w$]/.test(c)) {
+      let j = i;
+      while (j < n && /[\w$]/.test(code[j])) j++;
+      tokens.push({ word: code.slice(i, j) });
+      i = j;
+    } else {
+      if (!/\s/.test(c)) tokens.push({ punct: c });
+      i++;
+    }
+  }
+  const found = [];
+  const isStr = (t) => typeof t?.str === "string";
+  for (let k = 0; k < tokens.length; k++) {
+    const w = tokens[k].word;
+    if (w === "from" && isStr(tokens[k + 1])) found.push(tokens[k + 1].str);
+    else if (w === "import" && isStr(tokens[k + 1])) found.push(tokens[k + 1].str);
+    else if (w === "import" && tokens[k + 1]?.punct === "(" && isStr(tokens[k + 2]) && [",", ")"].includes(tokens[k + 3]?.punct)) {
+      found.push(tokens[k + 2].str);
+    }
+  }
+  return found;
+}
+
+// Index just past the template literal that starts at `i`. Code inside ${ }
+// is skipped with its braces balanced; quotes and nested templates inside it
+// are stepped over whole.
+function skipTemplate(code, i) {
+  const n = code.length;
+  for (i++; i < n && code[i] !== "`"; i++) {
+    if (code[i] === "\\") i++;
+    else if (code[i] === "$" && code[i + 1] === "{") {
+      let depth = 1;
+      for (i += 2; i < n && depth; i++) {
+        const c = code[i];
+        if (c === "{") depth++;
+        else if (c === "}") depth--;
+        else if (c === "`") i = skipTemplate(code, i) - 1;
+        else if (c === '"' || c === "'") for (i++; i < n && code[i] !== c; i++) if (code[i] === "\\") i++;
+      }
+      i--;
+    }
+  }
+  return i + 1;
+}
+
 function directImports(masked, html) {
   const found = new Set();
   for (const m of masked.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
     const open = m[0].slice(0, m[0].indexOf(">") + 1);
     if (/\ssrc\s*=/i.test(open) || !["", "module", "text/javascript"].includes(typeOf(open))) continue;
     const start = m.index + open.length;
-    const code = html
-      .slice(start, start + m[1].length)
-      .replace(/\/\*[\s\S]*?\*\//g, " ")
-      .replace(/(^|[^:\w"'`])\/\/.*$/gm, "$1");
-    for (const u of code.matchAll(IMPORT_URL)) {
-      const url = u[2] ?? u[4];
-      if (inScope(url)) found.add(url);
-    }
+    for (const url of importSpecifiers(html.slice(start, start + m[1].length))) if (inScope(url)) found.add(url);
   }
   return found;
 }
@@ -341,7 +399,7 @@ function readDom() {
 
 const inScope = (url) => {
   try {
-    return isCdnHost(new URL(url).hostname);
+    return isCdnHost(new URL(url, "https://local.invalid/").hostname);
   } catch {
     return false;
   }
@@ -491,6 +549,15 @@ async function selfTest() {
   expect("--write fills a direct import into an existing map", count(fromMap.html, STUB) === 2 && count(fromMap.html, 'type="importmap"') === 1);
   const quiet = `<script type="module">// import x from "${js}"\n/* import("${js}") */ import y from "https://esm.sh/y@1.0.0";</script>`;
   expect("comments and esm.sh imports are not demanded", (await processHtml(quiet, { write: false, hashOf })).problems.length === 0);
+
+  const literal = `<script type="module">const s = 'import x from "${js}"'; const t = \`import("${js}")\`;</script>`;
+  expect("an import-shaped string literal is not an import", (await processHtml(literal, { write: false, hashOf })).problems.length === 0);
+  const hidden = `<script type="module">const a = "/*"; import * as m from "${js}"; const b = "*/";</script>`;
+  expect("an import between strings holding comment markers is found", (await processHtml(hidden, { write: false, hashOf })).problems.length === 1);
+  const relative = `<script type="module">import x from "//unpkg.com/lib@1.0.0/lib.js";</script>`;
+  for (const write of [false, true]) {
+    expect(`a protocol-relative import is refused (write=${write})`, (await processHtml(relative, { write, hashOf })).problems.length > 0);
+  }
 
   const plain = `<script src="/local.js"></script><script type='module'>import "x"</script><script type="module" src="https://js.arcgis.com/5.1/"></script>`;
   expect("non-CDN tags are ignored", (await processHtml(plain, { write: false, hashOf })).problems.length === 0);
