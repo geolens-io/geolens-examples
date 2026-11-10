@@ -4,12 +4,16 @@
 // CDN file must carry `integrity` and `crossorigin="anonymous"`, and the
 // sha384 must match the file the CDN serves today. The import map in a page
 // can carry hashes for module files too (the browser applies them to the
-// static `import` of that same URL), so each CDN URL it maps needs one.
+// static `import` of that same URL), so each CDN URL it maps needs one. A
+// literal CDN URL in an inline script's `import ... from`, `export ... from`,
+// `import "..."` or `import("...")` needs an entry there too, even when the
+// map has no `imports` for it.
 //
-// What is left out, on purpose: the floating js.arcgis.com/5.1/ loader (no
-// fixed bytes to hash; it is not on a pinned CDN host), esm.sh module graphs, and
-// anything a library fetches for itself (workers, Cesium assets). CONTRIBUTING
-// says so.
+// What is left out, on purpose, and the only place that says so: the floating
+// js.arcgis.com/5.1/ loader (no fixed bytes to hash; it is not on a pinned CDN
+// host); esm.sh, which is not in CDN_HOSTNAMES because a page can hash the
+// module it imports but not the modules esm.sh's output imports in turn; and
+// anything a library fetches for itself (workers, Cesium assets).
 //
 // Verification reads each page the way a browser does. Chromium parses the
 // file with scripting off and no network, and the check looks at the DOM it
@@ -105,11 +109,19 @@ function resolvedHost(value) {
 // Comments and the text inside script, style, textarea and template elements
 // are blanked (same length, so offsets still match the page): a tag-shaped
 // string there is not something the browser loads, and --write must not edit it.
+// An opening tag whose quoted attribute values may hold `>`.
+const OPEN_TAG = String.raw`(?:[^>"']|"[^"]*"|'[^']*')*>`;
+// An inline <script>: the opening tag, then its body.
+const SCRIPT = new RegExp(String.raw`(<script\b${OPEN_TAG})([\s\S]*?)<\/script\s*>`, "gi");
+
 function maskInert(html) {
   const blank = (text) => text.replace(/[^\n]/g, " ");
-  return html
-    .replace(/<!--[\s\S]*?-->/g, blank)
-    .replace(/(<(script|style|textarea|template)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi, (_, open, _name, body, close) => open + blank(body) + close);
+  // One pass, leftmost match first, so a comment opener inside a script body
+  // stays script text and a script inside a comment stays commented out.
+  return html.replace(
+    new RegExp(String.raw`<!--[\s\S]*?-->|(<(script|style|textarea|template)\b${OPEN_TAG})([\s\S]*?)(<\/\2\s*>)`, "gi"),
+    (all, open, _name, body, close) => (open ? open + blank(body) + close : blank(all)),
+  );
 }
 
 // The value of a start tag's type attribute, whatever the quoting.
@@ -117,6 +129,121 @@ const typeOf = (tag) => {
   const m = tag.match(/\stype\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i);
   return (m?.[1] ?? m?.[2] ?? m?.[3] ?? "").trim().toLowerCase();
 };
+
+// Specifiers an inline script imports that resolve to a CDN host: `from "u"`,
+// `import "u"`, `import("u")`. A small lexer walks the code, so quoted
+// strings, template text and comments are skipped rather than matched, while
+// the code inside a template's ${ } is scanned like any other.
+// Known gap: a regex literal that contains a quote or comment opener can
+// confuse it. Specifiers are resolved against an https base, so `//unpkg.com/x`
+// is found too; the caller refuses any that is not a canonical https URL. A
+// specifier holding a backslash escape is refused outright rather than decoded,
+// since a URL nobody can read at a glance is not one to maintain a hash for.
+function importSpecifiers(code) {
+  const tokens = [];
+  const nested = [];
+  const n = code.length;
+  for (let i = 0; i < n; ) {
+    const c = code[i];
+    if (c === "/" && code[i + 1] === "/") {
+      while (i < n && code[i] !== "\n") i++;
+    } else if (c === "/" && code[i + 1] === "*") {
+      const end = code.indexOf("*/", i + 2);
+      i = end < 0 ? n : end + 2;
+    } else if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < n && code[j] !== c && code[j] !== "\n") j += code[j] === "\\" ? 2 : 1;
+      tokens.push({ str: code.slice(i + 1, j) });
+      i = j + 1;
+    } else if (c === "`") {
+      const exprs = [];
+      const start = i;
+      i = skipTemplate(code, i, exprs);
+      for (const e of exprs) nested.push(...importSpecifiers(e));
+      // A template with no ${ } is a constant string and works as a specifier.
+      tokens.push({ str: exprs.length ? null : code.slice(start + 1, i - 1) });
+    } else if (/[\w$]/.test(c)) {
+      let j = i;
+      while (j < n && /[\w$]/.test(code[j])) j++;
+      tokens.push({ word: code.slice(i, j) });
+      i = j;
+    } else {
+      if (!/\s/.test(c)) tokens.push({ punct: c });
+      i++;
+    }
+  }
+  const found = [];
+  const isStr = (t) => typeof t?.str === "string";
+  for (let k = 0; k < tokens.length; k++) {
+    // `loader.import(...)` and `loader?.import(...)` are method calls.
+    const w = tokens[k - 1]?.punct === "." ? undefined : tokens[k].word;
+    if (w === "from" && isStr(tokens[k + 1])) found.push(tokens[k + 1].str);
+    else if (w === "import" && isStr(tokens[k + 1])) found.push(tokens[k + 1].str);
+    else if (w === "import" && tokens[k + 1]?.punct === "(") {
+      // import("u"), import(("u")) and import("u", options): unwrap the parens.
+      let j = k + 1;
+      let depth = 0;
+      while (tokens[j]?.punct === "(") (depth++, j++);
+      let e = j + 1;
+      while (e - j - 1 < depth - 1 && tokens[e]?.punct === ")") e++;
+      if (isStr(tokens[j]) && e - j - 1 === depth - 1 && [",", ")"].includes(tokens[e]?.punct)) found.push(tokens[j].str);
+    }
+  }
+  return [...found, ...nested];
+}
+
+// Index just past the template literal that starts at `i`. Code inside ${ }
+// is skipped with its braces balanced, and pushed to `exprs` when given;
+// quotes and nested templates inside it are stepped over whole.
+function skipTemplate(code, i, exprs) {
+  const n = code.length;
+  for (i++; i < n && code[i] !== "`"; i++) {
+    if (code[i] === "\\") i++;
+    else if (code[i] === "$" && code[i + 1] === "{") {
+      let depth = 1;
+      const start = i + 2;
+      for (i += 2; i < n && depth; i++) {
+        const c = code[i];
+        if (c === "{") depth++;
+        else if (c === "}") depth--;
+        else if (c === "`") i = skipTemplate(code, i) - 1;
+        else if (c === '"' || c === "'") {
+          for (i++; i < n && code[i] !== c; i++) if (code[i] === "\\") i++;
+        } else if (c === "/" && code[i + 1] === "/") while (i + 1 < n && code[i + 1] !== "\n") i++;
+        else if (c === "/" && code[i + 1] === "*") {
+          const end = code.indexOf("*/", i + 2);
+          i = end < 0 ? n : end + 1;
+        }
+      }
+      i--;
+      exprs?.push(code.slice(start, i));
+    }
+  }
+  return i + 1;
+}
+
+// The script types a browser runs as JavaScript (HTML's JavaScript MIME type
+// essence match), plus no type at all. Any of them can call import().
+const JS_TYPES = /^$|^(?:application|text)\/(?:x-)?(?:java|ec)script$|^text\/javascript1\.[0-5]$|^text\/(?:jscript|livescript)$/;
+
+// The CDN URLs inline scripts import, with `first` set to where the earliest
+// such script starts: an import map registered after it cannot cover it.
+function directImports(masked, html) {
+  const found = new Set();
+  found.first = Infinity;
+  for (const m of masked.matchAll(SCRIPT)) {
+    const open = m[1];
+    if (/\ssrc\s*=/i.test(open) || !(typeOf(open) === "module" || JS_TYPES.test(typeOf(open)))) continue;
+    const start = m.index + open.length;
+    for (const url of importSpecifiers(html.slice(start, start + m[2].length))) {
+      if (url.includes("\\") || inScope(url)) {
+        found.add(url);
+        found.first = Math.min(found.first, m.index);
+      }
+    }
+  }
+  return found;
+}
 
 // Returns the page with hashes written (write mode) and the problems found.
 // `hashOf` is injected so the self-test needs no network.
@@ -187,12 +314,16 @@ export async function processHtml(html, { write, hashOf }) {
     if (crossorigin[0]?.value !== "anonymous") note(url, 'needs crossorigin="anonymous"');
   }
 
-  for (const m of masked.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
-    const openTag = m[0].slice(0, m[0].indexOf(">") + 1);
+  const direct = directImports(masked, html);
+  let mapsSeen = 0;
+  for (const m of masked.matchAll(SCRIPT)) {
+    const openTag = m[1];
     if (typeOf(openTag) !== "importmap") continue;
+    mapsSeen++;
+    if (mapsSeen === 1 && m.index > direct.first) note(openTag, "comes after a script that imports a CDN module directly; move it above that script");
     // The masked copy blanked the JSON; read it from the page itself.
     const bodyStart = m.index + openTag.length;
-    const body = html.slice(bodyStart, bodyStart + m[1].length);
+    const body = html.slice(bodyStart, bodyStart + m[2].length);
     if (openTag !== '<script type="importmap">') {
       note(openTag, 'is an import map this check cannot parse; write it exactly as <script type="importmap">');
       continue;
@@ -209,6 +340,9 @@ export async function processHtml(html, { write, hashOf }) {
       ...Object.values(map.imports ?? {}),
       ...Object.values(map.scopes ?? {}).flatMap((scope) => Object.values(scope)),
     ].filter((u) => isCdnHost(resolvedHost(String(u)) ?? ""));
+    // Direct imports are checked against the first map; one map per page is
+    // the supported form.
+    if (mapsSeen === 1) urls.push(...direct);
     for (const url of new Set(urls)) {
       if (!CDN.test(url)) {
         note(url, "in the import map must be an https URL on the CDN");
@@ -232,6 +366,34 @@ export async function processHtml(html, { write, hashOf }) {
     }
     if (write && JSON.stringify(map) !== before) {
       edits.push([bodyStart, bodyStart + body.length, `\n${JSON.stringify(map, null, 2).replace(/^/gm, "    ")}\n  `]);
+    }
+  }
+
+  if (direct.size && !mapsSeen) {
+    const integrity = {};
+    for (const url of direct) {
+      if (!CDN.test(url)) {
+        note(url, "imported directly must be an https URL on the CDN");
+        continue;
+      }
+      handled.add(new URL(url).href);
+      try {
+        integrity[url] = await hashOf(url);
+      } catch (error) {
+        note(url, `could not be fetched (${error.message})`);
+      }
+    }
+    if (!write) for (const url of Object.keys(integrity)) note(url, "is imported directly but the page has no import map integrity entry for it");
+    else if (Object.keys(integrity).length) {
+      // Before </head>, or before the first importing script when that comes
+      // earlier, so the map is registered before any import starts.
+      const headAt = masked.search(/[ \t]*<\/head\s*>/i);
+      const head = Math.min(headAt < 0 ? Infinity : headAt, direct.first);
+      if (head === Infinity) note("page", "imports a CDN module directly and has no </head> to put the import map in");
+      else {
+        const body = JSON.stringify({ integrity }, null, 2).replace(/^/gm, "    ");
+        edits.push([head, head, `  <script type="importmap">\n${body}\n  </script>\n`]);
+      }
     }
   }
 
@@ -284,7 +446,7 @@ function readDom() {
 
 const inScope = (url) => {
   try {
-    return isCdnHost(new URL(url).hostname);
+    return isCdnHost(new URL(url, "https://local.invalid/").hostname);
   } catch {
     return false;
   }
@@ -420,6 +582,56 @@ async function selfTest() {
   expect("--write keeps the import map scopes", wrote.html.includes('"scopes"'));
   expect("--write hashes both import map URLs", count(wrote.html, STUB) === 2);
   expect("--write output verifies", (await processHtml(wrote.html, { write: false, hashOf })).problems.length === 0);
+
+  const direct = `<script type="module">import * as m from "${js}"; const x = await import("${css}");</script>`;
+  expect("verify rejects direct imports with no import map", (await processHtml(direct, { write: false, hashOf })).problems.length === 2);
+  const withMap = (integrity) => `<script type="importmap">{"integrity":${JSON.stringify(integrity)}}</script>${direct}`;
+  expect("verify rejects a direct import missing from the import map", (await processHtml(withMap({ [js]: STUB }), { write: false, hashOf })).problems.length === 1);
+  expect("verify accepts direct imports with integrity entries", (await processHtml(withMap({ [js]: STUB, [css]: STUB }), { write: false, hashOf })).problems.length === 0);
+  const headed = `<html><head><title>t</title></head><body>${direct}</body></html>`;
+  const fixed = await processHtml(headed, { write: true, hashOf });
+  expect("--write adds an import map in the head for direct imports", fixed.html.indexOf('type="importmap"') < fixed.html.indexOf("</head>") && count(fixed.html, STUB) === 2);
+  expect("--write output for direct imports verifies", (await processHtml(fixed.html, { write: false, hashOf })).problems.length === 0);
+  const fromMap = await processHtml(withMap({}), { write: true, hashOf });
+  expect("--write fills a direct import into an existing map", count(fromMap.html, STUB) === 2 && count(fromMap.html, 'type="importmap"') === 1);
+  const quiet = `<script type="module">// import x from "${js}"\n/* import("${js}") */ import y from "https://esm.sh/y@1.0.0";</script>`;
+  expect("comments and esm.sh imports are not demanded", (await processHtml(quiet, { write: false, hashOf })).problems.length === 0);
+
+  const literal = `<script type="module">const s = 'import x from "${js}"'; const t = \`import("${js}")\`;</script>`;
+  expect("an import-shaped string literal is not an import", (await processHtml(literal, { write: false, hashOf })).problems.length === 0);
+  const hidden = `<script type="module">const a = "/*"; import * as m from "${js}"; const b = "*/";</script>`;
+  expect("an import between strings holding comment markers is found", (await processHtml(hidden, { write: false, hashOf })).problems.length === 1);
+  const interpolated = `<script type="module">const r = \`\${await import("${js}")} and \${\`\${await import("${css}")}\`}\`;</script>`;
+  expect("imports inside template interpolations are found", (await processHtml(interpolated, { write: false, hashOf })).problems.length === 2);
+  const early = `<html><head>\n  <script>import("${js}")</script>\n</head><body></body></html>`;
+  const placed = (await processHtml(early, { write: true, hashOf })).html;
+  expect("--write puts the import map before a head script that imports", placed.indexOf('type="importmap"') < placed.indexOf('import("'));
+  expect("verify rejects an import map that comes after an importing script", (await processHtml(`<script>import("${js}")</script><script type="importmap">{"integrity":{"${js}":"${STUB}"}}</script>`, { write: false, hashOf })).problems.length === 1);
+  const backticked = `<script type="module">import x from \`${js}\`; await import(\`${css}\`);</script>`;
+  expect("constant template literal specifiers are found", (await processHtml(backticked, { write: false, hashOf })).problems.length === 2);
+  const sameLine = `<html><head><!--\n--><script>import("${js}")</script></head><body></body></html>`;
+  const boundary = (await processHtml(sameLine, { write: true, hashOf })).html;
+  expect("--write inserts the map at the script tag, not inside a comment on its line", boundary.indexOf('type="importmap"') > boundary.indexOf("-->") && boundary.indexOf('type="importmap"') < boundary.indexOf('import("'));
+  const wrapped = `<script type="module">await import(("${js}"));</script>`;
+  expect("a parenthesized import() argument is found", (await processHtml(wrapped, { write: false, hashOf })).problems.length === 1);
+  const opener = `<script>const marker = "<!--";</script><script type="module">import "${js}";</script><!-- end -->`;
+  expect("a comment opener inside a script does not hide the next script", (await processHtml(opener, { write: false, hashOf })).problems.length === 1);
+  const method = `<script type="module">const loader = { import(v) { return v; } }; loader.import("${js}"); loader?.import("${js}");</script>`;
+  expect("a method named import is not a module import", (await processHtml(method, { write: false, hashOf })).problems.length === 0);
+  const quotedGt = `<script type="module" data-note=">">import "${js}";</script>`;
+  expect("a quoted > in a script's attribute does not end the tag", (await processHtml(quotedGt, { write: false, hashOf })).problems.length === 1);
+  const commented = `<script type="module">const r = \`\${ /* } */ await import("${js}") }\`;</script>`;
+  expect("a brace inside a comment in an interpolation does not end it", (await processHtml(commented, { write: false, hashOf })).problems.length === 1);
+  const classic = `<script type="application/javascript">import("${js}")</script>`;
+  expect("a classic script typed application/javascript is scanned", (await processHtml(classic, { write: false, hashOf })).problems.length === 1);
+  const escaped = `<script type="module">import x from "\\u0068ttps://unpkg.com/lib@1.0.0/lib.js";</script>`;
+  for (const write of [false, true]) {
+    expect(`an escaped import specifier is refused (write=${write})`, (await processHtml(escaped, { write, hashOf })).problems.length > 0);
+  }
+  const relative = `<script type="module">import x from "//unpkg.com/lib@1.0.0/lib.js";</script>`;
+  for (const write of [false, true]) {
+    expect(`a protocol-relative import is refused (write=${write})`, (await processHtml(relative, { write, hashOf })).problems.length > 0);
+  }
 
   const plain = `<script src="/local.js"></script><script type='module'>import "x"</script><script type="module" src="https://js.arcgis.com/5.1/"></script>`;
   expect("non-CDN tags are ignored", (await processHtml(plain, { write: false, hashOf })).problems.length === 0);
