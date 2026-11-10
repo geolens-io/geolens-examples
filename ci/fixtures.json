@@ -68,6 +68,7 @@
       "title": "swissALTI3D Matterhorn DEM (2m mosaic)",
       "collection": "d8fd56a9-d12f-4dbb-af8b-81a7289fc600",
       "itemType": "coverage",
+      "why": "maplibre/imagery.html reads these Terrain-RGB tiles as a raster-dem source and draws hillshade; the QGIS check loads them as XYZ.",
       "rasterTile": {
         "path": "/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/",
         "probe": "12/2135/1457.png",
@@ -89,7 +90,7 @@
         ],
         "grep": "bf1a8df1-5e8f-4f75-9547-038343f37a97"
       },
-      "why": "leafmap/samgeo.ipynb reads this by-reference Sentinel-2 import; the probe sits over the harbor tile the notebook segments."
+      "why": "leafmap/samgeo.ipynb reads this by-reference Sentinel-2 import, and leaflet, openlayers and arcgis-js imagery.html draw its tiles; the probe sits over the harbor tile the notebook segments."
     },
     "meteorites": {
       "title": "Meteorite Landings (Meteoritical Society)",

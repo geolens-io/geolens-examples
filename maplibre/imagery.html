@@ -18,7 +18,7 @@
 <body>
 <div id="map"></div>
 <div id="hud">
-  <strong>MapLibre GL JS — raster tiles</strong>
+  <strong>MapLibre GL JS — raster-dem tiles</strong>
   <p id="status" role="status">Loading the swissALTI3D Matterhorn DEM from the GeoLens demo…</p>
   <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/d8fd56a9-d12f-4dbb-af8b-81a7289fc600">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/imagery.html">source</a></p>
 </div>
@@ -56,49 +56,29 @@
 
   // Every raster dataset in GeoLens is served as XYZ tiles. Read the exact
   // template from the dataset's collection metadata (the "tiles" link on
-  // /api/collections/<dataset_id>) rather than hand-building it — the link
+  // /api/collections/<dataset_id>) rather than hand-building it. The link
   // carries the .png extension and two cache keys: `v`, the content version,
   // and from GeoLens 1.19.0 `pv`, the publication version, which changes with
   // the dataset's publication status or visibility
-  // (https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints):
+  // (https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints). A `v` that
+  // is out of date makes the server answer `cache-control: private, no-store`,
+  // so every tile is rendered fresh instead of coming from the cache:
   //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>&pv=<n>
   const DEM = "d8fd56a9-d12f-4dbb-af8b-81a7289fc600"; // swissALTI3D Matterhorn DEM
-
-  const map = new maplibregl.Map({
-    container: "map",
-    center: [7.6586, 45.9763], // Matterhorn
-    zoom: 12,
-    style: {
-      version: 8,
-      sources: {
-        dem: {
-          type: "raster",
-          tiles: [`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1&pv=0`],
-          tileSize: 256,
-        },
-      },
-      layers: [
-        { id: "bg", type: "background", paint: { "background-color": "#101418" } },
-        { id: "dem", type: "raster", source: "dem" },
-      ],
-    },
-  });
-
-  map.addControl(new maplibregl.NavigationControl());
 
   const status = document.getElementById("status");
 
   // Only a 404 latches this, and a tile can never clear it: a tile answering
   // is not evidence the dataset exists. Before v1.14.0 a dataset that was
   // never there answered 204, which MapLibre reports exactly as it reports
-  // real imagery — same `data` event, same `state: "loaded"`. From v1.14.0 it
+  // real imagery: same `data` event, same `state: "loaded"`. From v1.14.0 it
   // answers 404 (measured 2026-08-18), and MapLibre fires no `error` event for
   // a 404 tile at all; it just tries the parent and child tiles. Either way
-  // "a tile came back" and "the dataset is there" are different claims. fix(#18)
+  // "a tile came back" and "the dataset is there" are different claims.
   let missing = false;
 
   // Whether the tiles have said anything yet. The catalog note below is the
-  // weakest signal on this page and defers to both of these. fix(#18)
+  // weakest signal on this page and defers to both of these.
   let tileAnswered = false;
   let tileErrored = false;
 
@@ -111,9 +91,9 @@
 
   // The catalog answered, but not in a way that settles anything. Say so in the
   // neutral style rather than the error one, and never over the top of what the
-  // tiles have already reported — they are the better evidence. Warn rather
-  // than error in the console for the same reason: nothing here is known to be
-  // broken. fix(#18)
+  // tiles have already reported, since they are the better evidence. Warn
+  // rather than error in the console for the same reason: nothing here is
+  // known to be broken.
   const note = (message, err) => {
     if (tileAnswered || tileErrored) return;
     status.hidden = false;
@@ -121,6 +101,55 @@
     status.textContent = message;
     console.warn("GeoLens catalog check was inconclusive:", err ?? message);
   };
+
+  // One request serves two purposes: it gives the tile template, and it is the
+  // only way this page can tell a missing dataset from an empty tile, because
+  // the tile route does not say it in a way the page can read.
+  //
+  // Read the status rather than just `ok`. This request is deliberately
+  // anonymous (the point of a scoped tile token is that no credential reaches
+  // the browser), so a rejected or unreachable catalog is a fact about this
+  // request, not about the dataset, and claiming otherwise puts a red line
+  // over a map that is working. Only 404 carries information about existence,
+  // and even that is not conclusive; see the message.
+  //
+  // When the catalog gives no template, the bare route still serves tiles; they
+  // just are not tied to a cache key.
+  let tiles = `${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png`;
+  try {
+    const r = await fetch(`${GEOLENS}/api/collections/${DEM}`);
+    if (r.ok) {
+      tiles = (await r.json()).links.find((l) => l.rel === "tiles")?.href ?? tiles;
+    } else if (r.status === 404) {
+      missing = true;
+      fail(`${GEOLENS} has no dataset ${DEM} that this page can see (404). Either it is gone, or it is private. GeoLens answers 404 for a dataset you may not read, and this request carries no credential. List what is public at /api/collections.`);
+    } else {
+      note(`Could not check whether dataset ${DEM} exists (${r.status} ${r.statusText}). That says nothing either way, so trust the map rather than this line.`);
+    }
+  } catch (err) {
+    note(`Could not reach ${GEOLENS} to check that dataset ${DEM} exists. The request failed outright, which is also what a CORS rejection looks like. The tiles are a separate request and may be fine.`, err);
+  }
+
+  // GeoLens renders a DEM as Terrain-RGB (elevation packed into the colour
+  // channels), so a plain raster layer would show it as colour noise. A
+  // raster-dem source decodes it, and "mapbox" is the packing GeoLens uses.
+  const map = new maplibregl.Map({
+    container: "map",
+    center: [7.6586, 45.9763], // Matterhorn
+    zoom: 12,
+    style: {
+      version: 8,
+      sources: {
+        dem: { type: "raster-dem", tiles: [tiles], tileSize: 256, encoding: "mapbox" },
+      },
+      layers: [
+        { id: "bg", type: "background", paint: { "background-color": "#c9ccd1" } },
+        { id: "hillshade", type: "hillshade", source: "dem" },
+      ],
+    },
+  });
+
+  map.addControl(new maplibregl.NavigationControl());
 
   // Clear the line when a tile arrives, rather than when the map goes idle.
   // MapLibre raises this only for a tile that came back, so it doubles as the
@@ -139,32 +168,6 @@
     tileErrored = true;
     fail(`Could not load tiles from ${GEOLENS} — ${e.error?.message ?? "request failed"}. Instances older than v1.13.0 send no CORS header on raster tiles, which blocks them here.`, e.error ?? e);
   });
-
-  // The tile route does not say the dataset is gone in any way this page can
-  // read. Before v1.14.0 it answered 204 both for a tile outside the footprint
-  // and for a dataset id that does not exist; from v1.14.0 the missing dataset
-  // is a 404 there (measured 2026-08-18), but MapLibre treats a 404 tile as
-  // "no tile here" and says nothing. The catalog names the difference, so ask
-  // it once.
-  //
-  // Read the status rather than just `ok`. This request is deliberately
-  // anonymous — the point of a scoped tile token is that no credential reaches
-  // the browser — so a rejected or unreachable catalog is a fact about this
-  // request, not about the dataset, and claiming otherwise puts a red line over
-  // a map that is working. Only 404 carries information about existence, and
-  // even that is not conclusive; see the message. fix(#18)
-  fetch(`${GEOLENS}/api/collections/${DEM}`).then(
-    (r) => {
-      if (r.ok) return;
-      if (r.status === 404) {
-        missing = true;
-        fail(`${GEOLENS} has no dataset ${DEM} that this page can see (404). Either it is gone, or it is private — GeoLens answers 404 for a dataset you may not read, and this request carries no credential. List what is public at /api/collections.`);
-        return;
-      }
-      note(`Could not check whether dataset ${DEM} exists (${r.status} ${r.statusText}). That says nothing either way, so trust the map rather than this line.`);
-    },
-    (err) => note(`Could not reach ${GEOLENS} to check that dataset ${DEM} exists — the request failed outright, which is also what a CORS rejection looks like. The tiles are a separate request and may be fine.`, err),
-  );
 </script>
 </body>
 </html>

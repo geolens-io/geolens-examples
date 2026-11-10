@@ -53,7 +53,7 @@
     "path": "arcgis-js/imagery.html",
     "wait": 20000,
     "requireUrls": [
-      "/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/"
+      "/raster-tiles/bf1a8df1-5e8f-4f75-9547-038343f37a97/tiles/"
     ],
     "minDataResponses": 4
   },
@@ -74,7 +74,7 @@
     "path": "leaflet/imagery.html",
     "wait": 8000,
     "requireUrls": [
-      "/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/"
+      "/raster-tiles/bf1a8df1-5e8f-4f75-9547-038343f37a97/tiles/"
     ],
     "minDataResponses": 4
   },
@@ -95,7 +95,7 @@
     "path": "openlayers/imagery.html",
     "wait": 8000,
     "requireUrls": [
-      "/raster-tiles/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/tiles/"
+      "/raster-tiles/bf1a8df1-5e8f-4f75-9547-038343f37a97/tiles/"
     ],
     "minDataResponses": 4
   },
