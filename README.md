@@ -5,7 +5,7 @@
 [![GeoLens v1.13+](https://img.shields.io/badge/GeoLens-v1.13%2B-1a66c9)](https://github.com/geolens-io/geolens)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[GeoLens](https://github.com/geolens-io/geolens) is a self-hosted spatial data hub: catalog, search, maps, analysis, and open APIs over data that stays on your own infrastructure. This repo holds copy-paste integrations for the tools your stack already uses. Every browser, Python, and DuckDB example reads the public demo anonymously, so you clone, open, and see it run; one constant at the top points it at your own instance. The exception is [`cli/`](cli/), which publishes to a catalog and so runs against your own instance with a credential.
+[GeoLens](https://github.com/geolens-io/geolens) is a self-hosted spatial data hub: catalog, search, maps, analysis, and open APIs over data that stays on your own infrastructure. This repo holds copy-paste integrations for the tools your stack already uses. Every browser, Python, and DuckDB example reads the public demo anonymously, so you clone, open, and see it run; set the instance URL and replace any demo dataset IDs to use your own catalog. The exception is [`cli/`](cli/), which publishes to a catalog and so runs against your own instance with a credential.
 
 <p align="center">
   <a href="https://geolens-io.github.io/geolens-examples/search/catalog.html"><img src="assets/search-catalog.jpg" width="32%" alt="Semantic catalog search: the phrase 'every space rock ever recovered on this planet' matches the meteorite landings dataset, drawn on the map beside the result card" /></a>
@@ -53,10 +53,10 @@ The table below is arranged by tool; the numbered steps here trace the platform 
 | [`openlayers/imagery.html`](openlayers/imagery.html) | OpenLayers 10 | XYZ raster, and what `crossOrigin` costs you | [Live](https://geolens-io.github.io/geolens-examples/openlayers/imagery.html) |
 | [`leaflet/features.html`](leaflet/features.html) | Leaflet 1.9 | GeoJSON features straight into `L.geoJSON` | [Live](https://geolens-io.github.io/geolens-examples/leaflet/features.html) |
 | [`leaflet/imagery.html`](leaflet/imagery.html) | Leaflet 1.9 | Raster tiles as plain `<img>`, so no CORS needed | [Live](https://geolens-io.github.io/geolens-examples/leaflet/imagery.html) |
-| [`typescript/catalog-map.html`](typescript/catalog-map.html) | `@geolens/sdk` 1.31.0 + MapLibre | Catalog search, schema and freshness, then the tile template the catalog record advertises ([TypeScript SDK guide](https://docs.getgeolens.com/guides/sdk/typescript/)) | [Live](https://geolens-io.github.io/geolens-examples/typescript/catalog-map.html) |
-| [`search/catalog.html`](search/catalog.html) | MapLibre GL JS 6.x + `fetch` | Semantic catalog search, narrowed to the map view, then drawn | [Live](https://geolens-io.github.io/geolens-examples/search/catalog.html) |
+| [`typescript/catalog-map.html`](typescript/catalog-map.html) | `@geolens/sdk` 1.31.0 + MapLibre | Catalog search with loading, empty and failure states, schema and freshness, then the advertised tile template ([TypeScript SDK guide](https://docs.getgeolens.com/guides/sdk/typescript/)) | [Live](https://geolens-io.github.io/geolens-examples/typescript/catalog-map.html) |
+| [`search/catalog.html`](search/catalog.html) | MapLibre GL JS 6.x + `fetch` | Semantic catalog search, narrowed to the map view, then drawn; mobile layout keeps the map visible | [Live](https://geolens-io.github.io/geolens-examples/search/catalog.html) |
 | [`embed/iframe.html`](embed/iframe.html) | No library | A saved GeoLens map in an iframe, styling and legend intact | [Live](https://geolens-io.github.io/geolens-examples/embed/iframe.html) |
-| [`stac/browse.html`](stac/browse.html) | MapLibre GL JS 6.x | STAC item search over the map view, then the tile asset each item advertises | [Live](https://geolens-io.github.io/geolens-examples/stac/browse.html) |
+| [`stac/browse.html`](stac/browse.html) | MapLibre GL JS 6.x | STAC item search over the map view, then the advertised tile asset; mobile layout keeps the map visible | [Live](https://geolens-io.github.io/geolens-examples/stac/browse.html) |
 | [`python/analyze.py`](python/analyze.py) | Python (single-file `uv run` script) | Features API → GeoPandas spatial join, metric-CRS analysis, styled plot | `uv run python/analyze.py` |
 | [`python/sdk-catalog.py`](python/sdk-catalog.py) | `geolens` 1.31.0 (single-file `uv run` script) | SDK catalog search, schema semantics, a server-side CQL2 filter count, export into GeoPandas ([Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/)) | `uv run python/sdk-catalog.py` |
 | [`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb) | leafmap + GeoPandas (Jupyter notebook) | Catalog search, OGC API Features into GeoPandas, CQL2 filters on the catalog and on a dataset's rows, raster tiles rendered by TiTiler | `uv run --with jupyterlab --with ipykernel --with pip jupyter lab leafmap/quickstart.ipynb` |
@@ -89,7 +89,7 @@ const GEOLENS = "https://demo.getgeolens.com";
 
 Change it to your instance URL.
 
-These examples need **GeoLens v1.13.0 or newer**. Raster tiles only started sending `Access-Control-Allow-Origin` in that release ([geolens#1464](https://github.com/geolens-io/geolens/issues/1464)), and without it the MapLibre and ArcGIS imagery examples draw an empty map while the server returns perfectly valid PNGs. The features and vector-tile examples reach further back: the anonymous CORS wildcard they depend on has been there since v1.4.7. The COPC and 3D Tiles examples need v1.21.0 or newer, the first release that serves those assets.
+The basic feature, vector-tile and imagery examples target **GeoLens v1.13.0 or newer**. Raster tiles only started sending `Access-Control-Allow-Origin` in that release ([geolens#1464](https://github.com/geolens-io/geolens/issues/1464)), and without it the MapLibre and ArcGIS imagery examples draw an empty map while the server returns perfectly valid PNGs. The features and vector-tile examples reach further back: the anonymous CORS wildcard they depend on has been there since v1.4.7. The live PMTiles export example needs v1.16.1 or newer; COPC and 3D Tiles need v1.21.0 or newer. SDK and CLI examples are verified against the release their client pins name; the v1.13.0 floor is not a compatibility guarantee for those clients.
 
 Dataset IDs and table names in these examples belong to the demo catalog. Against your own instance, list what's available at `/api/collections` and substitute your collection IDs. The demo gets reset from time to time, and a reset can change its dataset UUIDs, so treat the IDs hardcoded here as demo-specific rather than as part of any API.
 
@@ -115,7 +115,9 @@ Do not put a long-lived API key in a static HTML file, and do not commit one. An
 
 ### Signed tile tokens
 
-`GET /api/tiles/token/<dataset_id>/` mints a token for a single dataset (the [tile endpoints reference](https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints) covers what a tile token is and why it is not an API key). A vector dataset returns `sig`, `exp`, and `scope` to append to the tile template; a raster dataset returns the whole `tile_url` with those already in the query string.
+`GET /api/tiles/token/<dataset_id>/` mints a token for a single dataset (the [tile endpoints reference](https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints) covers what a tile token is and why it is not an API key). On v1.27.0 or newer, use a vector response's `tile_url_template` unchanged and prefix it with your instance URL plus `/api`; a raster response's `tile_url` is relative to the instance root.
+
+<!-- Vector template contract: backend/app/processing/tiles/router.py. -->
 
 ```bash
 curl https://demo.getgeolens.com/api/tiles/token/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/
@@ -156,4 +158,4 @@ It is not the signal that another page exists. Walk the stations collection at `
 
 ## License
 
-[MIT](LICENSE). The examples are intentionally small; copy them into your project freely.
+[MIT](LICENSE) covers the example code. Dataset and imagery rights remain with their sources; keep the attribution shown by each example when reusing data, tiles or screenshots.

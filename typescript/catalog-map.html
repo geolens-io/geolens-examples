@@ -22,7 +22,13 @@
       border-right: 1px solid #2b3440;
       background: #1b2129;
     }
-    #map { flex: 1; }
+    #map { flex: 1; min-width: 0; }
+    @media (max-width: 700px) {
+      body { flex-direction: column; }
+      #panel { box-sizing: border-box; width: 100%; max-height: 45%;
+               border-right: 0; border-bottom: 1px solid #2b3440; }
+      #map { min-height: 0; }
+    }
     h1 { margin: 0 0 4px; font-size: 15px; }
     p.lede { margin: 0 0 14px; color: #93a1b0; }
     select { width: 100%; padding: 6px; margin-bottom: 14px;
@@ -50,7 +56,8 @@
   <h1>GeoLens catalog &rarr; map</h1>
   <p class="lede">Everything below comes from the catalog over
     <code>@geolens/sdk</code>. Nothing about these datasets is hardcoded here.</p>
-  <select id="picker" aria-label="Dataset"></select>
+  <p id="catalog-status" role="status">Loading catalog…</p>
+  <select id="picker" aria-label="Dataset" disabled></select>
   <p id="tiles" role="status"></p>
   <div id="meta"></div>
   <p class="foot"><a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/typescript/catalog-map.html">source</a></p>
@@ -102,21 +109,9 @@
     return data;
   };
 
-  // 1. Ask the catalog what exists. This is a real query, not a fixed list:
-  //    the server filters and sorts, and you get OGC API Records back.
-  //    `limit` is a page size, not a total: this takes the first 100 and a
-  //    larger catalog is silently longer than the picker. A real app would
-  //    follow the rel=next link in `catalog.links` instead.
-  const catalog = unwrap(
-    await collectionItemsCollectionsDatasetsItemsGet({
-      client,
-      query: { record_type: "vector_dataset", sortby: "+title", limit: 100 },
-    }),
-  );
-
   const picker = document.getElementById("picker");
   const meta = document.getElementById("meta");
-  picker.append(...catalog.features.map((r) => new Option(r.properties.title, r.id)));
+  const catalogStatus = document.getElementById("catalog-status");
 
   const map = new maplibregl.Map({
     container: "map",
@@ -128,6 +123,7 @@
       layers: [{ id: "bg", type: "background", paint: { "background-color": "#101418" } }],
     },
   });
+  const mapReady = map.once("load");
   map.addControl(new maplibregl.NavigationControl());
 
   // A filled-in panel means the catalog answered. It says nothing about
@@ -229,16 +225,12 @@
     //    `${GEOLENS}/api/tiles/data.<table>/{z}/{x}/{y}.pbf` by hand means
     //    hardcoding an internal table name and a URL shape the server owns;
     //    both can change without notice, and neither is yours to guess.
-    const tiles = props.distributions.find((d) => d.type === "vector_tiles");
+    const tiles = props.distributions?.find((d) => d.type === "vector_tiles");
+    if (!tiles?.url) throw new Error("This dataset advertises no vector tiles.");
     // An MVT source-layer is named after the tile path segment it comes from,
     // so the advertised URL already tells you what to put in `source-layer`.
     const sourceLayer = tiles.url.split("/tiles/")[1].split("/")[0];
 
-    if (map.getSource("ds")) {
-      LAYERS.forEach((l) => map.removeLayer(l.id));
-      map.removeSource("ds");
-    }
-    tileStatus.textContent = "";
     map.addSource("ds", { type: "vector", tiles: [tiles.url] });
     LAYERS.forEach((l) => map.addLayer({ ...l, source: "ds", "source-layer": sourceLayer }));
 
@@ -309,18 +301,48 @@
   const showOrExplain = async (record) => {
     const mine = ++generation;
     const current = () => mine === generation;
+    if (map.getSource("ds")) {
+      LAYERS.forEach((l) => map.removeLayer(l.id));
+      map.removeSource("ds");
+    }
+    delete document.body.dataset.dataset;
+    meta.replaceChildren(el("p", `Loading ${record.properties.title}…`));
+    tileStatus.textContent = "";
     try {
       await show(record, current);
     } catch (err) {
       if (!current()) return;
       meta.replaceChildren(el("h2", "Failed"), el("p", err.message));
-      throw err;
+      tileStatus.textContent = `Dataset failed: ${err.message}`;
+      console.error(err);
     }
   };
 
-  picker.addEventListener("change", () =>
-    showOrExplain(catalog.features.find((r) => r.id === picker.value)));
-  await showOrExplain(catalog.features[0]);
+  try {
+    // Keep the picker bounded, and tell the reader when more records exist.
+    const catalog = unwrap(
+      await collectionItemsCollectionsDatasetsItemsGet({
+        client,
+        query: { record_type: "vector_dataset", sortby: "+title", limit: 100 },
+      }),
+    );
+    if (catalog.features.length === 0) {
+      catalogStatus.textContent = "No vector datasets are available on this instance.";
+    } else {
+      picker.append(...catalog.features.map((r) => new Option(r.properties.title, r.id)));
+      catalogStatus.textContent = catalog.links?.some((link) => link.rel === "next")
+        ? `Showing the first ${catalog.features.length} datasets; more are available in the catalog.`
+        : `${catalog.features.length} vector dataset(s) available.`;
+      await mapReady;
+      picker.disabled = false;
+      picker.addEventListener("change", () =>
+        showOrExplain(catalog.features.find((r) => r.id === picker.value)));
+      await showOrExplain(catalog.features[0]);
+    }
+  } catch (err) {
+    catalogStatus.textContent = `Catalog failed: ${err.message}. Check the instance URL and access, then reload.`;
+    console.error(err);
+  }
 </script>
 </body>
 </html>

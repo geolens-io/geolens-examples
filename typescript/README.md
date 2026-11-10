@@ -8,7 +8,7 @@ knows about the dataset you picked, and draws it. The picker re-runs the whole
 thing against a different dataset. The file contains no dataset id, no table
 name, and no tile URL.
 
-It is one static HTML page. Open it, or serve the folder:
+It is one static HTML page. Serve the folder so the map worker can load:
 
 ```bash
 python3 -m http.server 8000
@@ -34,6 +34,11 @@ request the browser refuses to make at all, whether from CORS, DNS or being
 offline, resolves with `response` unset, which is why `unwrap()` in the example
 checks for it first.
 
+The page reports loading, empty and failed catalogs on screen. It lists up to
+100 vector datasets and says when another catalog page exists. Selecting a
+dataset clears the previous map while the new metadata loads; a failed
+selection leaves an error message and lets you choose another dataset.
+
 **The catalog carries what a tile URL cannot.** A tile template gets pixels on
 screen and says nothing about where the data came from or whether it is still
 true. The record behind each dataset carries the publisher, the ingest format,
@@ -53,7 +58,7 @@ report `due` against a `continual` update frequency, the hurricane and income
 datasets `fresh` against `annually`.
 
 **Links come from the record, not from string concatenation.** Each record
-advertises its own distributions, meaning five download formats, the OGC
+advertises its own distributions, including download formats, the OGC
 Features endpoint and the vector tile template, and the collection document
 advertises its own links. The map reads the advertised tile template and takes
 the MVT `source-layer` from the path segment inside it.
@@ -140,18 +145,12 @@ URL ends up in access logs, browser history, and `Referer` headers on the way
 out. Keep the key out of the page source too, and read it from wherever your app
 keeps secrets.
 
-Two things change once a request carries a credential.
+For cross-origin authentication, follow the [CORS rules](https://docs.getgeolens.com/guides/api/auth/): v1.27.0 or newer allows the `X-Api-Key` header mode from any origin on routes that check the key, while bearer and embed credentials require the instance's origin allowlist.
 
-The wildcard lane closes. The anonymous standards exemption above applies only to
-requests with no `Authorization`, `Cookie`, `X-Api-Key` or `X-Embed-Token`. Add a
-key to a cross-origin request and the preflight comes back without
-`Access-Control-Allow-Origin`, so you get a CORS failure rather than a `401`. Put
-your page's origin in the instance's `CORS_ALLOWED_ORIGINS`, which you would be
-doing anyway for a private deployment.
+<!-- Verified against backend/app/api/middleware/cors.py; the authentication guide needs the header-key exception. -->
 
-The map still needs its own. MapLibre fetches tiles itself, outside the SDK, so a
-private instance needs a `transformRequest` on the map to attach the same header
-to tile requests.
+MapLibre fetches tiles outside the SDK, so private tile requests also need a
+`transformRequest` that attaches the header only to your GeoLens origin.
 
 ## Pointing it at your own instance
 
