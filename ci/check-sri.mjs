@@ -4,12 +4,16 @@
 // CDN file must carry `integrity` and `crossorigin="anonymous"`, and the
 // sha384 must match the file the CDN serves today. The import map in a page
 // can carry hashes for module files too (the browser applies them to the
-// static `import` of that same URL), so each CDN URL it maps needs one.
+// static `import` of that same URL), so each CDN URL it maps needs one. A
+// literal CDN URL in an inline script's `import ... from`, `export ... from`,
+// `import "..."` or `import("...")` needs an entry there too, even when the
+// map has no `imports` for it.
 //
-// What is left out, on purpose: the floating js.arcgis.com/5.1/ loader (no
-// fixed bytes to hash; it is not on a pinned CDN host), esm.sh module graphs, and
-// anything a library fetches for itself (workers, Cesium assets). CONTRIBUTING
-// says so.
+// What is left out, on purpose, and the only place that says so: the floating
+// js.arcgis.com/5.1/ loader (no fixed bytes to hash; it is not on a pinned CDN
+// host); esm.sh, which is not in CDN_HOSTNAMES because a page can hash the
+// module it imports but not the modules esm.sh's output imports in turn; and
+// anything a library fetches for itself (workers, Cesium assets).
 //
 // Verification reads each page the way a browser does. Chromium parses the
 // file with scripting off and no network, and the check looks at the DOM it
@@ -118,6 +122,28 @@ const typeOf = (tag) => {
   return (m?.[1] ?? m?.[2] ?? m?.[3] ?? "").trim().toLowerCase();
 };
 
+// Literal CDN URLs an inline script imports: `from "u"`, `import "u"`,
+// `import("u")`. Comments are dropped first so a commented-out import is not
+// demanded. Other hosts are not this check's business.
+const IMPORT_URL = /\b(?:from|import)\s*(["'])([^"'\s]+)\1|\bimport\s*\(\s*(["'])([^"'\s]+)\3\s*[,)]/g;
+function directImports(masked, html) {
+  const found = new Set();
+  for (const m of masked.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
+    const open = m[0].slice(0, m[0].indexOf(">") + 1);
+    if (/\ssrc\s*=/i.test(open) || !["", "module", "text/javascript"].includes(typeOf(open))) continue;
+    const start = m.index + open.length;
+    const code = html
+      .slice(start, start + m[1].length)
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/(^|[^:\w"'`])\/\/.*$/gm, "$1");
+    for (const u of code.matchAll(IMPORT_URL)) {
+      const url = u[2] ?? u[4];
+      if (inScope(url)) found.add(url);
+    }
+  }
+  return found;
+}
+
 // Returns the page with hashes written (write mode) and the problems found.
 // `hashOf` is injected so the self-test needs no network.
 export async function processHtml(html, { write, hashOf }) {
@@ -187,9 +213,12 @@ export async function processHtml(html, { write, hashOf }) {
     if (crossorigin[0]?.value !== "anonymous") note(url, 'needs crossorigin="anonymous"');
   }
 
+  const direct = directImports(masked, html);
+  let mapsSeen = 0;
   for (const m of masked.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
     const openTag = m[0].slice(0, m[0].indexOf(">") + 1);
     if (typeOf(openTag) !== "importmap") continue;
+    mapsSeen++;
     // The masked copy blanked the JSON; read it from the page itself.
     const bodyStart = m.index + openTag.length;
     const body = html.slice(bodyStart, bodyStart + m[1].length);
@@ -209,6 +238,9 @@ export async function processHtml(html, { write, hashOf }) {
       ...Object.values(map.imports ?? {}),
       ...Object.values(map.scopes ?? {}).flatMap((scope) => Object.values(scope)),
     ].filter((u) => isCdnHost(resolvedHost(String(u)) ?? ""));
+    // Direct imports are checked against the first map; one map per page is
+    // the supported form.
+    if (mapsSeen === 1) urls.push(...direct);
     for (const url of new Set(urls)) {
       if (!CDN.test(url)) {
         note(url, "in the import map must be an https URL on the CDN");
@@ -232,6 +264,31 @@ export async function processHtml(html, { write, hashOf }) {
     }
     if (write && JSON.stringify(map) !== before) {
       edits.push([bodyStart, bodyStart + body.length, `\n${JSON.stringify(map, null, 2).replace(/^/gm, "    ")}\n  `]);
+    }
+  }
+
+  if (direct.size && !mapsSeen) {
+    const integrity = {};
+    for (const url of direct) {
+      if (!CDN.test(url)) {
+        note(url, "imported directly must be an https URL on the CDN");
+        continue;
+      }
+      handled.add(new URL(url).href);
+      try {
+        integrity[url] = await hashOf(url);
+      } catch (error) {
+        note(url, `could not be fetched (${error.message})`);
+      }
+    }
+    if (!write) for (const url of Object.keys(integrity)) note(url, "is imported directly but the page has no import map integrity entry for it");
+    else if (Object.keys(integrity).length) {
+      const head = masked.search(/[ \t]*<\/head\s*>/i);
+      if (head < 0) note("page", "imports a CDN module directly and has no </head> to put the import map in");
+      else {
+        const body = JSON.stringify({ integrity }, null, 2).replace(/^/gm, "    ");
+        edits.push([head, head, `  <script type="importmap">\n${body}\n  </script>\n`]);
+      }
     }
   }
 
@@ -420,6 +477,20 @@ async function selfTest() {
   expect("--write keeps the import map scopes", wrote.html.includes('"scopes"'));
   expect("--write hashes both import map URLs", count(wrote.html, STUB) === 2);
   expect("--write output verifies", (await processHtml(wrote.html, { write: false, hashOf })).problems.length === 0);
+
+  const direct = `<script type="module">import * as m from "${js}"; const x = await import("${css}");</script>`;
+  expect("verify rejects direct imports with no import map", (await processHtml(direct, { write: false, hashOf })).problems.length === 2);
+  const withMap = (integrity) => `<script type="importmap">{"integrity":${JSON.stringify(integrity)}}</script>${direct}`;
+  expect("verify rejects a direct import missing from the import map", (await processHtml(withMap({ [js]: STUB }), { write: false, hashOf })).problems.length === 1);
+  expect("verify accepts direct imports with integrity entries", (await processHtml(withMap({ [js]: STUB, [css]: STUB }), { write: false, hashOf })).problems.length === 0);
+  const headed = `<html><head><title>t</title></head><body>${direct}</body></html>`;
+  const fixed = await processHtml(headed, { write: true, hashOf });
+  expect("--write adds an import map in the head for direct imports", fixed.html.indexOf('type="importmap"') < fixed.html.indexOf("</head>") && count(fixed.html, STUB) === 2);
+  expect("--write output for direct imports verifies", (await processHtml(fixed.html, { write: false, hashOf })).problems.length === 0);
+  const fromMap = await processHtml(withMap({}), { write: true, hashOf });
+  expect("--write fills a direct import into an existing map", count(fromMap.html, STUB) === 2 && count(fromMap.html, 'type="importmap"') === 1);
+  const quiet = `<script type="module">// import x from "${js}"\n/* import("${js}") */ import y from "https://esm.sh/y@1.0.0";</script>`;
+  expect("comments and esm.sh imports are not demanded", (await processHtml(quiet, { write: false, hashOf })).problems.length === 0);
 
   const plain = `<script src="/local.js"></script><script type='module'>import "x"</script><script type="module" src="https://js.arcgis.com/5.1/"></script>`;
   expect("non-CDN tags are ignored", (await processHtml(plain, { write: false, hashOf })).problems.length === 0);
