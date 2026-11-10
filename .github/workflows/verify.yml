@@ -154,6 +154,12 @@ jobs:
       - name: Run the SDK quickstart
         working-directory: python
         run: uv run sdk-catalog.py
+      - name: Run the DCAT harvest
+        working-directory: python
+        run: uv run dcat-harvest.py
+      - name: Run the stories and dashboards script
+        working-directory: python
+        run: uv run stories-dashboards.py
       # Run from the repo root, which is the command the README and the gallery
       # both hand a reader, rather than the working-directory form above. The
       # script asserts its own answers and exits non-zero on a wrong one, so
