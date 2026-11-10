@@ -178,11 +178,12 @@ METRIC_CRS = "EPSG:32618"
 
 # The source CRS. The GeoParquet column arrives typed GEOMETRY('OGC:CRS84') and
 # ST_Read's arrives GEOMETRY('EPSG:4326'), and both hold lon/lat. CRS84 names
-# that order and EPSG:4326 does not (its authority order is lat/lon), so
-# without geometry_always_xy a transform from 'EPSG:4326' swaps the axes and
-# lands in the South Atlantic with no error. connect() sets the option, which
-# makes both names give the same answer; 'OGC:CRS84' stays because it is
-# correct for both reads even if the option is ever dropped.
+# that order and EPSG:4326 does not (its authority order is lat/lon). With
+# geometry_always_xy = false, a transform from 'EPSG:4326' swaps the axes and
+# lands in the South Atlantic with no error; left unset, DuckDB 2.0 raises an
+# error instead. connect() sets it to true, which makes both names give the
+# same answer; 'OGC:CRS84' stays because it is correct for both reads even
+# with the option false.
 #
 # EXPECT_UTM_BOX at the bottom is the guard on this: "every station is near a
 # line" cannot catch it, because both layers would be swapped the same way and

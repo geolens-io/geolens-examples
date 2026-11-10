@@ -169,9 +169,10 @@ first, or every https `OAPIF:` open fails with "error adding trust anchors".
 back lon/lat and label it differently: the GeoParquet column arrives typed
 `GEOMETRY('OGC:CRS84')` and `ST_Read`'s arrives `GEOMETRY('EPSG:4326')`. CRS84
 is lon/lat and the EPSG:4326 authority order is lat/lon. `connect()` sets
-`geometry_always_xy = true`, which DuckDB 2.0 requires, and with it either name
-gives the same answer. Without it, `ST_Transform` believes the name over the
-numbers (checked on 2.0.0 with the option off, one station):
+`geometry_always_xy = true`, and with it either name gives the same answer.
+Left unset, DuckDB 2.0 stops `ST_Transform` with an error saying it "is
+sensitive to the coordinate axis order". Set to `false`, `ST_Transform` believes
+the name over the numbers, with no error (checked on 2.0.0, one station):
 
 ```sql
 -- Astoria-Ditmars Blvd, -73.912034 40.775036, read as lon/lat.
@@ -183,7 +184,8 @@ ST_Transform(geom, 'EPSG:4326',  'EPSG:32618')  -->  2130332, -10795837
 ```
 
 With the option on, both calls return `591810, 4514353`. The script keeps
-`OGC:CRS84` because it is correct for both reads even if the option is dropped.
+`OGC:CRS84` because it is correct for both reads even with the option set to
+`false`.
 
 **Check that the planner saw a spatial join.** `EXPLAIN` on the join in this
 script shows a `SPATIAL_JOIN` operator carrying `ST_DWithin` as its condition.
