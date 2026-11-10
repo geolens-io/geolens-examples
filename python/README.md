@@ -1,6 +1,6 @@
 # Python: read a GeoLens catalog
 
-Two single-file scripts, two ways in. Both run with one command and nothing
+Four single-file scripts. They run with one command and nothing
 installed, because their dependencies live in a
 [PEP 723](https://peps.python.org/pep-0723/) header that uv reads:
 
@@ -8,6 +8,8 @@ installed, because their dependencies live in a
 | --- | --- | --- |
 | [`analyze.py`](analyze.py) | OGC API - Features over plain HTTP | the client has to be a standards client, or the language is not Python |
 | [`sdk-catalog.py`](sdk-catalog.py) | the [`geolens`](https://pypi.org/project/geolens/) package ([Python SDK guide](https://docs.getgeolens.com/guides/sdk/python/)) | the language *is* Python and you want typed models |
+| [`dcat-harvest.py`](dcat-harvest.py) | the DCAT 3 and GeoDCAT-AP feeds ([catalog feeds](https://docs.getgeolens.com/guides/api/ogc/#dcat-catalog-feeds)) | you are building a harvester, or feeding a portal that reads DCAT |
+| [`stories-dashboards.py`](stories-dashboards.py) | the `geolens` package: stories, maps and the aggregate route | you want the numbers behind a [dashboard](https://docs.getgeolens.com/guides/user/dashboards/) |
 
 The docs weigh those routes against the CLI and the MCP server under
 [CLI vs SDK vs MCP vs raw API](https://docs.getgeolens.com/guides/sdk/#cli-vs-sdk-vs-mcp-vs-raw-api).
@@ -15,6 +17,8 @@ The docs weigh those routes against the CLI and the MCP server under
 ```bash
 uv run analyze.py
 uv run sdk-catalog.py
+uv run dcat-harvest.py
+uv run stories-dashboards.py
 ```
 
 ## analyze.py: measure a network with GeoPandas
@@ -201,6 +205,107 @@ stops the script instead of quietly handing it the public subset. Sending no key
 anonymous and still reads public data. Measured against the demo (v1.14.0) on
 2026-08-18. Instances older than v1.14.0 discard the bad key here and answer 200, so
 there a private dataset can seem to have vanished when the key is the problem.
+
+## dcat-harvest.py: read the catalog as DCAT
+
+Fetches `/api/datasets/dcat/` and `/api/datasets/geodcat-ap/`, checks that both
+list the same datasets, and prints what a harvester cares about first: how many
+datasets there are, which licences they carry, and which download formats each
+one offers. It uses only the standard library, because a DCAT feed is JSON-LD and
+this reads it as JSON. Use `rdflib` when you need the graph. The feeds are
+documented under [catalog feeds](https://docs.getgeolens.com/guides/api/ogc/#dcat-catalog-feeds).
+
+```
+Reading https://demo.getgeolens.com ...
+
+                         DCAT HARVEST
+--------------------------------------------------------------
+  catalog             GeoLens Dataset Catalog
+  DCAT 3 datasets       42
+  GeoDCAT-AP            42   same identifiers
+
+  licences            22 distinct, most common
+       8  Open Data Commons PDDL 1.0
+       6  Natural Earth (public domain)
+       4  Copernicus Sentinel data (ESA), free and open
+
+  datasets offering each format
+    3dtiles 1  cog 2  copc 1  csv 32  fgb 32  geojson 32  gpkg 32  parquet 32  pbf 32  pmtiles 32  png 8  shp 32
+
+  first 5 by title
+    Amsterdam Canal Buildings (3DBAG 3D Tiles)
+      3DBAG (CC BY 4.0)
+      3dtiles
+    Atlantic Basin Regions (Natural Earth admin-1)
+      Natural Earth (public domain)
+      gpkg, geojson, shp, parquet, csv, fgb, pmtiles, pbf
+    Atlantic Hurricane Tracks (HURDAT2, majors since
+      NOAA NHC HURDAT2 (US public domain)
+      gpkg, geojson, shp, parquet, csv, fgb, pmtiles, pbf
+    Autzen Stadium Classified Point Cloud (COPC)
+      PDAL/data sample (CC BY 4.0)
+      copc
+    Cambridge Address Points
+      Open Data Commons PDDL 1.0
+      gpkg, geojson, shp, parquet, csv, fgb, pmtiles, pbf
+--------------------------------------------------------------
+```
+
+The demo's CDN answers 403 to urllib's default `User-Agent`, so the script sends
+its own. The feeds only list datasets the caller may read: set `GEOLENS_API_KEY`
+to see a private instance's.
+
+## stories-dashboards.py: recompute a dashboard
+
+Lists the published stories, picks the dashboard with the most widgets, and
+reads its `dashboard_config`. A widget stores a layer, a column and a
+statistic, not a number, so the script turns the "Parcels" indicator into an
+aggregate `count`, the area indicator into `stats`, and the zoning pie chart into
+`value_counts`, then checks that the chart's groups add up to the indicator.
+Request bodies come from the generated models, which follow the
+[aggregate operation](https://docs.getgeolens.com/guides/api/reference/operations/aggregate_endpoint_datasets__dataset_id__aggregate__post/)
+in the API reference.
+
+```
+Reading https://demo.getgeolens.com ...
+
+                    STORIES AND DASHBOARDS
+--------------------------------------------------------------
+  published stories      4
+     9 chapters  Cambridge's Open Data in GeoLens
+     6 chapters  New York, From Orbit to the Street Tree
+     5 chapters  A Century of Manhattan's Skyline
+     3 chapters  Where the Atlantic's Major Hurricanes Go
+
+  dashboards             4
+   *11 widgets  Cambridge Open Data: Land and Zoning in Numbers
+     9 widgets  Cambridge Open Data: Street Tree Operations
+     7 widgets  Earthquake Dashboard: USGS M2.5+ Snapshot
+     5 widgets  Manhattan Skyline Dashboard
+
+  recomputed from the config of: Cambridge Open Data: Land and Zoning in Numbers
+  Parcels                                                12,920   count
+  Land area of all parcels (sq ft)                  153,763,515   stats
+  Parcels by zoning district: first 6 groups of join_zone_type
+      10,202  C-1
+         272  OS
+         246  CAM-6
+         207  BB
+         199  BA
+         166  BA-1
+       1,628  other
+
+  Trees by site type (Cambridge Open Data: Street Tree Operations), column sitetype
+    default             '' 2,481   null 18
+    blank_text_as_null  null 2,499
+--------------------------------------------------------------
+```
+
+The last block is `blank_text_as_null`, new in GeoLens v1.31.0. Without it a
+text column's empty strings and its NULLs are two groups in a chart; with it they
+are one. The script scans every dashboard chart for a column where that
+matters, so it names no map or dataset id. These routes carry no CORS headers,
+which is why this is a script and not a browser page.
 
 ## ogr2ogr one-liners
 
