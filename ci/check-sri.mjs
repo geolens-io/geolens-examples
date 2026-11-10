@@ -128,7 +128,9 @@ const typeOf = (tag) => {
 // the code inside a template's ${ } is scanned like any other.
 // Known gap: a regex literal that contains a quote or comment opener can
 // confuse it. Specifiers are resolved against an https base, so `//unpkg.com/x`
-// is found too; the caller refuses any that is not a canonical https URL.
+// is found too; the caller refuses any that is not a canonical https URL. A
+// specifier holding a backslash escape is refused outright rather than decoded,
+// since a URL nobody can read at a glance is not one to maintain a hash for.
 function importSpecifiers(code) {
   const tokens = [];
   const nested = [];
@@ -203,7 +205,7 @@ function directImports(masked, html) {
     const open = m[0].slice(0, m[0].indexOf(">") + 1);
     if (/\ssrc\s*=/i.test(open) || !["", "module", "text/javascript"].includes(typeOf(open))) continue;
     const start = m.index + open.length;
-    for (const url of importSpecifiers(html.slice(start, start + m[1].length))) if (inScope(url)) found.add(url);
+    for (const url of importSpecifiers(html.slice(start, start + m[1].length))) if (url.includes("\\") || inScope(url)) found.add(url);
   }
   return found;
 }
@@ -562,6 +564,10 @@ async function selfTest() {
   expect("an import between strings holding comment markers is found", (await processHtml(hidden, { write: false, hashOf })).problems.length === 1);
   const interpolated = `<script type="module">const r = \`\${await import("${js}")} and \${\`\${await import("${css}")}\`}\`;</script>`;
   expect("imports inside template interpolations are found", (await processHtml(interpolated, { write: false, hashOf })).problems.length === 2);
+  const escaped = `<script type="module">import x from "\\u0068ttps://unpkg.com/lib@1.0.0/lib.js";</script>`;
+  for (const write of [false, true]) {
+    expect(`an escaped import specifier is refused (write=${write})`, (await processHtml(escaped, { write, hashOf })).problems.length > 0);
+  }
   const relative = `<script type="module">import x from "//unpkg.com/lib@1.0.0/lib.js";</script>`;
   for (const write of [false, true]) {
     expect(`a protocol-relative import is refused (write=${write})`, (await processHtml(relative, { write, hashOf })).problems.length > 0);
