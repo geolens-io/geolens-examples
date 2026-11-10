@@ -149,9 +149,11 @@ function importSpecifiers(code) {
       i = j + 1;
     } else if (c === "`") {
       const exprs = [];
+      const start = i;
       i = skipTemplate(code, i, exprs);
       for (const e of exprs) nested.push(...importSpecifiers(e));
-      tokens.push({ str: null });
+      // A template with no ${ } is a constant string and works as a specifier.
+      tokens.push({ str: exprs.length ? null : code.slice(start + 1, i - 1) });
     } else if (/[\w$]/.test(c)) {
       let j = i;
       while (j < n && /[\w$]/.test(code[j])) j++;
@@ -371,8 +373,7 @@ export async function processHtml(html, { write, hashOf }) {
       // Before </head>, or before the first importing script when that comes
       // earlier, so the map is registered before any import starts.
       const headAt = masked.search(/[ \t]*<\/head\s*>/i);
-      const scriptAt = masked.lastIndexOf("\n", direct.first) + 1;
-      const head = Math.min(headAt < 0 ? Infinity : headAt, direct.first === Infinity ? Infinity : scriptAt);
+      const head = Math.min(headAt < 0 ? Infinity : headAt, direct.first);
       if (head === Infinity) note("page", "imports a CDN module directly and has no </head> to put the import map in");
       else {
         const body = JSON.stringify({ integrity }, null, 2).replace(/^/gm, "    ");
@@ -591,6 +592,11 @@ async function selfTest() {
   const placed = (await processHtml(early, { write: true, hashOf })).html;
   expect("--write puts the import map before a head script that imports", placed.indexOf('type="importmap"') < placed.indexOf('import("'));
   expect("verify rejects an import map that comes after an importing script", (await processHtml(`<script>import("${js}")</script><script type="importmap">{"integrity":{"${js}":"${STUB}"}}</script>`, { write: false, hashOf })).problems.length === 1);
+  const backticked = `<script type="module">import x from \`${js}\`; await import(\`${css}\`);</script>`;
+  expect("constant template literal specifiers are found", (await processHtml(backticked, { write: false, hashOf })).problems.length === 2);
+  const sameLine = `<html><head><!--\n--><script>import("${js}")</script></head><body></body></html>`;
+  const boundary = (await processHtml(sameLine, { write: true, hashOf })).html;
+  expect("--write inserts the map at the script tag, not inside a comment on its line", boundary.indexOf('type="importmap"') > boundary.indexOf("-->") && boundary.indexOf('type="importmap"') < boundary.indexOf('import("'));
   const commented = `<script type="module">const r = \`\${ /* } */ await import("${js}") }\`;</script>`;
   expect("a brace inside a comment in an interpolation does not end it", (await processHtml(commented, { write: false, hashOf })).problems.length === 1);
   const classic = `<script type="application/javascript">import("${js}")</script>`;
