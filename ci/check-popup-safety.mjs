@@ -45,6 +45,20 @@ await page.route(
     });
   },
 );
+// The page pins the library's hash in its import map, and the module above is
+// not those bytes, so the copy served here drops that one integrity entry.
+await page.route(`${BASE}/maplibre/features.html`, async (route) => {
+  const response = await route.fetch();
+  const body = (await response.text()).replace(
+    /(<script type="importmap">)([\s\S]*?)(<\/script>)/,
+    (_, open, json, close) => {
+      const map = JSON.parse(json);
+      for (const url of Object.keys(map.integrity ?? {})) if (LIBRARY.test(new URL(url).pathname)) delete map.integrity[url];
+      return open + JSON.stringify(map) + close;
+    },
+  );
+  await route.fulfill({ response, body });
+});
 
 // The injected element is the evidence, so its handler does nothing. An
 // `alert(1)` here opened a real dialog when the image failed to load, and
