@@ -190,7 +190,13 @@ function skipTemplate(code, i, exprs) {
         if (c === "{") depth++;
         else if (c === "}") depth--;
         else if (c === "`") i = skipTemplate(code, i) - 1;
-        else if (c === '"' || c === "'") for (i++; i < n && code[i] !== c; i++) if (code[i] === "\\") i++;
+        else if (c === '"' || c === "'") {
+          for (i++; i < n && code[i] !== c; i++) if (code[i] === "\\") i++;
+        } else if (c === "/" && code[i + 1] === "/") while (i + 1 < n && code[i + 1] !== "\n") i++;
+        else if (c === "/" && code[i + 1] === "*") {
+          const end = code.indexOf("*/", i + 2);
+          i = end < 0 ? n : end + 1;
+        }
       }
       i--;
       exprs?.push(code.slice(start, i));
@@ -199,11 +205,15 @@ function skipTemplate(code, i, exprs) {
   return i + 1;
 }
 
+// The script types a browser runs as JavaScript (HTML's JavaScript MIME type
+// essence match), plus no type at all. Any of them can call import().
+const JS_TYPES = /^$|^(?:application|text)\/(?:x-)?(?:java|ec)script$|^text\/javascript1\.[0-5]$|^text\/(?:jscript|livescript)$/;
+
 function directImports(masked, html) {
   const found = new Set();
   for (const m of masked.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
     const open = m[0].slice(0, m[0].indexOf(">") + 1);
-    if (/\ssrc\s*=/i.test(open) || !["", "module", "text/javascript"].includes(typeOf(open))) continue;
+    if (/\ssrc\s*=/i.test(open) || !(typeOf(open) === "module" || JS_TYPES.test(typeOf(open)))) continue;
     const start = m.index + open.length;
     for (const url of importSpecifiers(html.slice(start, start + m[1].length))) if (url.includes("\\") || inScope(url)) found.add(url);
   }
@@ -564,6 +574,10 @@ async function selfTest() {
   expect("an import between strings holding comment markers is found", (await processHtml(hidden, { write: false, hashOf })).problems.length === 1);
   const interpolated = `<script type="module">const r = \`\${await import("${js}")} and \${\`\${await import("${css}")}\`}\`;</script>`;
   expect("imports inside template interpolations are found", (await processHtml(interpolated, { write: false, hashOf })).problems.length === 2);
+  const commented = `<script type="module">const r = \`\${ /* } */ await import("${js}") }\`;</script>`;
+  expect("a brace inside a comment in an interpolation does not end it", (await processHtml(commented, { write: false, hashOf })).problems.length === 1);
+  const classic = `<script type="application/javascript">import("${js}")</script>`;
+  expect("a classic script typed application/javascript is scanned", (await processHtml(classic, { write: false, hashOf })).problems.length === 1);
   const escaped = `<script type="module">import x from "\\u0068ttps://unpkg.com/lib@1.0.0/lib.js";</script>`;
   for (const write of [false, true]) {
     expect(`an escaped import specifier is refused (write=${write})`, (await processHtml(escaped, { write, hashOf })).problems.length > 0);
