@@ -5,7 +5,7 @@
   <title>GeoLens + MapLibre: PMTiles from a live export URL</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
-  <link href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css" rel="stylesheet" integrity="sha384-1TZtfVz7qtwR5vD7cMwjGT+9uiK4lqE3pbUOPwYO6OCpb+TYP0S9vLIhG02JCU04" crossorigin="anonymous" />
+  <link href="https://unpkg.com/maplibre-gl@6.17.0/dist/maplibre-gl.css" rel="stylesheet" integrity="sha384-S+OnE5M4U3Qc2nR0RgljGrVs06xqfRg8L7uFk/pOF5+sRuSDG4oKkqKZmFrx7w09" crossorigin="anonymous" />
   <script src="https://unpkg.com/pmtiles@4.5.0/dist/pmtiles.js" integrity="sha384-pbKNZbDshUsLnZMIVsn/t+j3xEY9PGfuX5Z22l5rcy/obXz3EwaMx1F5d9sRsJMn" crossorigin="anonymous"></script>
   <style>
     html, body, #map { margin: 0; height: 100%; }
@@ -18,7 +18,7 @@
   <script type="importmap">
     {
       "integrity": {
-        "https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs": "sha384-q26X6R1yFeg0QR9SHHn6U3Nb0ddRRTtwxsahubv5R89/v5nijKpk9KviUp9ZLySk"
+        "https://unpkg.com/maplibre-gl@6.17.0/dist/maplibre-gl.mjs": "sha384-pghUwrZY2q/5xc+bZCYbeUP4JsNuZEmG8j+ZvzJMC1DOy3Rdj5AhRNThLRAiEjSb"
       }
     }
   </script>
@@ -34,7 +34,7 @@
 <script type="module">
   // MapLibre GL JS 6 ships as ES modules only, so this page script is a
   // module and imports the library; there is no `maplibregl` global.
-  import * as maplibregl from "https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs";
+  import * as maplibregl from "https://unpkg.com/maplibre-gl@6.17.0/dist/maplibre-gl.mjs";
 
   // The sibling page, pmtiles.html, commits its PMTiles file next to itself:
   // export once, copy to any static host, GeoLens out of the serving path.
