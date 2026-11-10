@@ -111,9 +111,12 @@ function resolvedHost(value) {
 // string there is not something the browser loads, and --write must not edit it.
 function maskInert(html) {
   const blank = (text) => text.replace(/[^\n]/g, " ");
-  return html
-    .replace(/<!--[\s\S]*?-->/g, blank)
-    .replace(/(<(script|style|textarea|template)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi, (_, open, _name, body, close) => open + blank(body) + close);
+  // One pass, leftmost match first, so a comment opener inside a script body
+  // stays script text and a script inside a comment stays commented out.
+  return html.replace(
+    /<!--[\s\S]*?-->|(<(script|style|textarea|template)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi,
+    (all, open, _name, body, close) => (open ? open + blank(body) + close : blank(all)),
+  );
 }
 
 // The value of a start tag's type attribute, whatever the quoting.
@@ -170,8 +173,14 @@ function importSpecifiers(code) {
     const w = tokens[k].word;
     if (w === "from" && isStr(tokens[k + 1])) found.push(tokens[k + 1].str);
     else if (w === "import" && isStr(tokens[k + 1])) found.push(tokens[k + 1].str);
-    else if (w === "import" && tokens[k + 1]?.punct === "(" && isStr(tokens[k + 2]) && [",", ")"].includes(tokens[k + 3]?.punct)) {
-      found.push(tokens[k + 2].str);
+    else if (w === "import" && tokens[k + 1]?.punct === "(") {
+      // import("u"), import(("u")) and import("u", options): unwrap the parens.
+      let j = k + 1;
+      let depth = 0;
+      while (tokens[j]?.punct === "(") (depth++, j++);
+      let e = j + 1;
+      while (e - j - 1 < depth - 1 && tokens[e]?.punct === ")") e++;
+      if (isStr(tokens[j]) && e - j - 1 === depth - 1 && [",", ")"].includes(tokens[e]?.punct)) found.push(tokens[j].str);
     }
   }
   return [...found, ...nested];
@@ -597,6 +606,10 @@ async function selfTest() {
   const sameLine = `<html><head><!--\n--><script>import("${js}")</script></head><body></body></html>`;
   const boundary = (await processHtml(sameLine, { write: true, hashOf })).html;
   expect("--write inserts the map at the script tag, not inside a comment on its line", boundary.indexOf('type="importmap"') > boundary.indexOf("-->") && boundary.indexOf('type="importmap"') < boundary.indexOf('import("'));
+  const wrapped = `<script type="module">await import(("${js}"));</script>`;
+  expect("a parenthesized import() argument is found", (await processHtml(wrapped, { write: false, hashOf })).problems.length === 1);
+  const opener = `<script>const marker = "<!--";</script><script type="module">import "${js}";</script><!-- end -->`;
+  expect("a comment opener inside a script does not hide the next script", (await processHtml(opener, { write: false, hashOf })).problems.length === 1);
   const commented = `<script type="module">const r = \`\${ /* } */ await import("${js}") }\`;</script>`;
   expect("a brace inside a comment in an interpolation does not end it", (await processHtml(commented, { write: false, hashOf })).problems.length === 1);
   const classic = `<script type="application/javascript">import("${js}")</script>`;
