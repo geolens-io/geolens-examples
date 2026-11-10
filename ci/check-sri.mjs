@@ -124,12 +124,14 @@ const typeOf = (tag) => {
 
 // Specifiers an inline script imports that resolve to a CDN host: `from "u"`,
 // `import "u"`, `import("u")`. A small lexer walks the code, so quoted
-// strings, template literals and comments are skipped rather than matched.
+// strings, template text and comments are skipped rather than matched, while
+// the code inside a template's ${ } is scanned like any other.
 // Known gap: a regex literal that contains a quote or comment opener can
 // confuse it. Specifiers are resolved against an https base, so `//unpkg.com/x`
 // is found too; the caller refuses any that is not a canonical https URL.
 function importSpecifiers(code) {
   const tokens = [];
+  const nested = [];
   const n = code.length;
   for (let i = 0; i < n; ) {
     const c = code[i];
@@ -144,7 +146,9 @@ function importSpecifiers(code) {
       tokens.push({ str: code.slice(i + 1, j) });
       i = j + 1;
     } else if (c === "`") {
-      i = skipTemplate(code, i);
+      const exprs = [];
+      i = skipTemplate(code, i, exprs);
+      for (const e of exprs) nested.push(...importSpecifiers(e));
       tokens.push({ str: null });
     } else if (/[\w$]/.test(c)) {
       let j = i;
@@ -166,18 +170,19 @@ function importSpecifiers(code) {
       found.push(tokens[k + 2].str);
     }
   }
-  return found;
+  return [...found, ...nested];
 }
 
 // Index just past the template literal that starts at `i`. Code inside ${ }
-// is skipped with its braces balanced; quotes and nested templates inside it
-// are stepped over whole.
-function skipTemplate(code, i) {
+// is skipped with its braces balanced, and pushed to `exprs` when given;
+// quotes and nested templates inside it are stepped over whole.
+function skipTemplate(code, i, exprs) {
   const n = code.length;
   for (i++; i < n && code[i] !== "`"; i++) {
     if (code[i] === "\\") i++;
     else if (code[i] === "$" && code[i + 1] === "{") {
       let depth = 1;
+      const start = i + 2;
       for (i += 2; i < n && depth; i++) {
         const c = code[i];
         if (c === "{") depth++;
@@ -186,6 +191,7 @@ function skipTemplate(code, i) {
         else if (c === '"' || c === "'") for (i++; i < n && code[i] !== c; i++) if (code[i] === "\\") i++;
       }
       i--;
+      exprs?.push(code.slice(start, i));
     }
   }
   return i + 1;
@@ -554,6 +560,8 @@ async function selfTest() {
   expect("an import-shaped string literal is not an import", (await processHtml(literal, { write: false, hashOf })).problems.length === 0);
   const hidden = `<script type="module">const a = "/*"; import * as m from "${js}"; const b = "*/";</script>`;
   expect("an import between strings holding comment markers is found", (await processHtml(hidden, { write: false, hashOf })).problems.length === 1);
+  const interpolated = `<script type="module">const r = \`\${await import("${js}")} and \${\`\${await import("${css}")}\`}\`;</script>`;
+  expect("imports inside template interpolations are found", (await processHtml(interpolated, { write: false, hashOf })).problems.length === 2);
   const relative = `<script type="module">import x from "//unpkg.com/lib@1.0.0/lib.js";</script>`;
   for (const write of [false, true]) {
     expect(`a protocol-relative import is refused (write=${write})`, (await processHtml(relative, { write, hashOf })).problems.length > 0);
