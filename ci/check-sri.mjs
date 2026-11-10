@@ -170,7 +170,8 @@ function importSpecifiers(code) {
   const found = [];
   const isStr = (t) => typeof t?.str === "string";
   for (let k = 0; k < tokens.length; k++) {
-    const w = tokens[k].word;
+    // `loader.import(...)` and `loader?.import(...)` are method calls.
+    const w = tokens[k - 1]?.punct === "." ? undefined : tokens[k].word;
     if (w === "from" && isStr(tokens[k + 1])) found.push(tokens[k + 1].str);
     else if (w === "import" && isStr(tokens[k + 1])) found.push(tokens[k + 1].str);
     else if (w === "import" && tokens[k + 1]?.punct === "(") {
@@ -610,6 +611,8 @@ async function selfTest() {
   expect("a parenthesized import() argument is found", (await processHtml(wrapped, { write: false, hashOf })).problems.length === 1);
   const opener = `<script>const marker = "<!--";</script><script type="module">import "${js}";</script><!-- end -->`;
   expect("a comment opener inside a script does not hide the next script", (await processHtml(opener, { write: false, hashOf })).problems.length === 1);
+  const method = `<script type="module">const loader = { import(v) { return v; } }; loader.import("${js}"); loader?.import("${js}");</script>`;
+  expect("a method named import is not a module import", (await processHtml(method, { write: false, hashOf })).problems.length === 0);
   const commented = `<script type="module">const r = \`\${ /* } */ await import("${js}") }\`;</script>`;
   expect("a brace inside a comment in an interpolation does not end it", (await processHtml(commented, { write: false, hashOf })).problems.length === 1);
   const classic = `<script type="application/javascript">import("${js}")</script>`;
