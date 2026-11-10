@@ -176,9 +176,52 @@
         {
           "title": "New York From Orbit: Sentinel-2 by Reference",
           "id": "71c658e5-d7c0-4b12-8bab-3b4ee6968cd5"
+        },
+        {
+          "title": "Earthquake Dashboard: USGS M2.5+ Snapshot",
+          "id": "75a73a52-c323-42e6-8b46-4cfe1820f01f"
+        },
+        {
+          "title": "Manhattan Skyline Dashboard",
+          "id": "7c155a6d-56aa-43c6-847f-0521387f3445"
+        },
+        {
+          "title": "Cambridge Open Data: Land and Zoning in Numbers",
+          "id": "f875648e-7c7d-4549-b9b1-f3ede4bed95d"
+        },
+        {
+          "title": "Cambridge Open Data: Street Tree Operations",
+          "id": "11d1723c-b164-48dd-9c40-21577e28cc94"
         }
       ],
-      "why": "index.html links these four under 'See what GeoLens itself builds'; no example loads them, so the browser sweep would never notice a reset dropping one."
+      "why": "index.html links these under 'See what GeoLens itself builds', the last four as map dashboards; no example loads them, so the browser sweep would never notice a reset dropping one."
+    },
+    "showcaseStories": {
+      "title": "Published stories the gallery links and embed/story.html frames",
+      "stories": [
+        {
+          "title": "A Century of Manhattan's Skyline",
+          "id": "94a7f787-a71c-4fd5-bc1d-de1f3ac5f0e7",
+          "chapters": 5,
+          "embed": true
+        },
+        {
+          "title": "New York, From Orbit to the Street Tree",
+          "id": "70141fa9-ffc9-47a9-b8a6-3ca38c96d730",
+          "chapters": 6
+        },
+        {
+          "title": "Where the Atlantic's Major Hurricanes Go",
+          "id": "b4701eae-4137-4294-a5c6-9d19c09972b7",
+          "chapters": 3
+        },
+        {
+          "title": "Cambridge's Open Data in GeoLens",
+          "id": "b0463610-d567-40bb-8eef-aa11d995de63",
+          "chapters": 9
+        }
+      ],
+      "why": "embed/story.html frames the story marked embed through /stories/{id}/embed, and index.html links all four. The anonymous GET of /api/stories/{id} is the read the embed frame itself makes. The seed script finds stories by title and never deletes one, but nothing pins them upstream, so a from-empty reseed would mint new ids."
     }
   }
 }

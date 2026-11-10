@@ -197,6 +197,32 @@ never loads and the viewer reports it as not found.
 different origin from your page. It gives the map no access to anything of
 yours.
 
+## Embedding a story
+
+`story.html` frames "A Century of Manhattan's Skyline", a published story on the
+demo with five chapters. It is the demo's smallest story that still moves the
+map between scenes and carries a photo gallery, and its map is already the
+skyline map in the gallery.
+
+```
+https://demo.getgeolens.com/stories/<storyId>/embed
+```
+
+The [stories guide](https://docs.getgeolens.com/guides/user/stories/#embed-a-story-in-another-site)
+covers the Embed button in a story's header, which shows the same snippet.
+Two things differ from a map:
+
+- There is no share token. A published public story embeds with its UUID alone,
+  and the frame stops showing it once the story is no longer public.
+- The route answers with `frame-ancestors *` and no `X-Frame-Options`, so a page
+  on any origin can frame it. The reader at `/stories/<id>` is the full page and
+  is not what you frame.
+
+The same sandbox values and stall timer as `iframe.html` apply, and so does the
+caveat that the page cannot tell a gone story from a working one. CI checks that
+the frame draws story content and that the story's id, title, visibility and
+chapter count still match `ci/fixtures.json`.
+
 ## Detecting a dead embed
 
 Mostly you cannot, and the shape of what you can detect is worth understanding
