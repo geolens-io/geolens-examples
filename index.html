@@ -520,7 +520,7 @@
     {
       audience: "web-developer", group: "tiles", tool: "MapLibre GL JS 6",
       title: "Raster tiles in MapLibre",
-      blurb: "A DEM served as XYZ tiles. MapLibre uploads tiles into a WebGL texture, so it needs the instance to send CORS headers — GeoLens does from v1.13.0.",
+      blurb: "A DEM served as Terrain-RGB tiles, read as a raster-dem source and drawn as hillshade. MapLibre uploads tiles into a WebGL texture, so it needs the instance to send CORS headers — GeoLens does from v1.13.0.",
       tag: "XYZ raster", kind: "raster",
       address: "/raster-tiles/{id}/tiles/{z}/{x}/{y}.png",
       thumb: "assets/maplibre-imagery.jpg",
@@ -545,7 +545,7 @@
       address: "/raster-tiles/{id}/tiles/{z}/{x}/{y}.png",
       thumb: "assets/leaflet-imagery.jpg",
       live: "leaflet/imagery.html", source: "leaflet/imagery.html",
-      datasets: [DEM],
+      datasets: [SENTINEL],
     },
     {
       audience: "web-developer", group: "features", tool: "OpenLayers 10",
@@ -565,7 +565,7 @@
       address: "/raster-tiles/{id}/tiles/{z}/{x}/{y}.png",
       thumb: "assets/openlayers-imagery.jpg",
       live: "openlayers/imagery.html", source: "openlayers/imagery.html",
-      datasets: [DEM],
+      datasets: [SENTINEL],
     },
     {
       audience: "web-developer", group: "features", tool: "ArcGIS Maps SDK for JS 5.1",
@@ -585,7 +585,7 @@
       address: "/raster-tiles/{id}/tiles/{level}/{col}/{row}.png",
       thumb: "assets/arcgis-js-imagery.jpg",
       live: "arcgis-js/imagery.html", source: "arcgis-js/imagery.html",
-      datasets: [DEM],
+      datasets: [SENTINEL],
     },
     {
       audience: "ai-developer", tool: "geolens-mcp",

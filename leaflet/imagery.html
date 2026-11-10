@@ -21,20 +21,22 @@
 <div id="map"></div>
 <div id="hud">
   <strong>Leaflet — raster tiles</strong>
-  <p id="status" role="status">Loading the swissALTI3D Matterhorn DEM from the GeoLens demo…</p>
-  <p>swisstopo (OGD) · <a href="https://demo.getgeolens.com/datasets/d8fd56a9-d12f-4dbb-af8b-81a7289fc600">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/leaflet/imagery.html">source</a></p>
+  <p id="status" role="status">Loading the Sentinel-2 true-colour scene of New York harbour from the GeoLens demo…</p>
+  <p>Contains modified Copernicus Sentinel data · <a href="https://demo.getgeolens.com/datasets/bf1a8df1-5e8f-4f75-9547-038343f37a97">dataset</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/leaflet/imagery.html">source</a></p>
 </div>
-<script>
+<script type="module">
   // Point this at your own GeoLens instance to use your data.
   const GEOLENS = "https://demo.getgeolens.com";
 
   // Every raster dataset in GeoLens is served as XYZ tiles. Read the exact
   // template from the dataset's collection metadata (the "tiles" link on
-  // /api/collections/<dataset_id>) rather than hand-building it — the link
+  // /api/collections/<dataset_id>) rather than hand-building it. The link
   // carries the .png extension and two cache keys: `v`, the content version,
   // and from GeoLens 1.19.0 `pv`, the publication version, which changes with
   // the dataset's publication status or visibility
-  // (https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints):
+  // (https://docs.getgeolens.com/guides/api/ogc/#tile-endpoints). A `v` that
+  // is out of date makes the server answer `cache-control: private, no-store`,
+  // so every tile is rendered fresh instead of coming from the cache:
   //   /raster-tiles/<dataset_id>/tiles/{z}/{x}/{y}.png?v=<n>&pv=<n>
   // For a private dataset, mint a scoped token from
   // GET /api/tiles/token/<dataset_id>/ and use the tile_url it returns. It
@@ -42,9 +44,22 @@
   // 15-minute boundary, so between 1 and 16 minutes from now; read expires_in
   // rather than assuming a TTL. A pasted api_key does none of that. See
   // "Authenticating against your own instance" in the README.
-  const DEM = "d8fd56a9-d12f-4dbb-af8b-81a7289fc600"; // swissALTI3D Matterhorn DEM
+  const SCENE = "bf1a8df1-5e8f-4f75-9547-038343f37a97"; // Sentinel-2 true-colour scene, New York harbour
 
-  const map = L.map("map").setView([45.9763, 7.6586], 12); // Matterhorn; [lat, lng]
+  // If the catalog cannot be read, the bare route still serves tiles; they
+  // just are not tied to a cache key.
+  async function tileTemplate() {
+    let href = `${GEOLENS}/raster-tiles/${SCENE}/tiles/{z}/{x}/{y}.png`;
+    try {
+      const r = await fetch(`${GEOLENS}/api/collections/${SCENE}`);
+      if (r.ok) href = (await r.json()).links.find((l) => l.rel === "tiles")?.href ?? href;
+    } catch {
+      // Keep the bare route.
+    }
+    return href;
+  }
+
+  const map = L.map("map").setView([40.69, -74.04], 11); // New York harbour; [lat, lng]
 
   // Leaflet requests each tile by assigning to an <img> element's src, and a
   // plain <img> is not subject to CORS, so this example rendered even on
@@ -55,9 +70,10 @@
   // Reading pixels back is where it matters here: `crossOrigin: true` below,
   // or getImageData() on a canvas these tiles were drawn into, both need the
   // header and both fail against a pre-1.13.0 instance.
-  const tiles = L.tileLayer(`${GEOLENS}/raster-tiles/${DEM}/tiles/{z}/{x}/{y}.png?v=1&pv=0`, {
+  const tiles = L.tileLayer(await tileTemplate(), {
     tileSize: 256,
     maxZoom: 20,
+    attribution: "Contains modified Copernicus Sentinel data",
   }).addTo(map);
 
   // Drop the "loading" line once the visible tiles are in. Tiles outside the
@@ -70,7 +86,7 @@
     if (loaded) return void (status.hidden = true);
     status.className = "err";
     status.textContent = `No tiles came back from ${GEOLENS}. The dataset may not exist on this instance, or it may be private — a private dataset needs a scoped tile token on the template.`;
-    console.error("GeoLens returned no tiles for", DEM);
+    console.error("GeoLens returned no tiles for", SCENE);
   });
 </script>
 </body>
