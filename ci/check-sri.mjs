@@ -109,12 +109,17 @@ function resolvedHost(value) {
 // Comments and the text inside script, style, textarea and template elements
 // are blanked (same length, so offsets still match the page): a tag-shaped
 // string there is not something the browser loads, and --write must not edit it.
+// An opening tag whose quoted attribute values may hold `>`.
+const OPEN_TAG = String.raw`(?:[^>"']|"[^"]*"|'[^']*')*>`;
+// An inline <script>: the opening tag, then its body.
+const SCRIPT = new RegExp(String.raw`(<script\b${OPEN_TAG})([\s\S]*?)<\/script\s*>`, "gi");
+
 function maskInert(html) {
   const blank = (text) => text.replace(/[^\n]/g, " ");
   // One pass, leftmost match first, so a comment opener inside a script body
   // stays script text and a script inside a comment stays commented out.
   return html.replace(
-    /<!--[\s\S]*?-->|(<(script|style|textarea|template)\b[^>]*>)([\s\S]*?)(<\/\2\s*>)/gi,
+    new RegExp(String.raw`<!--[\s\S]*?-->|(<(script|style|textarea|template)\b${OPEN_TAG})([\s\S]*?)(<\/\2\s*>)`, "gi"),
     (all, open, _name, body, close) => (open ? open + blank(body) + close : blank(all)),
   );
 }
@@ -226,11 +231,11 @@ const JS_TYPES = /^$|^(?:application|text)\/(?:x-)?(?:java|ec)script$|^text\/jav
 function directImports(masked, html) {
   const found = new Set();
   found.first = Infinity;
-  for (const m of masked.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
-    const open = m[0].slice(0, m[0].indexOf(">") + 1);
+  for (const m of masked.matchAll(SCRIPT)) {
+    const open = m[1];
     if (/\ssrc\s*=/i.test(open) || !(typeOf(open) === "module" || JS_TYPES.test(typeOf(open)))) continue;
     const start = m.index + open.length;
-    for (const url of importSpecifiers(html.slice(start, start + m[1].length))) {
+    for (const url of importSpecifiers(html.slice(start, start + m[2].length))) {
       if (url.includes("\\") || inScope(url)) {
         found.add(url);
         found.first = Math.min(found.first, m.index);
@@ -311,14 +316,14 @@ export async function processHtml(html, { write, hashOf }) {
 
   const direct = directImports(masked, html);
   let mapsSeen = 0;
-  for (const m of masked.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
-    const openTag = m[0].slice(0, m[0].indexOf(">") + 1);
+  for (const m of masked.matchAll(SCRIPT)) {
+    const openTag = m[1];
     if (typeOf(openTag) !== "importmap") continue;
     mapsSeen++;
     if (mapsSeen === 1 && m.index > direct.first) note(openTag, "comes after a script that imports a CDN module directly; move it above that script");
     // The masked copy blanked the JSON; read it from the page itself.
     const bodyStart = m.index + openTag.length;
-    const body = html.slice(bodyStart, bodyStart + m[1].length);
+    const body = html.slice(bodyStart, bodyStart + m[2].length);
     if (openTag !== '<script type="importmap">') {
       note(openTag, 'is an import map this check cannot parse; write it exactly as <script type="importmap">');
       continue;
@@ -613,6 +618,8 @@ async function selfTest() {
   expect("a comment opener inside a script does not hide the next script", (await processHtml(opener, { write: false, hashOf })).problems.length === 1);
   const method = `<script type="module">const loader = { import(v) { return v; } }; loader.import("${js}"); loader?.import("${js}");</script>`;
   expect("a method named import is not a module import", (await processHtml(method, { write: false, hashOf })).problems.length === 0);
+  const quotedGt = `<script type="module" data-note=">">import "${js}";</script>`;
+  expect("a quoted > in a script's attribute does not end the tag", (await processHtml(quotedGt, { write: false, hashOf })).problems.length === 1);
   const commented = `<script type="module">const r = \`\${ /* } */ await import("${js}") }\`;</script>`;
   expect("a brace inside a comment in an interpolation does not end it", (await processHtml(commented, { write: false, hashOf })).problems.length === 1);
   const classic = `<script type="application/javascript">import("${js}")</script>`;
