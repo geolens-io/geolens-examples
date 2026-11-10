@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "duckdb==1.5.6",
+#     "duckdb==2.0.0",
 # ]
 # ///
 """Query a live GeoLens instance with SQL, from DuckDB, over HTTP.
@@ -176,27 +176,19 @@ API_KEY = os.environ.get("GEOLENS_API_KEY")
 # comparable.
 METRIC_CRS = "EPSG:32618"
 
-# The source CRS, and the one line in this file most worth reading twice.
+# The source CRS. The GeoParquet column arrives typed GEOMETRY('OGC:CRS84') and
+# ST_Read's arrives GEOMETRY('EPSG:4326'), and both hold lon/lat. CRS84 names
+# that order and EPSG:4326 does not (its authority order is lat/lon). With
+# geometry_always_xy = false, a transform from 'EPSG:4326' swaps the axes and
+# lands in the South Atlantic with no error; left unset, DuckDB 2.0 raises an
+# error instead. connect() sets it to true, which makes both names give the
+# same answer; 'OGC:CRS84' stays because it is correct for both reads even
+# with the option false.
 #
-# Both reads hand back lon/lat in that order, and both label it, but they do
-# not label it the same way: the GeoParquet column arrives typed
-# GEOMETRY('OGC:CRS84') and ST_Read's arrives GEOMETRY('EPSG:4326'). The two
-# authorities disagree about axis order (CRS84 is lon/lat, EPSG:4326 is
-# lat/lon), and ST_Transform believes the name you give it over the numbers
-# you give it.
-#
-# So naming the source 'EPSG:4326' here reads -73.91 as a latitude and
-# silently returns coordinates in the South Atlantic. No error, no warning, a
-# perfectly well-formed answer to a different question. Naming it 'OGC:CRS84'
-# is correct for both reads; ST_Transform(..., always_xy := true) is the same
-# fix spelled differently.
-#
-# EXPECT_UTM_BOX at the bottom is what stands guard over this, and it took a
-# deliberately broken run to find out that nothing else did. The obvious guard,
-# "every station is near a line", does not catch this at all, because both
-# layers are transformed by the same wrong rule and land in the South Atlantic
-# together, still neatly 20 m apart. Only an absolute check on where the
-# coordinates ended up can tell.
+# EXPECT_UTM_BOX at the bottom is the guard on this: "every station is near a
+# line" cannot catch it, because both layers would be swapped the same way and
+# still land 20 m apart. Only an absolute check on where the coordinates ended
+# up can tell.
 SOURCE_CRS = "OGC:CRS84"
 
 # --------------------------------------------------------------------------
@@ -252,7 +244,8 @@ def connect() -> duckdb.DuckDBPyConnection:
     con.execute("INSTALL spatial; LOAD spatial;")
     con.execute("INSTALL httpfs; LOAD httpfs;")
     # GeoLens coordinates are lon/lat; without this ST_Transform treats the
-    # EPSG:4326 axis order as lat/lon and swaps them.
+    # EPSG:4326 axis order as lat/lon and swaps them. DuckDB 2.0 raises an
+    # error when it is unset.
     con.execute("SET geometry_always_xy = true;")
     if API_KEY:
         con.execute(
@@ -273,8 +266,7 @@ def http_cost(con: duckdb.DuckDBPyConnection) -> str:
     answers HEAD with a Content-Length. DuckDB cannot address ranges into a
     file whose size it does not know, so against a cold artifact it streams
     the whole 3.3 MB and the column-pruning below buys nothing. Warm, the same
-    query can read two ranges and about 16 KB. Both were observed on the demo on
-    2026-08-19, minutes apart.
+    query can read two ranges and under 25 KB. Both were observed on the demo, minutes apart.
 
     Returns a description rather than raising, since this is commentary and
     no conclusion below depends on it.
@@ -339,7 +331,7 @@ def main() -> int:
     # This query never names it, so DuckDB reads the Parquet footer, works out
     # where the `service` column lives, and fetches that range and nothing
     # else when the export is warm and Range is honoured: a HEAD and two
-    # ranged reads, about 16 KB.
+    # ranged reads, under 25 KB.
     #
     # This is the whole reason to point SQL at an export instead of curl-ing
     # it to disk first: you can ask what is in a dataset for the price of its
@@ -497,7 +489,7 @@ def main() -> int:
     print(f"    naming one column   {catalog_cost}")
     print(f"    naming the geometry {geometry_cost}")
     print("    Ranged reads are the interesting case: on a warm export the query")
-    print("    that never names the geometry pulls about 16 KB of 3.3 MB.")
+    print("    that never names the geometry pulls under 25 KB of 3.3 MB.")
     print("    They need a length to range into, and only an export GeoLens")
     print("    has already built answers HEAD with one, so a cold artifact")
     print("    reads whole and the first run of the day can show either.")
