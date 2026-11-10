@@ -13,6 +13,8 @@
     #hud p { margin: 3px 0 0; font-size: 12px; color: #93a1b0; }
     #hud a { color: #4da3ff; }
     #hud .err { color: #ff9d9d; }
+    #hud label { display: block; margin-top: 6px; font-size: 12px; color: #93a1b0; }
+    #hud select { display: block; width: 100%; margin-top: 2px; }
   </style>
 </head>
 <body>
@@ -20,6 +22,9 @@
 <div id="hud">
   <strong>MapLibre GL JS — OGC API Features</strong>
   <p id="status" role="status">Loading NYC subway lines and stations from the GeoLens demo…</p>
+  <label>Station details without a mouse
+    <select id="station-picker" disabled><option>Loading stations…</option></select>
+  </label>
   <p>MTA via data.ny.gov · datasets <a href="https://demo.getgeolens.com/datasets/39e1319e-54ad-4431-9efc-f5eef7910fdb">lines</a>, <a href="https://demo.getgeolens.com/datasets/4e7cba4c-4caa-4609-b5c4-3c6cd252697c">stations</a> · bigger collections: <a href="features-viewport.html">viewport loader</a> · <a href="../index.html">gallery</a> · <a href="https://github.com/geolens-io/geolens">GeoLens on GitHub</a> · <a href="https://github.com/geolens-io/geolens-examples/blob/main/maplibre/features.html">source</a></p>
 </div>
 <script type="module">
@@ -96,14 +101,37 @@
 
   // Features arrive as real GeoJSON, so identify is a client-side lookup —
   // no server round-trip, no GetFeatureInfo.
-  map.on("click", "subway-stations", (e) => {
-    const props = e.features[0].properties;
+  function showStation(props, lngLat) {
     const pre = document.createElement("pre");
     pre.textContent = JSON.stringify(props, null, 2).slice(0, 500);
     new maplibregl.Popup()
-      .setLngLat(e.lngLat)
+      .setLngLat(lngLat)
       .setDOMContent(pre)
       .addTo(map);
+  }
+
+  map.on("click", "subway-stations", (e) => showStation(e.features[0].properties, e.lngLat));
+
+  // A canvas click is unreachable from the keyboard, so the same details open
+  // from a native <select>, which gives arrow-key and type-ahead navigation
+  // for free. It fills once the stations source has loaded, from the data the
+  // map already holds.
+  const picker = document.getElementById("station-picker");
+  map.on("sourcedata", async function fill(e) {
+    if (e.sourceId !== "stations" || !e.isSourceLoaded) return;
+    map.off("sourcedata", fill);
+    const { features } = await map.getSource("stations").getData();
+    features.sort((a, b) => a.properties.stop_name.localeCompare(b.properties.stop_name));
+    picker.replaceChildren(new Option("Choose a station"), ...features.map((f, i) =>
+      new Option(`${f.properties.stop_name} (${f.properties.daytime_routes})`, i)));
+    picker.disabled = false;
+    picker.onchange = () => {
+      const f = features[picker.value];
+      if (!f) return;
+      const lngLat = f.geometry.coordinates[0];
+      map.easeTo({ center: lngLat, zoom: Math.max(map.getZoom(), 14) });
+      showStation(f.properties, lngLat);
+    };
   });
 
   map.addControl(new maplibregl.NavigationControl());

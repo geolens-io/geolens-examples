@@ -50,6 +50,9 @@
   // GeoLens serves every vector dataset as Mapbox Vector Tiles at
   //   /api/tiles/data.<table_name>/{z}/{x}/{y}.pbf
   // The layer inside each tile is named after the same qualified table.
+  // `cols_only=true` drops every attribute from the tile: this page only draws
+  // the lines, so it asks for geometry alone. Add `cols=<name>,<name>` to keep
+  // the columns a style or popup reads.
   const TABLE = "data.nyc_subway_lines_mta";
 
   const map = new maplibregl.Map({
@@ -61,7 +64,7 @@
       sources: {
         subway: {
           type: "vector",
-          tiles: [`${GEOLENS}/api/tiles/${TABLE}/{z}/{x}/{y}.pbf`],
+          tiles: [`${GEOLENS}/api/tiles/${TABLE}/{z}/{x}/{y}.pbf?cols_only=true`],
         },
       },
       layers: [
