@@ -48,10 +48,10 @@ Reading https://demo.getgeolens.com ...
   joined within              150 m  measured in EPSG:32618
 
   over the wire, as DuckDB logged it
-    naming one column   16.2 KB, 2/2 reads ranged
-    naming the geometry 3,246.2 KB + 1 chunked, 1/2 reads ranged
+    naming one column   23.8 KB, 2/2 reads ranged
+    naming the geometry 3,220.0 KB + 1 chunked, 2/3 reads ranged
     Ranged reads are the interesting case: the query that never
-    names the geometry pulls about 16 KB out of a 3.3 MB export.
+    names the geometry pulls under 25 KB out of a 3.3 MB export.
     They need a length to range into, and only an export GeoLens
     has already built answers HEAD with one, so a cold artifact
     reads whole and the first run of the day can show either.
@@ -133,7 +133,7 @@ undifferentiated blob.
 **Columnar means a query can be cheaper than the file.** The subway lines export
 is 3.3 MB and 99.5% of that is geometry. A query naming only `service` reads the
 Parquet footer, works out where that column lives, and fetches that range: two
-ranged reads, about 16 KB. You can ask what is in a dataset for the price of its
+ranged reads, under 25 KB. You can ask what is in a dataset for the price of its
 metadata. Range reads need a length to range into, though, and only an export
 GeoLens has already built answers `HEAD` with a `Content-Length`. Against a
 cold artifact DuckDB streams the whole file and the pruning buys nothing. The
@@ -165,12 +165,13 @@ seconds). It uses GDAL's own HTTP stack rather than `httpfs`, which on Debian
 and Ubuntu means exporting `CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt`
 first, or every https `OAPIF:` open fails with "error adding trust anchors".
 
-**Name the source CRS `OGC:CRS84`, not `EPSG:4326`.** This is the line in the
-script most worth reading twice. Both reads hand back lon/lat, and both label
-it, but not the same way: the GeoParquet column arrives typed
-`GEOMETRY('OGC:CRS84')` and `ST_Read`'s arrives `GEOMETRY('EPSG:4326')`. The two
-authorities disagree about axis order (CRS84 is lon/lat, EPSG:4326 is lat/lon),
-and `ST_Transform` believes the name you give it over the numbers you give it:
+**Set `geometry_always_xy`, and name the source CRS `OGC:CRS84`.** Both reads hand
+back lon/lat and label it differently: the GeoParquet column arrives typed
+`GEOMETRY('OGC:CRS84')` and `ST_Read`'s arrives `GEOMETRY('EPSG:4326')`. CRS84
+is lon/lat and the EPSG:4326 authority order is lat/lon. `connect()` sets
+`geometry_always_xy = true`, which DuckDB 2.0 requires, and with it either name
+gives the same answer. Without it, `ST_Transform` believes the name over the
+numbers (checked on 2.0.0 with the option off, one station):
 
 ```sql
 -- Astoria-Ditmars Blvd, -73.912034 40.775036, read as lon/lat.
@@ -181,8 +182,8 @@ ST_Transform(geom, 'OGC:CRS84',  'EPSG:32618')  -->  591810, 4514353
 ST_Transform(geom, 'EPSG:4326',  'EPSG:32618')  -->  2130332, -10795837
 ```
 
-No error and no warning, just a well-formed answer to a different question.
-`ST_Transform(..., always_xy := true)` is the same fix spelled differently.
+With the option on, both calls return `591810, 4514353`. The script keeps
+`OGC:CRS84` because it is correct for both reads even if the option is dropped.
 
 **Check that the planner saw a spatial join.** `EXPLAIN` on the join in this
 script shows a `SPATIAL_JOIN` operator carrying `ST_DWithin` as its condition.
@@ -270,12 +271,12 @@ you add a key, the key is wrong, not the server.
 
 ## Versions
 
-`duckdb==1.5.6` is pinned in the script's PEP 723 header. It is the current
+`duckdb==2.0.0` is pinned in the script's PEP 723 header. It is the current
 stable release, and a pin is the first line of defence against an example that
 only worked on the day it was written. The `spatial` and `httpfs` extensions install on first use and are
 cached in `~/.duckdb`, so the first run is slower than the rest.
 
-Everything documented here was measured against that version on 2026-08-19.
+Everything documented here was measured on 2026-08-19 against 1.5.6, and re-run on 2026-11-10 against 2.0.0 with the same row counts and proximity result.
 Earlier 1.x releases also read GeoParquet through `spatial`, but the typed
 `GEOMETRY('OGC:CRS84')` in the output above carries its CRS in the type, which
 older ones do not, so treat the pin as the tested configuration rather than a
