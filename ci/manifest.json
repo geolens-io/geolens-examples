@@ -101,6 +101,7 @@
   },
   {
     "path": "typescript/catalog-map.html",
+    "minInkFraction": 0.1,
     "wait": 18000,
     "requireUrls": [
       "/api/collections/datasets/items",
@@ -120,6 +121,7 @@
   },
   {
     "path": "search/catalog.html",
+    "minInkFraction": 0.05,
     "wait": 10000,
     "requireUrls": [
       "/api/collections/datasets/items?q=",

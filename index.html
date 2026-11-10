@@ -367,7 +367,7 @@
       <h2>Run your own</h2>
       <p>The demo these examples read is not yours. One command starts an instance that is,
         with Docker Compose; open <code>http://localhost:8080</code>, then point any example
-        at it by changing the one constant at its top.</p>
+        at it by changing the instance URL and replacing any demo dataset IDs, table names or share links with your own.</p>
     </header>
     <p class="addr">curl -fsSL https://getgeolens.com/install.sh | sh</p>
     <p class="run-links">
@@ -383,7 +383,7 @@
       <a href="https://github.com/geolens-io/geolens-examples/issues">Open an issue</a> if you want one sooner.
     </p>
     <p class="fine">
-      MIT licensed · data from the public demo, which resets from time to time ·
+      MIT-licensed code · demo data retains its source terms ·
       <a href="https://github.com/geolens-io/geolens-examples">source on GitHub</a> ·
       <a href="https://docs.getgeolens.com/">GeoLens docs</a>
     </p>
@@ -483,7 +483,7 @@
       blurb: "The page finds Autzen Stadium in the catalog, then passes its COPC URL to the LiDAR control. The browser reads byte ranges from GeoLens as the view moves.",
       tag: "COPC", kind: "vector",
       address: "/api/datasets/{id}/copc/{attempt}/data.copc.laz",
-      snippet: "Range: bytes=0-65535",
+      thumb: "assets/copc-autzen.jpg",
       live: "copc/autzen.html", source: "copc/autzen.html",
       datasets: [], catalog: true,
     },
@@ -493,7 +493,7 @@
       blurb: "Cesium loads a four-tile 3DBAG subset from the tileset URL in GeoLens's catalog. The page credits the source and notes the extraction.",
       tag: "3D Tiles", kind: "raster",
       address: "/api/datasets/{id}/tiles3d/tileset.json",
-      snippet: "tileset.json → buildings.glb",
+      thumb: "assets/tiles3d-amsterdam.jpg",
       live: "tiles3d/amsterdam.html", source: "tiles3d/amsterdam.html",
       datasets: [], catalog: true,
     },
@@ -740,7 +740,9 @@
   };
 
   const card = (ex) => {
-    const shot = ex.live ? el("a", { class: "shot", href: ex.live }) : el("div", { class: "shot" });
+    const shot = ex.live
+      ? el("a", { class: "shot", href: ex.live, "aria-label": `Open ${ex.title}` })
+      : el("div", { class: "shot" });
     if (ex.thumb) {
       shot.append(el("img", {
         src: ex.thumb, alt: `Screenshot of ${ex.title}`, loading: "lazy", decoding: "async",

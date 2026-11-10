@@ -99,6 +99,8 @@ jobs:
       # answers 200, so none of the branches this covers ever execute there.
       - name: Re-check the imagery catalog-probe states
         run: node ci/check-imagery-status.mjs
+      - name: Check catalog states and mobile layouts
+        run: node ci/check-catalog-status.mjs
       # Fetches each pinned CDN file and compares it with the page's hash, so
       # a CDN serving different bytes under a pinned version fails here.
       - name: Check subresource integrity hashes
