@@ -296,7 +296,7 @@
     <p class="lede">
       So the client library never has to know what GeoLens is. Every browser and Python example
       here is <strong>one file</strong> that reads the public demo anonymously, with no key and no
-      build step. Most need no GeoLens library at all; the two marked <em>SDK</em> use one to show
+      build step. Most need no GeoLens library at all; the three marked <em>SDK</em> use one to show
       what the catalog knows that a URL cannot. The <em>CLI</em> card is the exception: publishing
       writes to a catalog, so it runs against your own instance with a credential.
     </p>
@@ -510,7 +510,7 @@
     {
       audience: "web-developer", group: "features", tool: "MapLibre GL JS 6",
       title: "Features by viewport in MapLibre",
-      blurb: "Asks for the current view with bbox, follows the paging links to the end, cancels a walk the next pan made stale, and stops at a per-view cap that says on screen when vector tiles should take over.",
+      blurb: "Asks for the current view with bbox, follows the paging links to the end, cancels a walk the next pan made stale, and stops at a per-view cap that says on screen when vector tiles should take over. Zoomed out, it draws server-side cluster tiles instead.",
       tag: "OGC Features", kind: "vector",
       address: "/api/collections/{id}/items?bbox=...&limit=...",
       thumb: "assets/maplibre-features-viewport.jpg",
@@ -632,12 +632,12 @@
       datasets: [SENTINEL],
     },
     {
-      audience: "data-scientist", tool: "DuckDB 1.5 · single-file uv script",
+      audience: "data-scientist", tool: "DuckDB 2.0 · single-file uv script",
       title: "SQL across two read surfaces",
-      blurb: "One statement joining a GeoParquet export to the Features API, neither of them downloaded first. Naming only the columns you want prunes the read to byte ranges, so once the export is cached a question about a 3.3 MB export costs 16 KB.",
+      blurb: "One statement joining a GeoParquet export to the Features API, neither of them downloaded first. Naming only the columns you want prunes the read to byte ranges, so once the export is cached a question about a 3.3 MB export costs under 25 KB.",
       tag: "DuckDB", kind: "vector",
       address: "uv run duckdb/query.py",
-      snippet: "  over the wire, as DuckDB logged it\n    naming one column   16.2 KB, 2/2 reads ranged\n    naming the geometry 3,246.2 KB + 1 chunked\n\n                             past  no stop  stops here\n  Nevins St (Bk)               12        8  2 3 4 5\n  Bleecker St (M)              11       10  6",
+      snippet: "  over the wire, as DuckDB logged it\n    naming one column   23.8 KB, 2/2 reads ranged\n    naming the geometry 3,220.0 KB + 1 chunked\n\n                             past  no stop  stops here\n  Nevins St (Bk)               12        8  2 3 4 5\n  Bleecker St (M)              11       10  6",
       source: "duckdb/query.py",
       docs: ["Walkthrough and output", "https://github.com/geolens-io/geolens-examples/tree/main/duckdb"],
       datasets: [LINES, STATIONS],
