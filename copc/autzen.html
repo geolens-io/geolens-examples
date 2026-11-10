@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>GeoLens COPC in MapLibre</title>
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css" integrity="sha384-1TZtfVz7qtwR5vD7cMwjGT+9uiK4lqE3pbUOPwYO6OCpb+TYP0S9vLIhG02JCU04" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.17.0/dist/maplibre-gl.css" integrity="sha384-S+OnE5M4U3Qc2nR0RgljGrVs06xqfRg8L7uFk/pOF5+sRuSDG4oKkqKZmFrx7w09" crossorigin="anonymous" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl-lidar@0.17.1/dist/maplibre-gl-lidar.css" integrity="sha384-hAkQRNkumPB8JKqPlCrl4GX88mzbHWsRKMVEQLV5QPKy3de1Z2wFP/Y5CZ9t1Z5s" crossorigin="anonymous" />
   <style>
     html, body { margin: 0; height: 100%; }
@@ -24,15 +24,17 @@
   </header>
   <div id="map" aria-label="Autzen Stadium LiDAR point cloud"></div>
   <script type="importmap">
-    {"imports":{
-      "maplibre-gl":"https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs"
-    },
-    "integrity":{
-      "https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs":"sha384-q26X6R1yFeg0QR9SHHn6U3Nb0ddRRTtwxsahubv5R89/v5nijKpk9KviUp9ZLySk"
-    }}
+    {
+      "imports": {
+        "maplibre-gl": "https://unpkg.com/maplibre-gl@6.17.0/dist/maplibre-gl.mjs"
+      },
+      "integrity": {
+        "https://unpkg.com/maplibre-gl@6.17.0/dist/maplibre-gl.mjs": "sha384-pghUwrZY2q/5xc+bZCYbeUP4JsNuZEmG8j+ZvzJMC1DOy3Rdj5AhRNThLRAiEjSb"
+      }
+    }
   </script>
   <script type="module">
-    import * as maplibregl from "https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs";
+    import * as maplibregl from "https://unpkg.com/maplibre-gl@6.17.0/dist/maplibre-gl.mjs";
     // esm.sh resolves the package's open dependency ranges at build time, so
     // `deps` pins the whole graph at the versions 0.17.1 was verified with.
     import { LidarControl } from "https://esm.sh/maplibre-gl-lidar@0.17.1?external=maplibre-gl&deps=@deck.gl/core@9.4.0,@deck.gl/layers@9.4.0,@deck.gl/maplibre@9.4.0,@loaders.gl/core@4.5.4,@loaders.gl/images@4.5.4,@loaders.gl/loader-utils@4.5.4,@loaders.gl/schema-utils@4.5.4,@loaders.gl/worker-utils@4.5.4,@luma.gl/core@9.4.2,@luma.gl/engine@9.4.2,@luma.gl/gpgpu@9.4.2,@luma.gl/shadertools@9.4.2,@luma.gl/webgl@9.4.2,@mapbox/tiny-sdf@2.3.0,@math.gl/core@4.1.0,@math.gl/polygon@4.1.0,@math.gl/sun@4.1.0,@math.gl/types@4.1.0,@math.gl/web-mercator@4.1.0,@probe.gl/env@4.1.2,@probe.gl/log@4.1.2,@probe.gl/stats@4.1.2,apache-arrow@21.2.0,earcut@2.2.4,flatbuffers@25.9.23,mjolnir.js@3.1.1,tslib@2.8.1";
