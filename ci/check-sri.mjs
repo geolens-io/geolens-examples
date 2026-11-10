@@ -209,13 +209,21 @@ function skipTemplate(code, i, exprs) {
 // essence match), plus no type at all. Any of them can call import().
 const JS_TYPES = /^$|^(?:application|text)\/(?:x-)?(?:java|ec)script$|^text\/javascript1\.[0-5]$|^text\/(?:jscript|livescript)$/;
 
+// The CDN URLs inline scripts import, with `first` set to where the earliest
+// such script starts: an import map registered after it cannot cover it.
 function directImports(masked, html) {
   const found = new Set();
+  found.first = Infinity;
   for (const m of masked.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)) {
     const open = m[0].slice(0, m[0].indexOf(">") + 1);
     if (/\ssrc\s*=/i.test(open) || !(typeOf(open) === "module" || JS_TYPES.test(typeOf(open)))) continue;
     const start = m.index + open.length;
-    for (const url of importSpecifiers(html.slice(start, start + m[1].length))) if (url.includes("\\") || inScope(url)) found.add(url);
+    for (const url of importSpecifiers(html.slice(start, start + m[1].length))) {
+      if (url.includes("\\") || inScope(url)) {
+        found.add(url);
+        found.first = Math.min(found.first, m.index);
+      }
+    }
   }
   return found;
 }
@@ -295,6 +303,7 @@ export async function processHtml(html, { write, hashOf }) {
     const openTag = m[0].slice(0, m[0].indexOf(">") + 1);
     if (typeOf(openTag) !== "importmap") continue;
     mapsSeen++;
+    if (mapsSeen === 1 && m.index > direct.first) note(openTag, "comes after a script that imports a CDN module directly; move it above that script");
     // The masked copy blanked the JSON; read it from the page itself.
     const bodyStart = m.index + openTag.length;
     const body = html.slice(bodyStart, bodyStart + m[1].length);
@@ -359,8 +368,12 @@ export async function processHtml(html, { write, hashOf }) {
     }
     if (!write) for (const url of Object.keys(integrity)) note(url, "is imported directly but the page has no import map integrity entry for it");
     else if (Object.keys(integrity).length) {
-      const head = masked.search(/[ \t]*<\/head\s*>/i);
-      if (head < 0) note("page", "imports a CDN module directly and has no </head> to put the import map in");
+      // Before </head>, or before the first importing script when that comes
+      // earlier, so the map is registered before any import starts.
+      const headAt = masked.search(/[ \t]*<\/head\s*>/i);
+      const scriptAt = masked.lastIndexOf("\n", direct.first) + 1;
+      const head = Math.min(headAt < 0 ? Infinity : headAt, direct.first === Infinity ? Infinity : scriptAt);
+      if (head === Infinity) note("page", "imports a CDN module directly and has no </head> to put the import map in");
       else {
         const body = JSON.stringify({ integrity }, null, 2).replace(/^/gm, "    ");
         edits.push([head, head, `  <script type="importmap">\n${body}\n  </script>\n`]);
@@ -574,6 +587,10 @@ async function selfTest() {
   expect("an import between strings holding comment markers is found", (await processHtml(hidden, { write: false, hashOf })).problems.length === 1);
   const interpolated = `<script type="module">const r = \`\${await import("${js}")} and \${\`\${await import("${css}")}\`}\`;</script>`;
   expect("imports inside template interpolations are found", (await processHtml(interpolated, { write: false, hashOf })).problems.length === 2);
+  const early = `<html><head>\n  <script>import("${js}")</script>\n</head><body></body></html>`;
+  const placed = (await processHtml(early, { write: true, hashOf })).html;
+  expect("--write puts the import map before a head script that imports", placed.indexOf('type="importmap"') < placed.indexOf('import("'));
+  expect("verify rejects an import map that comes after an importing script", (await processHtml(`<script>import("${js}")</script><script type="importmap">{"integrity":{"${js}":"${STUB}"}}</script>`, { write: false, hashOf })).problems.length === 1);
   const commented = `<script type="module">const r = \`\${ /* } */ await import("${js}") }\`;</script>`;
   expect("a brace inside a comment in an interpolation does not end it", (await processHtml(commented, { write: false, hashOf })).problems.length === 1);
   const classic = `<script type="application/javascript">import("${js}")</script>`;
