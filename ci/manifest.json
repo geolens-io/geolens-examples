@@ -8,6 +8,16 @@
     "minDataResponses": 10
   },
   {
+    "path": "embed/story.html",
+    "wait": 24000,
+    "requireUrls": [
+      "/stories/94a7f787-a71c-4fd5-bc1d-de1f3ac5f0e7/embed",
+      "/api/stories/94a7f787-a71c-4fd5-bc1d-de1f3ac5f0e7"
+    ],
+    "minDataResponses": 3,
+    "minDistinctColors": 1000
+  },
+  {
     "path": "maplibre/vector-tiles.html",
     "wait": 8000,
     "requireUrls": [

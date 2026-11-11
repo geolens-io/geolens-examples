@@ -466,6 +466,71 @@ async function checkMaps(name, fx, notes, problems) {
   }
 }
 
+// Stories are linked from the gallery by UUID and one is framed by
+// embed/story.html. The embed frame reads the story with an anonymous
+// GET /api/stories/{id}, so that is the probe, and it answers 404 for a story
+// that is gone and for one that is no longer public. Both pages are held
+// against the fixture, as the maps are: an id edited in a page without the
+// fixture following it would otherwise stay green.
+async function checkStories(name, fx, notes, problems) {
+  let gallery, embed;
+  try {
+    gallery = readFileSync(join(HERE, "..", "index.html"), "utf8");
+    embed = readFileSync(join(HERE, "..", "embed", "story.html"), "utf8");
+  } catch (err) {
+    gallery = undefined;
+    problems.push(`fixture ${name}: index.html or embed/story.html could not be read (${oneLine(err)}), so their story ids were not compared to ci/fixtures.json.`);
+  }
+  if (gallery !== undefined) {
+    const linked = new Set([...gallery.matchAll(/https?:\/\/[^/"'\s]+\/stories\/([0-9a-f-]{36})\b/g)].map((m) => m[1]));
+    const listed = new Set(fx.stories.map((s) => s.id));
+    for (const id of linked) {
+      if (!listed.has(id)) {
+        problems.push(`fixture ${name}: index.html links story ${id}, which ci/fixtures.json does not list under ${name}.stories, so it was never probed; this is a fixtures.json mistake, not the demo.`);
+      }
+    }
+    for (const { id, title } of fx.stories) {
+      if (!linked.has(id)) {
+        problems.push(`fixture ${name}: ci/fixtures.json lists story ${id} ("${title}") that index.html no longer links; this is a fixtures.json mistake, not the demo.`);
+      }
+    }
+    const framed = fx.stories.filter((s) => s.embed);
+    if (framed.length !== 1) {
+      problems.push(`fixture ${name}: exactly one story must be marked "embed", found ${framed.length}.`);
+    } else if (!embed.includes(`const STORY_ID = "${framed[0].id}"`)) {
+      problems.push(`fixture ${name}: embed/story.html does not frame story ${framed[0].id} ("${framed[0].title}"); this is a fixtures.json mistake, not the demo.`);
+    }
+  }
+  for (const { title, id, chapters } of fx.stories) {
+    const res = await get(`/api/stories/${id}`);
+    if (res.status === 404) {
+      const moved = await newIdFor("/api/stories/?limit=100", "stories", title);
+      problems.push(
+        `fixture ${name}: story ${id} ("${title}") no longer resolves anonymously (404): the demo was reseeded, ` +
+          `or the story was unpublished. ` +
+          (moved
+            ? `Story ${moved} now carries that title: replace ${id} with ${moved} across the repo (grep -rl ${id}).`
+            : `Check ${DEMO}/maps?type=stories; if it is gone, replace ${id} across the repo (grep -rl ${id}).`),
+      );
+      continue;
+    }
+    if (!res.ok) {
+      problems.push(`fixture ${name}: /api/stories/${id} answered ${res.status}, so "${title}" could not be checked.`);
+      continue;
+    }
+    const story = await res.json();
+    const count = story.document?.chapters?.length;
+    notes.push(`"${story.title}" ${count ?? "?"} chapters`);
+    if (story.title !== title) {
+      problems.push(`fixture ${name}: story ${id} is now titled "${story.title}", not "${title}". The ID still resolves, to a different story than the page describes (grep -rl ${id}).`);
+    } else if (story.visibility !== "public") {
+      problems.push(`fixture ${name}: story "${title}" is ${story.visibility}, not public, so the embed frame cannot show it.`);
+    } else if (count !== chapters) {
+      problems.push(`fixture ${name}: story "${title}" has ${count} chapters, not ${chapters}; the gallery text quotes that count.`);
+    }
+  }
+}
+
 async function checkSearch(name, fx, notes, problems) {
   const { q, limit, recordType } = fx.search;
   // search/catalog.html asks the OGC Records route rather than /api/search/
@@ -731,7 +796,7 @@ async function checkOneExport(name, fx, ex, notes, problems) {
   notes.push(`${format} export ${ranged}, ${type}`);
 }
 
-const KNOWN = ["collection", "assetByTitle", "stac", "vectorTile", "rasterTile", "sharedMap", "maps", "search", "export"];
+const KNOWN = ["collection", "assetByTitle", "stac", "vectorTile", "rasterTile", "sharedMap", "maps", "stories", "search", "export"];
 const transport = [];
 for (const [name, fx] of Object.entries(fixtures)) {
   const notes = [];
@@ -749,6 +814,7 @@ for (const [name, fx] of Object.entries(fixtures)) {
     if (fx.rasterTile) await checkTile(name, "raster", fx.rasterTile, notes, problems);
     if (fx.sharedMap) await checkSharedMap(name, fx, notes, problems);
     if (fx.maps) await checkMaps(name, fx, notes, problems);
+    if (fx.stories) await checkStories(name, fx, notes, problems);
     if (fx.search) await checkSearch(name, fx, notes, problems);
     if (fx.export) await checkExport(name, fx, notes, problems);
   } catch (err) {

@@ -150,6 +150,8 @@
     border-bottom: 1px solid var(--rule); font-weight: 600;
   }
   .showcase li a:hover { color: var(--vector); border-color: var(--vector); }
+  .showcase h3 { margin: 1.6rem 0 .3rem; font-size: .98rem; font-weight: 650; }
+  .showcase h3 + p { margin-bottom: .8rem; font-size: .88rem; }
 
   /* ---- intent nav ------------------------------------------------------- */
   .intent { padding: 0 0 1rem; }
@@ -322,8 +324,8 @@
   <section class="showcase">
     <h2>See what GeoLens itself builds</h2>
     <p>
-      Maps composed and styled in the GeoLens map builder, then published on the
-      <a href="https://demo.getgeolens.com/maps">public demo</a>. All four open without an account.
+      Maps, stories and dashboards composed in GeoLens, then published on the
+      <a href="https://demo.getgeolens.com/maps">public demo</a>. All of them open without an account.
     </p>
     <ul>
       <li>
@@ -343,6 +345,44 @@
       <li>
         <a href="https://demo.getgeolens.com/maps/71c658e5-d7c0-4b12-8bab-3b4ee6968cd5">New York From Orbit: Sentinel-2 by Reference</a>.
         Sentinel-2 scenes read by reference from the AWS open-data archive, nothing downloaded.
+      </li>
+    </ul>
+    <h3>Stories</h3>
+    <p>Chaptered walk-throughs that move a map from one scene to the next.</p>
+    <ul>
+      <li>
+        <a href="https://demo.getgeolens.com/stories/94a7f787-a71c-4fd5-bc1d-de1f3ac5f0e7">A Century of Manhattan's Skyline</a>.
+        Five chapters on the buildings map, from the Financial District to 57th Street. The
+        <a href="embed/story.html">embed example</a> frames this one.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/stories/70141fa9-ffc9-47a9-b8a6-3ca38c96d730">New York, From Orbit to the Street Tree</a>.
+        Six chapters, from Sentinel-2 imagery of the whole city down to one East Village park.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/stories/b4701eae-4137-4294-a5c6-9d19c09972b7">Where the Atlantic's Major Hurricanes Go</a>.
+        Three chapters on every Atlantic storm since 1950 that reached Category 3.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/stories/b0463610-d567-40bb-8eef-aa11d995de63">Cambridge's Open Data in GeoLens</a>.
+        Nine chapters on what a GIS lead can do with a city's public ArcGIS Online organization.
+      </li>
+    </ul>
+
+    <h3>Map dashboards</h3>
+    <p>A panel of widgets beside the map, each summarizing one layer.</p>
+    <ul>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/75a73a52-c323-42e6-8b46-4cfe1820f01f">Earthquake Dashboard: USGS M2.5+ Snapshot</a>.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/7c155a6d-56aa-43c6-847f-0521387f3445">Manhattan Skyline Dashboard</a>.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/f875648e-7c7d-4549-b9b1-f3ede4bed95d">Cambridge Open Data: Land and Zoning in Numbers</a>.
+      </li>
+      <li>
+        <a href="https://demo.getgeolens.com/maps/11d1723c-b164-48dd-9c40-21577e28cc94">Cambridge Open Data: Street Tree Operations</a>.
       </li>
     </ul>
   </section>
@@ -434,8 +474,8 @@
        "GeoJSON with attributes in the browser, read whole or by viewport. The right shape for small or bounded layers."],
       ["search", "Search first",
        "Find the data before drawing it: the catalog by meaning, STAC by footprint and time, or the SDK for what the catalog knows that a URL cannot."],
-      ["embed", "Embed a saved map",
-       "No integration at all: a map styled in the builder renders itself in an iframe."],
+      ["embed", "Embed a map or story",
+       "No integration at all: a map styled in the builder, or a published story, renders itself in an iframe."],
     ],
   };
 
@@ -680,6 +720,16 @@
       address: "/m/{shareToken}?embed=true",
       thumb: "assets/embed-iframe.jpg",
       live: "embed/iframe.html", source: "embed/iframe.html",
+      datasets: [],
+    },
+    {
+      audience: "web-developer", group: "embed", tool: "No library",
+      title: "A published story, embedded",
+      blurb: "A story's chapters, text and map scenes in an iframe on a page that is not GeoLens. A published public story needs no token and no login, and the frame is the whole integration.",
+      tag: "Embed", kind: "tooling",
+      address: "/stories/{id}/embed",
+      thumb: "assets/embed-story.jpg",
+      live: "embed/story.html", source: "embed/story.html",
       datasets: [],
     },
     {
