@@ -135,7 +135,7 @@ LINES_PARQUET = f"{BASE_URL}/api/datasets/{LINES_ID}/export?format=parquet"
 
 # Read two. The OGC API - Features items endpoint, as plain GeoJSON.
 #
-# `limit` is capped by the instance (1000 by default, and the demo's default).
+# `limit` is capped by the instance (5000 by default from GeoLens 1.32.0, 1000 before, and the demo's default).
 # 496 stations fit in one page, so this script does not page. A collection
 # whose size you do not control needs the `rel="next"` link followed, which
 # GeoJSON-over-ST_Read cannot do for you: read it with an HTTP client, or

@@ -119,7 +119,10 @@ lists in `CORS_ALLOWED_ORIGINS`. Cross-origin and unlisted, they come back with 
 CORS header at all and the browser discards the response. A few native routes
 are exceptions: from GeoLens 1.14.1 the catalog search (`/search/datasets`,
 `/search/facets`) answers an anonymous `GET` with the same wildcard as the
-standards routes (geolens#1596), and from 1.16.1 so do dataset exports.
+standards routes (geolens#1596), and from 1.16.1 so do dataset exports. From
+1.32.0 so do the anonymous reads of a map (`/maps/{id}` and its `style.json`),
+`/stories`, a dataset's `/rows/` and `/capabilities/`; `/datasets/{id}` itself
+is still allowlist-only.
 
 So a browser page on someone else's origin reaches the catalog through the
 standards half. That costs nothing here, because `/search/datasets` and the OGC
@@ -167,6 +170,6 @@ least one vector dataset for the picker to fill.
 ## Pinned versions
 
 `@geolens/sdk@1.32.0` (current npm release) and `maplibre-gl@6.17.0`, verified
-against the live demo (serving 1.31.0) on 2026-11-10: SDK loaded from
+against the live demo (serving 1.32.0) on 2026-11-16: SDK loaded from
 esm.sh, all calls 2xx, clean console, tiles rendering for point, line and
 polygon datasets.

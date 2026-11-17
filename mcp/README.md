@@ -3,10 +3,10 @@
 See the [MCP server guide](https://docs.getgeolens.com/guides/sdk/mcp/) for the tool
 reference; this page covers setup, client configs, and real transcripts.
 
-`geolens-mcp` is a read-only [MCP](https://modelcontextprotocol.io) server that puts a GeoLens
+`geolens-mcp` is an [MCP](https://modelcontextprotocol.io) server that puts a GeoLens
 catalog inside any MCP client's session: Claude Code, Claude Desktop, Cursor, Codex, or one you
 wrote yourself. Once it is registered, you stop context-switching to a GIS client to answer "what
-data do we even have for this?" You ask the assistant, and it goes and looks. It gets nine tools:
+data do we even have for this?" You ask the assistant, and it goes and looks. It gets nine read tools:
 `search_datasets` (free-text catalog search), `get_dataset_schema` (columns, geometry type,
 SRID, feature count, extent, and source-trust metadata), `get_features` (bounded GeoJSON, with an
 optional bbox filter), `list_maps` and `get_map` (saved maps, their layers and view state), `list_stories` and
@@ -15,10 +15,17 @@ without writing SQL), and `query` (one SQL `SELECT` through the backend's read-o
 first eight work against a public instance with no credentials at all; `query` needs an API key, which is the main thing to
 know before you start.
 
-Nothing here can write. The discovery tools are `GET`s, and `query` is a `POST` only in the HTTP
+The nine read tools write nothing. The discovery tools are `GET`s, and `query` is a `POST` only in the HTTP
 sense: the backend runs it inside a `READ ONLY` transaction. What the assistant can see is bounded by the
 credential you give it: with an API key it sees what that key's user sees, and with no credential it
 sees public data and nothing else.
+
+From v1.32.0 the server also lists five map authoring tools: `create_map`, `add_layer`,
+`update_layer_style`, `set_camera` and `set_basemap`. They write only when the server runs with a
+`map_author` API key, and then only to maps that key created. With any other credential, or none, they
+change nothing and say that a `map_author` key is needed, so everything on this page still works
+anonymously. The [map authoring section of the guide](https://docs.getgeolens.com/guides/sdk/mcp/#map-authoring)
+covers them; the setup and transcripts here stay on the read tools.
 
 ## Setup
 
@@ -114,9 +121,10 @@ limits are in [Using query](https://docs.getgeolens.com/guides/sdk/mcp/#using-qu
 
 ## How it actually behaves
 
-Captured on 2026-11-10 by driving the wheel `geolens-mcp` published as version 1.31.0 over stdio
+Tool discovery below was captured on 2026-11-16 by driving the wheel `geolens-mcp` published as version 1.32.0 over stdio
 with a minimal MCP client, anonymously, against `https://demo.getgeolens.com` (which reported itself
-healthy at 1.31.0). Output is real and trimmed for width. The ids and counts below are whatever the demo held at capture time;
+healthy at 1.32.0). The tool calls after it were captured on 2026-11-10 with 1.31.0; a 1.32.0 spot check of
+`search_datasets` returned the same shape. Output is real and trimmed for width. The ids and counts below are whatever the demo held at capture time;
 read the transcript for shape, not for literal values.
 
 Tool discovery, straight after `initialize`:
@@ -132,7 +140,17 @@ Tool discovery, straight after `initialize`:
 - get_story: Get one story's published version: title, summary, visibility and the …
 - aggregate: Compute an exact aggregate over a dataset's rows: counts, summaries and …
 - query: Run one read-only SQL SELECT against accessible datasets.
+- create_map: Create a private map and return its `id`, view, `basemap_style` and …
+- add_layer: Add a dataset to a map as a new layer, optionally styled. Each new …
+- update_layer_style: Restyle a layer or change its popup fields. Give `style`, …
+- set_camera: Set the view a map opens at. Only the arguments given change.
+- set_basemap: Change a map's basemap.
 ```
+
+The last five are the map authoring tools. Called with no `map_author` key they write nothing and
+return an error that says so: "Map authoring needs the MCP server to run with a map_author API key in
+GEOLENS_API_KEY, and that key can change only the maps it created."
+
 
 `search_datasets(query="new york city buildings", limit=3)` returns a compact FeatureCollection
 where each feature is a trimmed dataset record: an `id`, a `bbox` and a fixed set of `properties`,

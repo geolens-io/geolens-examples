@@ -255,8 +255,9 @@ questions, and a timer can only answer the first.
 
 Asking the API instead depends on the deployment. On a default instance
 `/api/maps/shared/{token}` sends no CORS headers, so the fetch fails in the
-browser; the anonymous wildcard is scoped to the OGC surface at
-`/api/collections`. If the operator has listed your site in
+browser; the anonymous wildcard covers the OGC surface at
+`/api/collections` and, from GeoLens 1.32.0, a few native reads such as
+`/api/maps/{id}`, but `/api/maps/shared/{token}` is on neither list. If the operator has listed your site in
 `CORS_ALLOWED_ORIGINS`, which is the setup the rest of this repo recommends,
 then `DynamicCORSMiddleware` serves credentialed CORS on every route including
 that one, and a client-side check becomes possible. That only helps when you
