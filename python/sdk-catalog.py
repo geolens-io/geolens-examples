@@ -132,8 +132,8 @@ def main() -> int:
     ).parsed
     matched = filtered.number_matched
 
-    # 4. Export the slice. format_ also takes gpkg, parquet, shp, csv, fgb and
-    #    pmtiles; geojson keeps this script to two dependencies.
+    # 4. Export the slice. format_ also takes gpkg, parquet, shp, csv, fgb,
+    #    pmtiles, kml and kmz; geojson keeps this script to two dependencies.
     export = ok(
         export_dataset.sync_detailed(
             client=client, dataset_id=dataset_id, format_="geojson", where=WHERE
