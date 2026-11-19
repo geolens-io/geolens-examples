@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "geolens==1.32.0",
+#     "geolens==1.33.0",
 # ]
 # ///
 """List published stories, read a dashboard, and recompute its numbers.

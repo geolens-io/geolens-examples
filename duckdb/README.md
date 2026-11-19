@@ -19,7 +19,7 @@ both as tables in one statement:
 | `read_parquet()` | `GET /api/datasets/{id}/export?format=parquet` | columnar, so a query that names two columns fetches two columns |
 | `ST_Read()` | `GET /api/collections/{id}/items` | GeoJSON, read whole, which is what a format with no index costs |
 
-Parquet is one of seven export formats the same route serves
+Parquet is one of nine export formats the same route serves from GeoLens 1.33.0, which added KML and KMZ
 ([the docs list the rest](https://docs.getgeolens.com/guides/user/exports/#export-formats));
 it is the one DuckDB can read a column at a time. Of the two formats GeoLens 1.16.0
 added, FlatGeobuf (`format=fgb`) is the interchange one: `ST_Read` opens it over the
