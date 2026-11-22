@@ -3,7 +3,7 @@
   "mcpServers": {
     "geolens": {
       "command": "uvx",
-      "args": ["geolens-mcp@1.33.0"],
+      "args": ["geolens-mcp@1.34.0"],
       "env": {
         "GEOLENS_INSTANCE": "https://demo.getgeolens.com"
       }
