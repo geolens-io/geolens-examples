@@ -474,8 +474,7 @@
     let found;
     try {
       // Search pages like Features does: follow `rel="next"` until it stops
-      // appearing, or until this page holds MAX_ITEMS. A search that
-      // matches no more than one page of items stops after the first request.
+      // appearing, or until this page holds MAX_ITEMS.
       // One budget of MAX_ITEMS shared by every walk, and pages sliced to
       // what still fits, so the page never holds more than it advertises.
       // Two walks only when the view crosses the antimeridian; an item
