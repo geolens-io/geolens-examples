@@ -39,7 +39,8 @@
     </div>
     <!-- `allow-same-origin` keeps the frame on its own origin (still not yours)
          so the story reader can make its same-origin API calls; without it the
-         frame has an opaque origin and the reader's module fetches fail.
+         frame has an opaque origin, the app loads, and its `/api/` calls are blocked
+         by CORS ("The story couldn't be loaded.").
          `allow-scripts` runs the reader. Popups, forms and top-level
          navigation stay blocked. -->
     <iframe id="frame" title="A Century of Manhattan's Skyline: GeoLens story"

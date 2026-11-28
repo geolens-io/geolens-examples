@@ -34,14 +34,13 @@ Layer ▸ Add Layer ▸ Add WFS / OGC API - Features Layer… opens the Data Sou
 ![Create a New WFS Connection, filled in for the GeoLens demo with Version set to OGC API - Features](../assets/qgis-new-connection.jpg)
 
 Leave the rest alone and press OK. Keep the trailing slash on the URL. GeoLens answers a bare
-`/api` with a redirect to a port QGIS cannot reach, so instead of a collection list you get an
-error box. QGIS's own tooltip on the URL box warns that some OGC API servers need the slash; this
-is one of them. `Version` can stay on `Maximum` if you prefer: QGIS then tries a WFS
+`/api` with a redirect to `/api/`, and QGIS's own tooltip on the URL box warns that some OGC API
+servers need the slash. `Version` can stay on `Maximum` if you prefer: QGIS then tries a WFS
 GetCapabilities first, fails, and falls back to the landing page. Picking `OGC API - Features`
 skips the failed probe.
 
-Press **Connect**. The table fills with every collection the demo publishes, 29 at the time
-of writing, titled the way the catalog titles them.
+Press **Connect**. The table fills with every collection the demo publishes, titled the way
+the catalog titles them.
 
 ![The connection dialog after Connect: the demo's collections listed by title, name and abstract, including the GeoLens Dataset Catalog](../assets/qgis-collections.jpg)
  Select *NYC Subway Stations (MTA)* and
@@ -166,7 +165,7 @@ short-lived token for one dataset and paste the URL it returns as the XYZ templa
 ```bash
 curl https://demo.getgeolens.com/api/tiles/token/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/
 # {"kind":"raster",
-#  "tile_url":"/raster-tiles/d8fd56a9-.../tiles/{z}/{x}/{y}.png?sig=7031d4bd...&exp=1790127900&scope=d8fd56a9-...%3Ap0&v=1&pv=0",
+#  "tile_url":"/raster-tiles/d8fd56a9-.../tiles/{z}/{x}/{y}.png?sig=7031d4bd...&exp=1790127900&scope=d8fd56a9-...%3Ap0&v=2&pv=0",
 #  "expires_in":160, ...}
 ```
 

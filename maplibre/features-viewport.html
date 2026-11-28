@@ -56,19 +56,19 @@
   // Meteorite Landings: 32,186 records, 30,763 of them with a location, spread
   // over the whole planet. The sibling features.html asks for `?limit=2000`
   // once and keeps the answer, which is fine for 496 subway stations and wrong
-  // here twice over. First, the browser would hold and draw thirty thousand
-  // features to show the few hundred on screen. Second, that request never
-  // returned 2000 rows to begin with: the demo caps a page at 1000 and
-  // silently clamps anything larger, so `limit=2000` fetches one page of 1000,
-  // and a map drawn from that one page looks complete. This page asks for the
-  // current view instead, `?bbox=<view>&limit=<page>`, and follows the paging
-  // links until the server stops offering one.
+  // here twice over. First, one request cannot hold this collection: the
+  // server clamps `limit` to an admin ceiling (5000 on the demo), so a map
+  // drawn from one page can look complete when it is not. Second, walking
+  // every page would have the browser hold and draw thirty thousand features
+  // to show the few hundred on screen. This page asks for the current view
+  // instead, `?bbox=<view>&limit=<page>`, and follows the paging links until
+  // the server stops offering one or the walk reaches MAX_FEATURES below.
   const COLLECTION = "c17f7df9-936e-4268-96d3-9e199fe04f81";
 
-  // The demo's largest page. Ask for more and the server clamps to this and
-  // rewrites the `next` link to match, so a bigger number buys nothing. Your
-  // own instance may cap elsewhere; the loop below does not care, because
-  // it reads page boundaries off the links and not off this constant.
+  // A modest page size. The demo's ceiling is 5000; ask for more than the
+  // ceiling and the server clamps to it and rewrites the `next` link to
+  // match. Your own instance may cap elsewhere; the loop below does not care,
+  // because it reads page boundaries off the links and not off this constant.
   const PAGE_SIZE = 1000;
 
   // Hard budget per view. Every page is one more request to the demo and

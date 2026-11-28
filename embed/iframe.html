@@ -43,9 +43,10 @@
       whether the share link is valid.</small>
     </div>
     <!-- Both sandbox values matter. Dropping `allow-same-origin` gives the
-         frame an opaque origin, which turns the viewer's ES module fetches into
-         cross-origin requests that its static assets do not answer with CORS
-         headers: blank frame, and a reload loop behind it. `allow-same-origin`
+         frame an opaque origin. The app still loads, since its static assets
+         answer with CORS headers, but its `/api/` calls become cross-origin
+         requests that nothing answers, so the frame shows "Map not found".
+         `allow-same-origin`
          restores the frame's OWN origin, already different from this page, so
          it grants the map nothing of yours. Omitting `sandbox` entirely also
          works; keeping it blocks popups, forms and top-level navigation. -->
@@ -89,13 +90,14 @@
   // the one you probably guessed.
   //
   // `embed=true` strips the site banner, footer and basemap switcher, leaving
-  // the map and its legend. Other params the viewer reads: `legend` (defaults
-  // off under embed=true), `center=lng,lat`, `zoom`, and `et` for a scoped
+  // the map and, depending on the layers and the frame width, its legend. Other
+  // params the viewer reads: `legend` (true or false overrides that default),
+  // `center=lng,lat`, `zoom`, and `et` for a scoped
   // embed token over private layers. See embed/README.md.
   //
-  // legend=true is opt-in here because this map has seven layers and is hard to
-  // read without it. Drop it for a cleaner frame; on narrow viewports the
-  // viewer collapses the legend to an icon either way.
+  // legend=true is explicit here because this map has seven layers and is hard
+  // to read without it. Drop it to let the viewer decide; on narrow viewports
+  // the viewer collapses the legend to an icon either way.
   const src = `${GEOLENS}/m/${SHARE_TOKEN}?embed=true&legend=true`;
 
   const embed = document.getElementById("embed");
