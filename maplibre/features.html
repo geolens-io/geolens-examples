@@ -68,8 +68,8 @@
   const STATIONS = "4e7cba4c-4caa-4609-b5c4-3c6cd252697c"; // NYC Subway Stations
 
   // `limit` is a page size, not a total, and the server clamps it to an admin
-  // ceiling (ogc_items_max_page_size, 1000 by default). Both collections here
-  // fit in one page, so nothing is cut. For a collection that does not, see
+  // ceiling (ogc_items_max_page_size: 5000 by default from GeoLens v1.32.0,
+  // 1000 before it). Both collections here fit in one page, so nothing is cut. For a collection that does not, see
   // features-viewport.html, which pages by bbox and follows the rel=next link.
   const items = (id) => `${GEOLENS}/api/collections/${id}/items?limit=2000`;
 

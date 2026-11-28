@@ -69,7 +69,7 @@ The table below is arranged by tool; the numbered steps here trace the platform 
 | [`duckdb/query.py`](duckdb/query.py) | DuckDB 2.0 + `spatial` (single-file `uv run` script) | One SQL join across the GeoParquet export and the Features API, with column pruning over HTTP ranges when the export is warm and the server honours Range | `uv run duckdb/query.py` |
 | [`cli/`](cli/) | `geolens-cli` 1.34.0 | Catalog-as-code: offline `validate`, then `apply --dry-run` and `apply` against your instance | `uvx --from geolens-cli==1.34.0 geolens validate cli/geolens.yaml` |
 
-Every browser row above with a Live link is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted; a 200 response alone does not pass. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The three `uv run` scripts run green with one command each, and each asserts its own answers rather than just finishing. [`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb) and [`leafmap/samgeo.ipynb`](leafmap/samgeo.ipynb) are checked the same way, one level up: [`leafmap/verify.py`](leafmap/verify.py) and [`leafmap/verify_samgeo.py`](leafmap/verify_samgeo.py) each execute their own notebook headlessly and fail on the first cell that raises.
+Every browser row above with a Live link is checked against the live demo by [`ci/verify-examples.mjs`](ci/verify-examples.mjs), which asserts the documented data loaded and the map painted; a 200 response alone does not pass. Where an example draws two layers of its own in fixed colours, it also asserts each one painted, by colour. The five `uv run` scripts run green with one command each, and each asserts its own answers rather than just finishing. [`leafmap/quickstart.ipynb`](leafmap/quickstart.ipynb) and [`leafmap/samgeo.ipynb`](leafmap/samgeo.ipynb) are checked the same way, one level up: [`leafmap/verify.py`](leafmap/verify.py) and [`leafmap/verify_samgeo.py`](leafmap/verify_samgeo.py) each execute their own notebook headlessly and fail on the first cell that raises.
 
 MapLibre examples also work with Mapbox GL JS with minimal changes (both consume the same MVT and raster sources).
 
@@ -125,7 +125,7 @@ Do not put a long-lived API key in a static HTML file, and do not commit one. An
 ```bash
 curl https://demo.getgeolens.com/api/tiles/token/d8fd56a9-d12f-4dbb-af8b-81a7289fc600/
 # {"kind":"raster",
-#  "tile_url":"/raster-tiles/d8fd.../tiles/{z}/{x}/{y}.png?sig=7031...&exp=1790127900&scope=d8fd...%3Ap0&v=1&pv=0",
+#  "tile_url":"/raster-tiles/d8fd.../tiles/{z}/{x}/{y}.png?sig=7031...&exp=1790127900&scope=d8fd...%3Ap0&v=2&pv=0",
 #  "expires_in":160, ...}
 ```
 

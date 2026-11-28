@@ -29,7 +29,7 @@ app.initQgis()
 print("QGIS", Qgis.QGIS_VERSION)
 
 GEOLENS = "https://demo.getgeolens.com"
-API = GEOLENS + "/api/"  # keep the slash: bare /api answers with a redirect QGIS cannot follow
+API = GEOLENS + "/api/"  # keep the slash: bare /api answers with a redirect to /api/
 LINES = "39e1319e-54ad-4431-9efc-f5eef7910fdb"
 STATIONS = "4e7cba4c-4caa-4609-b5c4-3c6cd252697c"
 DEM = "d8fd56a9-d12f-4dbb-af8b-81a7289fc600"

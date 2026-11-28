@@ -56,14 +56,14 @@ Read by the viewer at `frontend/src/pages/PublicViewerPage.tsx`:
 | Parameter | Effect |
 |---|---|
 | `embed=true` | Hides the site banner, footer and basemap switcher. Leaves the map, its title pill and optionally the legend. |
-| `legend=true` / `legend=false` | Shows or hides the layer legend. Defaults to off when `embed=true`, on otherwise. |
+| `legend=true` / `legend=false` | Shows or hides the layer legend. Left out, an embed shows it when a visible layer draws colour classes. A shown legend starts collapsed in frames narrower than 500 px, whatever this parameter says. |
 | `center=lng,lat` | Overrides the map's saved centre. Silently ignored if out of range. |
 | `zoom=<0-24>` | Overrides the saved zoom. |
 | `dashboard=collapsed` | Opens the map with its dashboard panel collapsed. The reader can still open it. Has no effect on a map without a dashboard. |
 | `et=<embedToken>` | A scoped embed token, for maps with private layers. Viewer only; the API takes it as a header. See below. |
 
-`embed=true` also turns on a small GeoLens badge over the map, which is the
-trade for a free embed. Enterprise instances can switch it off through the
+`embed=true` also keeps a GeoLens credit in the map's attribution control, which
+is the trade for a free embed. Enterprise instances can switch it off through the
 branding setting.
 
 ## Using your own map
@@ -88,11 +88,14 @@ Against a map that already has an active token, the endpoint reuses the existing
 row, and two things change. The raw token is not returned again, only an
 eight-character hint, so you get nothing you can embed. And an empty body leaves
 the stored expiry alone rather than clearing it, so a token minted with 30 days
-stays on 30 days. Sending `expires_in_days` does update it, but there is no body
-that sets an existing token back to never expiring.
+stays on 30 days. Sending `expires_in_days` does update it. To change or clear
+the expiry without revoking, send `PATCH /api/maps/{id}/share/`: `expires_in_days`
+(1, 7, 30 or 90) sets a new one, and `{"expires_at": null}` clears it.
 
-To recover a usable raw value, or to clear an expiry you no longer want, revoke
-and re-create. Revoking a share token also kills every embed token on that map.
+To recover a usable raw value, revoke and re-create. Name the expiry you want on
+that POST (`expires_in_days`): left out, the new link keeps the one the old link
+had, a lapsed one included. Revoking a share token also kills every embed token
+on that map.
 
 ## Public maps vs. private layers
 

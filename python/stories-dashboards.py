@@ -19,8 +19,10 @@ widgets, recomputes an indicator and a pie chart from its configuration, and
 checks the two against each other. Then it finds a chart whose column holds
 empty strings and shows what blank_text_as_null does to it.
 
-These routes send no CORS headers to other origins, so this is a script and not
-a browser page. Both are anonymous on the demo. The widgets are described in
+Only the maps list lacks the wildcard CORS header that lets any origin read
+anonymously; the stories list, the map read and the aggregate route have it
+(https://docs.getgeolens.com/guides/api/auth/#browser-clients-and-cors). This is
+a script because it chains the four reads and prints a table. All four are anonymous on the demo. The widgets are described in
 https://docs.getgeolens.com/guides/user/dashboards/ and the request bodies in
 https://docs.getgeolens.com/guides/api/reference/operations/aggregate_endpoint_datasets__dataset_id__aggregate__post/
 """

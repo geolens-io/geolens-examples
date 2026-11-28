@@ -186,7 +186,10 @@ usual way this goes wrong, and one argument avoids it. From GeoLens 1.16.0 the
 OGC items route evaluates the same text as CQL2 (`filter=`, with `filter-lang`
 defaulting to `cql2-text`), so the script counts the slice there first with
 `limit=1` and checks that `numberMatched` agrees with what the export handed
-over. `format_` also takes `gpkg`, `parquet`, `shp`, `csv`, `fgb` and `pmtiles`.
+over. `format_` also takes `gpkg`, `parquet`, `shp`, `csv`, `fgb` and `pmtiles`, and
+`kml` and `kmz` on a server at v1.33.0 or newer; the
+[export formats table](https://docs.getgeolens.com/guides/user/exports/#export-formats)
+is the full list.
 
 From GeoLens 1.19.0 (geolens#1878) string comparisons work the same way:
 `where="fall = 'Fell'"` exports the 1,096 recoveries somebody saw fall, and the
@@ -304,8 +307,9 @@ Reading https://demo.getgeolens.com ...
 The last block is `blank_text_as_null`, new in GeoLens v1.31.0. Without it a
 text column's empty strings and its NULLs are two groups in a chart; with it they
 are one. The script scans every dashboard chart for a column where that
-matters, so it names no map or dataset id. These routes carry no CORS headers,
-which is why this is a script and not a browser page.
+matters, so it names no map or dataset id. Of the routes it calls, only the maps
+list lacks the wildcard CORS header that lets any origin read anonymously (see
+[Browser clients and CORS](https://docs.getgeolens.com/guides/api/auth/#browser-clients-and-cors)).
 
 ## ogr2ogr one-liners
 

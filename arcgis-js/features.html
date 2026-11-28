@@ -36,8 +36,9 @@
 
   // OGCFeatureLayer wants the OGC API Features *landing page*, not a collection
   // URL — it discovers /collections/<id> and /items on its own. Keep the
-  // trailing slash: a bare /api answers with a redirect that carries no CORS
-  // header, so the browser drops it.
+  // trailing slash: a bare /api answers with a redirect to /api/, which
+  // before GeoLens v1.32.0 carried no CORS header, so the browser dropped
+  // it. The slash form works on every release and skips the extra request.
   const OGC_API = `${GEOLENS}/api/`;
 
   // List your collections at /api/collections and substitute the IDs below.
